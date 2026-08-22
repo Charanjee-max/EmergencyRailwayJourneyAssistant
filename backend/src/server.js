@@ -1,5 +1,5 @@
 require("dotenv").config();
-
+console.log("🚆 SERVER FILE LOADED");
 const app = require("./app");
 const connectDB = require("./config/database");
 

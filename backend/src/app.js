@@ -2,14 +2,13 @@ const express = require("express");
 const cors = require("cors");
 
 const authRoutes = require("./modules/auth/auth.routes");
+const journeyRoutes = require("./modules/journey/journey.routes");
 
 const app = express();
 
-// Middlewares
 app.use(cors());
 app.use(express.json());
 
-// Health Check
 app.get("/", (req, res) => {
   res.status(200).json({
     success: true,
@@ -19,7 +18,7 @@ app.get("/", (req, res) => {
   });
 });
 
-// Authentication Routes
 app.use("/api/auth", authRoutes);
+app.use("/api/journey", journeyRoutes);
 
 module.exports = app;

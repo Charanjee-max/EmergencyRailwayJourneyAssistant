@@ -1,31 +1,34 @@
 const Journey = require("./journey.model");
-const mongoose = require("mongoose");
 
-const createJourney = async (journeyData) => {
-  const journey = await Journey.create(journeyData);
+// Create Journey
+const createJourney = async (journeyData, userId) => {
+  const journey = await Journey.create({
+    userId,
+    trainNumber: journeyData.trainNumber,
+    journeyDate: journeyData.journeyDate,
+    boardingStation: journeyData.boardingStation,
+    destinationStation: journeyData.destinationStation,
+    allowedClasses: journeyData.allowedClasses,
+    allowMixedClass: journeyData.allowMixedClass,
+    preferredStrategy: journeyData.preferredStrategy,
+  });
+
   return journey;
 };
 
-const getAllJourneys = async (userId) => {
-  return await Journey.find({ userId });
+// Get All Journeys of Logged-in User
+const getUserJourneys = async (userId) => {
+  return await Journey.find({ userId }).sort({
+    createdAt: -1,
+  });
 };
 
-const getJourneyById = async (journeyId) => {
-  console.log("==================================");
-  console.log("Journey ID:", journeyId);
-  console.log("Journey ID Type:", typeof journeyId);
-  console.log("Is Valid ObjectId:", mongoose.Types.ObjectId.isValid(journeyId));
-
-  const allJourneys = await Journey.find();
-  console.log("All Journey IDs:");
-  allJourneys.forEach((j) => {
-    console.log(j._id.toString());
+// Get Single Journey By ID
+const getJourneyById = async (journeyId, userId) => {
+  const journey = await Journey.findOne({
+    _id: journeyId,
+    userId,
   });
-
-  const journey = await Journey.findById(journeyId);
-
-  console.log("Found Journey:", journey);
-  console.log("==================================");
 
   if (!journey) {
     throw new Error("Journey request not found.");
@@ -36,6 +39,6 @@ const getJourneyById = async (journeyId) => {
 
 module.exports = {
   createJourney,
-  getAllJourneys,
+  getUserJourneys,
   getJourneyById,
 };

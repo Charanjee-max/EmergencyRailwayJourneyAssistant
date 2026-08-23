@@ -32,7 +32,6 @@ const create = async (req, res) => {
       message: "Journey request created successfully.",
       data: journey,
     });
-
   } catch (err) {
     return res.status(500).json({
       success: false,
@@ -51,7 +50,6 @@ const getAll = async (req, res) => {
       message: "Journey requests fetched successfully.",
       data: journeys,
     });
-
   } catch (err) {
     return res.status(500).json({
       success: false,
@@ -62,9 +60,6 @@ const getAll = async (req, res) => {
 
 // Get Journey By ID
 const getById = async (req, res) => {
-    console.log("✅ getById controller called");
-console.log("Params:", req.params);
-console.log("User:", req.user);
   try {
     const journey = await getJourneyById(
       req.params.id,
@@ -76,7 +71,6 @@ console.log("User:", req.user);
       message: "Journey request fetched successfully.",
       data: journey,
     });
-
   } catch (err) {
     return res.status(404).json({
       success: false,

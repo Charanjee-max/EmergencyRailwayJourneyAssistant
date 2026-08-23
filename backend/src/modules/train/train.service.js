@@ -62,7 +62,62 @@ const getLiveTrainStatusService = async (query) => {
   }
 };
 
+// Seat Availability Forecast
+const getSeatAvailabilityService = async (query) => {
+  const {
+    trainNumber,
+    journeyDate,
+    source,
+    destination,
+    classCode,
+    quotaCode,
+  } = query;
+
+  if (
+    !trainNumber ||
+    !journeyDate ||
+    !source ||
+    !destination ||
+    !classCode ||
+    !quotaCode
+  ) {
+    throw new Error(
+      "trainNumber, journeyDate, source, destination, classCode and quotaCode are required."
+    );
+  }
+
+  try {
+    const response = await axios.get(
+      `${process.env.RAILRADAR_BASE_URL}/trains/${trainNumber}/seats`,
+      {
+        headers: {
+          Authorization: `Bearer ${process.env.RAILRADAR_API_KEY}`,
+        },
+        params: {
+          journeyDate,
+          source,
+          destination,
+          classCode,
+          quotaCode,
+        },
+      }
+    );
+
+    return response.data;
+  } catch (error) {
+    if (error.response) {
+      throw new Error(
+        error.response.data?.message ||
+          `RailRadar API Error (${error.response.status})`
+      );
+    }
+
+    throw new Error("Unable to connect to RailRadar API.");
+  }
+};
+
 module.exports = {
   searchTrainService,
   getLiveTrainStatusService,
+  getSeatAvailabilityService,
 };

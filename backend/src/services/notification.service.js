@@ -1,29 +1,56 @@
-const sendNotification = async (journey, previousStatus, currentStatus) => {
-  console.log("");
-  console.log("========================================");
-  console.log("📢 NOTIFICATION");
-  console.log("========================================");
+const transporter = require("../config/mail");
 
-  console.log(`Journey ID   : ${journey._id}`);
-  console.log(`Train Number : ${journey.trainNumber}`);
-  console.log(
-    `Journey Date : ${journey.journeyDate.toISOString().split("T")[0]}`
-  );
-  console.log(
-    `Route        : ${journey.boardingStation} → ${journey.destinationStation}`
-  );
+const sendNotification = async (
+  journey,
+  previousStatus,
+  currentStatus
+) => {
+  try {
+    const mailOptions = {
+      from: process.env.MAIL_USER,
 
-  console.log("----------------------------------------");
+      // Change this to the email where you want to receive notifications
+      to: process.env.MAIL_USER,
 
-  console.log(`Previous : ${previousStatus}`);
-  console.log(`Current  : ${currentStatus}`);
+      subject: "🚆 ERJA - Seat Availability Changed",
 
-  console.log("----------------------------------------");
+      html: `
+        <h2>🚆 Emergency Railway Journey Assistant</h2>
 
-  console.log("📧 Email Notification (Coming Soon)");
+        <p><strong>Train Number:</strong> ${journey.trainNumber}</p>
 
-  console.log("========================================");
-  console.log("");
+        <p><strong>Journey Date:</strong> ${
+          journey.journeyDate.toISOString().split("T")[0]
+        }</p>
+
+        <p><strong>Route:</strong> ${journey.boardingStation} → ${journey.destinationStation}</p>
+
+        <hr>
+
+        <p><strong>Previous Status:</strong> ${previousStatus}</p>
+
+        <p><strong>Current Status:</strong> ${currentStatus}</p>
+
+        <hr>
+
+        <p>This email was generated automatically by ERJA.</p>
+      `,
+    };
+
+    await transporter.sendMail(mailOptions);
+
+    console.log("========================================");
+    console.log("📧 EMAIL SENT SUCCESSFULLY");
+    console.log("========================================");
+    console.log(`To : ${mailOptions.to}`);
+    console.log("========================================");
+  } catch (error) {
+    console.log("========================================");
+    console.log("❌ EMAIL SENDING FAILED");
+    console.log("========================================");
+    console.log(error.message);
+    console.log("========================================");
+  }
 };
 
 module.exports = {

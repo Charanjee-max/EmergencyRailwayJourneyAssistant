@@ -1,7 +1,10 @@
 require("dotenv").config();
+
 console.log("🚆 SERVER FILE LOADED");
+
 const app = require("./app");
 const connectDB = require("./config/database");
+const { startJourneyMonitoringJob } = require("./jobs/monitor.job");
 
 // Connect Database
 connectDB();
@@ -13,10 +16,15 @@ app.listen(PORT, () => {
 ========================================
 🚆 Emergency Railway Journey Assistant
 ========================================
+
 Server running on:
 http://localhost:${PORT}
 
 Environment: ${process.env.NODE_ENV || "development"}
+
 ========================================
-`);
+  `);
+
+  // Start Background Monitoring Job
+  startJourneyMonitoringJob();
 });

@@ -1,5 +1,6 @@
 const Journey = require("../modules/journey/journey.model");
 const axios = require("axios");
+const { sendNotification } = require("./notification.service");
 
 // Monitor all pending journeys
 const monitorPendingJourneys = async () => {
@@ -53,9 +54,93 @@ const monitorPendingJourneys = async () => {
 
         console.log("✅ Seat Availability Received");
 
-        console.log(
-          JSON.stringify(response.data, null, 2)
+        // Find seat availability for the journey date
+        const todayAvailability = response.data.data.calendar.find(
+          (item) =>
+            item.rawDate ===
+            journey.journeyDate.toISOString().split("T")[0]
         );
+
+        if (!todayAvailability) {
+          console.log("⚠ Journey date not found in RailRadar response.");
+          continue;
+        }
+
+        const currentStatus = todayAvailability.status;
+        const currentSeats = todayAvailability.availableSeats;
+
+        console.log(`Current Status : ${currentStatus}`);
+        console.log(`Current Seats  : ${currentSeats}`);
+
+        // First monitoring
+        if (!journey.lastSeatStatus) {
+          journey.lastSeatStatus = currentStatus;
+          journey.lastAvailableSeats = currentSeats;
+          journey.lastCheckedAt = new Date();
+
+          await journey.save();
+
+          console.log("📝 Initial seat status saved.");
+        }
+
+        // Status changed
+        else if (
+          journey.lastSeatStatus !== currentStatus ||
+          journey.lastAvailableSeats !== currentSeats
+        ) {
+          const previousStatus = journey.lastSeatStatus;
+
+          console.log("========================================");
+          console.log("🎉 SEAT AVAILABILITY CHANGED");
+          console.log("========================================");
+
+          console.log(`Journey ID      : ${journey._id}`);
+          console.log(`Train Number    : ${journey.trainNumber}`);
+          console.log(
+            `Journey Date    : ${
+              journey.journeyDate.toISOString().split("T")[0]
+            }`
+          );
+          console.log(`Source          : ${journey.boardingStation}`);
+          console.log(`Destination     : ${journey.destinationStation}`);
+
+          console.log("----------------------------------------");
+
+          console.log(
+            `Status Changed  : ${journey.lastSeatStatus} → ${currentStatus}`
+          );
+
+          console.log(
+            `Seats Changed   : ${journey.lastAvailableSeats} → ${currentSeats}`
+          );
+
+          // Update MongoDB
+          journey.lastSeatStatus = currentStatus;
+          journey.lastAvailableSeats = currentSeats;
+          journey.lastCheckedAt = new Date();
+
+          await journey.save();
+
+          console.log("✅ MongoDB Updated.");
+
+          // Send notification
+          await sendNotification(
+            journey,
+            previousStatus,
+            currentStatus
+          );
+
+          console.log("========================================");
+        }
+
+        // No change
+        else {
+          journey.lastCheckedAt = new Date();
+
+          await journey.save();
+
+          console.log("ℹ No Change.");
+        }
       } catch (apiError) {
         console.log("❌ RailRadar API Failed");
 

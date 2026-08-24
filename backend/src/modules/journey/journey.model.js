@@ -85,6 +85,24 @@ const journeySchema = new mongoose.Schema(
       ref: "MonitoringJob",
       default: null,
     },
+
+    // Last monitored seat status
+    lastSeatStatus: {
+      type: String,
+      default: null,
+    },
+
+    // Last available seats count
+    lastAvailableSeats: {
+      type: Number,
+      default: null,
+    },
+
+    // Last monitoring time
+    lastCheckedAt: {
+      type: Date,
+      default: null,
+    },
   },
   {
     timestamps: true,

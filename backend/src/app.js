@@ -4,13 +4,18 @@ const cors = require("cors");
 const authRoutes = require("./modules/auth/auth.routes");
 const journeyRoutes = require("./modules/journey/journey.routes");
 const trainRoutes = require("./modules/train/train.routes");
+const chartRoutes = require("./modules/chart/chart.routes");
 
 const app = express();
 
 app.use(cors());
 app.use(express.json());
 
-// Health Check
+/**
+ * ==========================================
+ * Health Check
+ * ==========================================
+ */
 app.get("/", (req, res) => {
   res.status(200).json({
     success: true,
@@ -20,9 +25,18 @@ app.get("/", (req, res) => {
   });
 });
 
-// Routes
+/**
+ * ==========================================
+ * API Routes
+ * ==========================================
+ */
+
 app.use("/api/auth", authRoutes);
+
 app.use("/api/journey", journeyRoutes);
+
 app.use("/api/train", trainRoutes);
+
+app.use("/api/chart", chartRoutes);
 
 module.exports = app;

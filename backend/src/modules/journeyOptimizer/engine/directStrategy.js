@@ -2,47 +2,55 @@ class DirectStrategy {
 
     execute(graph, journey) {
 
-        const edge = graph.edges.find(e =>
-            e.from === journey.source &&
-            e.to === journey.destination &&
-            journey.preferredClasses.includes(e.class)
-        );
+        const solutions = [];
 
-        if (!edge) {
+        const preferredClasses = journey.preferredClasses || [];
 
-            return {
-                success: false,
-                strategy: "DIRECT",
-                score: 0,
-                tickets: [],
-                reason: "Direct reservation not available."
-            };
+        for (const travelClass of preferredClasses) {
+
+            const edge = graph.edges.find(e =>
+                e.from === journey.source &&
+                e.to === journey.destination &&
+                e.class === travelClass
+            );
+
+            if (!edge) continue;
+
+            edge.opportunities.forEach(opportunity => {
+
+                opportunity.berths.forEach(berth => {
+
+                    solutions.push({
+
+                        success: true,
+
+                        strategy: "DIRECT",
+
+                        score: 100,
+
+                        tickets: [
+
+                            {
+                                from: edge.from,
+                                to: edge.to,
+                                class: edge.class,
+                                coach: opportunity.coach,
+                                berth
+                            }
+
+                        ],
+
+                        reason: "Direct reservation available."
+
+                    });
+
+                });
+
+            });
 
         }
 
-        const firstOpportunity = edge.opportunities[0];
-
-        return {
-
-            success: true,
-
-            strategy: "DIRECT",
-
-            score: 100,
-
-            tickets: [
-                {
-                    from: edge.from,
-                    to: edge.to,
-                    class: edge.class,
-                    coach: firstOpportunity.coach,
-                    berth: firstOpportunity.berths[0]
-                }
-            ],
-
-            reason: "Direct confirmed reservation available."
-
-        };
+        return solutions;
 
     }
 

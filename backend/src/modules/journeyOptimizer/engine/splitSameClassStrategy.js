@@ -2,6 +2,8 @@ class SplitSameClassStrategy {
 
     execute(graph, journey) {
 
+        const solutions = [];
+
         const source = journey.source;
         const destination = journey.destination;
 
@@ -9,74 +11,83 @@ class SplitSameClassStrategy {
 
         for (const travelClass of preferredClasses) {
 
-            // First Leg
+            // First Ticket
             const firstLegs = graph.edges.filter(edge =>
                 edge.from === source &&
                 edge.class === travelClass
             );
 
-            for (const first of firstLegs) {
+            firstLegs.forEach(first => {
 
-                // Second Leg
-                const second = graph.edges.find(edge =>
+                // Second Ticket
+                const secondLegs = graph.edges.filter(edge =>
                     edge.from === first.to &&
                     edge.to === destination &&
                     edge.class === travelClass
                 );
 
-                if (second) {
+                secondLegs.forEach(second => {
 
-                    return {
+                    first.opportunities.forEach(firstCoach => {
 
-                        success: true,
+                        second.opportunities.forEach(secondCoach => {
 
-                        strategy: "SPLIT_SAME_CLASS",
+                            firstCoach.berths.forEach(firstBerth => {
 
-                        score: 95,
+                                secondCoach.berths.forEach(secondBerth => {
 
-                        tickets: [
+                                    const sameCoach =
+                                        firstCoach.coach === secondCoach.coach;
 
-                            {
-                                from: first.from,
-                                to: first.to,
-                                class: first.class,
-                                coach: first.opportunities[0].coach,
-                                berth: first.opportunities[0].berths[0]
-                            },
+                                    solutions.push({
 
-                            {
-                                from: second.from,
-                                to: second.to,
-                                class: second.class,
-                                coach: second.opportunities[0].coach,
-                                berth: second.opportunities[0].berths[0]
-                            }
+                                        success: true,
 
-                        ],
+                                        strategy: "SPLIT_SAME_CLASS",
 
-                        reason: "Same-class split reservation found."
+                                        score: sameCoach ? 97 : 95,
 
-                    };
+                                        tickets: [
 
-                }
+                                            {
+                                                from: first.from,
+                                                to: first.to,
+                                                class: first.class,
+                                                coach: firstCoach.coach,
+                                                berth: firstBerth
+                                            },
 
-            }
+                                            {
+                                                from: second.from,
+                                                to: second.to,
+                                                class: second.class,
+                                                coach: secondCoach.coach,
+                                                berth: secondBerth
+                                            }
+
+                                        ],
+
+                                        reason: sameCoach
+                                            ? "Same-class split reservation (same coach)."
+                                            : "Same-class split reservation."
+
+                                    });
+
+                                });
+
+                            });
+
+                        });
+
+                    });
+
+                });
+
+            });
 
         }
 
-        return {
-
-            success: false,
-
-            strategy: "SPLIT_SAME_CLASS",
-
-            score: 0,
-
-            tickets: [],
-
-            reason: "No same-class split reservation available."
-
-        };
+        return solutions;
 
     }
 

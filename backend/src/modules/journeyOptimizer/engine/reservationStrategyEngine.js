@@ -8,8 +8,6 @@ class ReservationStrategyEngine {
 
     execute(graph, journey) {
 
-        const results = [];
-
         const strategies = [
 
             directStrategy,
@@ -20,15 +18,19 @@ class ReservationStrategyEngine {
 
         ];
 
-        for (const strategy of strategies) {
+        let results = [];
 
-            const result = strategy.execute(graph, journey);
+        strategies.forEach(strategy => {
 
-            if (result) {
-                results.push(result);
+            const strategyResults = strategy.execute(graph, journey);
+
+            if (Array.isArray(strategyResults)) {
+
+                results.push(...strategyResults);
+
             }
 
-        }
+        });
 
         return results;
 

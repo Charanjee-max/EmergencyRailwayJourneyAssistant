@@ -1,6 +1,7 @@
 const Journey = require("../modules/journey/journey.model");
 const axios = require("axios");
 const { sendNotification } = require("./notification.service");
+const workflowManager = require("../workflows/workflowManager");
 
 // Monitor all pending journeys
 const monitorPendingJourneys = async () => {
@@ -149,6 +150,20 @@ const monitorPendingJourneys = async () => {
         } else {
           console.log(apiError.message);
         }
+      }
+
+      // =========================================
+      // Workflow Manager
+      // =========================================
+
+      try {
+        await workflowManager.processJourney(journey);
+      } catch (error) {
+        console.log("========================================");
+        console.log("❌ WORKFLOW MANAGER FAILED");
+        console.log("========================================");
+        console.log(error.message);
+        console.log("========================================");
       }
     }
 

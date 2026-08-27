@@ -1,62 +1,54 @@
 const journeyOptimizer = require("./journeyOptimizer.service");
 
-const result = journeyOptimizer.optimize({
+(async () => {
 
-    journey: {
+    const recommendations = await journeyOptimizer.optimize({
 
-        trainNumber: "12745",
+        journey: {
 
-        source: "MUGR",
+            _id: "6a898a70220aa65338c00822", // Use an existing Journey _id from MongoDB
 
-        destination: "SC",
+            trainNumber: "12745",
 
-        preferredClasses: ["2A"],
+            source: "MUGR",
 
-        allowMixedClass: true
+            destination: "SC",
 
-    },
+            preferredClasses: ["2A"],
 
-    route: {
+            allowMixedClass: true
 
-        stations: [
+        },
 
-            "MUGR",
+        route: {
 
-            "BDCR",
+            stations: [
 
-            "KRA",
+                "MUGR",
+                "BDCR",
+                "KRA",
+                "DKJ",
+                "GLA",
+                "MABD",
+                "WL",
+                "KZJ",
+                "ZN",
+                "CHZ",
+                "SC"
 
-            "DKJ",
+            ]
 
-            "GLA",
+        },
 
-            "MABD",
+        chart: {
 
-            "WL",
+            chartPrepared: true,
 
-            "KZJ",
+            cdd: []
 
-            "ZN",
+        },
 
-            "CHZ",
-
-            "SC"
-
-        ]
-
-    },
-
-    chart: {
-
-        chartPrepared: true,
-
-        cdd: []
-
-    },
-
-    vacancies: {
-
-        vbd: [
+        vacancies: [
 
             {
 
@@ -88,8 +80,12 @@ const result = journeyOptimizer.optimize({
 
         ]
 
-    }
+    });
 
-});
+    console.log("========================================");
+    console.log("🚆 RECOMMENDATIONS GENERATED");
+    console.log("========================================");
 
-console.log(JSON.stringify(result.recommendations, null, 2));
+    console.log(JSON.stringify(recommendations, null, 2));
+
+})();

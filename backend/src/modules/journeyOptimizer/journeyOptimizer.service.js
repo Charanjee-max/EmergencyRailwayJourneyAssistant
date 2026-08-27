@@ -4,9 +4,11 @@ const reservationStrategyEngine = require("./engine/reservationStrategyEngine");
 const strategyRanker = require("./ranker/strategyRanker");
 const recommendationGenerator = require("./recommendation/recommendationGenerator");
 
+const recommendationService = require("../recommendation/recommendation.service");
+
 class JourneyOptimizerService {
 
-    optimize({
+    async optimize({
 
         journey,
         route,
@@ -26,36 +28,38 @@ class JourneyOptimizerService {
         });
 
         // Step 2
-        const graph = reservationGraphBuilder.build(analyzedData);
+        const graph =
+            reservationGraphBuilder.build(analyzedData);
 
         // Step 3
-        const strategies = reservationStrategyEngine.execute(
+        const strategies =
+            reservationStrategyEngine.execute(
 
-            graph,
-            analyzedData.journey
+                graph,
+                analyzedData.journey
 
-        );
+            );
 
         // Step 4
-        const rankedStrategies = strategyRanker.rank(strategies);
+        const rankedStrategies =
+            strategyRanker.rank(strategies);
 
         // Step 5
         const recommendations =
-            recommendationGenerator.generate(rankedStrategies);
+            recommendationGenerator.generate(
+                rankedStrategies
+            );
 
-        return {
+        // Step 6
+        await recommendationService.saveRecommendations(
 
-            analyzedData,
-
-            graph,
-
-            strategies,
-
-            rankedStrategies,
+            journey._id,
 
             recommendations
 
-        };
+        );
+
+        return recommendations;
 
     }
 

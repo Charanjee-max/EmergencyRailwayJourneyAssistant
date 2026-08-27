@@ -5,6 +5,7 @@ const authRoutes = require("./modules/auth/auth.routes");
 const journeyRoutes = require("./modules/journey/journey.routes");
 const trainRoutes = require("./modules/train/train.routes");
 const chartRoutes = require("./modules/chart/chart.routes");
+const recommendationRoutes = require("./modules/recommendation/recommendation.routes");
 
 const app = express();
 
@@ -39,4 +40,5 @@ app.use("/api/train", trainRoutes);
 
 app.use("/api/chart", chartRoutes);
 
+app.use("/api/recommendations", recommendationRoutes);
 module.exports = app;

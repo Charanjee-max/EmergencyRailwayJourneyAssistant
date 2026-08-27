@@ -11,19 +11,21 @@ class DataAnalyzer {
 
             journey: {
 
-                trainNumber: journey.trainNumber,
+    trainNumber: journey.trainNumber,
 
-                source: journey.source,
+    source: journey.boardingStation,
 
-                destination: journey.destination,
+    destination: journey.destinationStation,
 
-                journeyDate: journey.journeyDate,
+    journeyDate: journey.journeyDate,
 
-                preferredClasses: journey.preferredClasses,
+    preferredClasses: journey.allowedClasses
+        .filter(c => c.enabled)
+        .map(c => c.class),
 
-                allowMixedClass: journey.allowMixedClass
+    allowMixedClass: journey.allowMixedClass || false
 
-            },
+},
 
             route: {
 
@@ -43,7 +45,9 @@ class DataAnalyzer {
 
             },
 
-            vacancies: vacancies?.vbd || [],
+            vacancies: Array.isArray(vacancies)
+    ? vacancies
+    : (vacancies?.vbd || []),
 
             analyzedAt: new Date()
 

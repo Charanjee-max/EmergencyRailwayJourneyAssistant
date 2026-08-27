@@ -9,13 +9,27 @@ class SplitSameClassStrategy {
 
         const preferredClasses = journey.preferredClasses || [];
 
+        console.log("\n========== STRATEGY INPUT ==========");
+        console.log("Source:", source);
+        console.log("Destination:", destination);
+        console.log("Preferred Classes:", preferredClasses);
+        console.log("Graph Edges:");
+        console.dir(graph.edges, { depth: null });
+
         for (const travelClass of preferredClasses) {
+
+            console.log("\n================================");
+            console.log("Checking Class:", travelClass);
+            console.log("================================");
 
             // First Ticket
             const firstLegs = graph.edges.filter(edge =>
                 edge.from === source &&
                 edge.class === travelClass
             );
+
+            console.log("First Legs:");
+            console.dir(firstLegs, { depth: null });
 
             firstLegs.forEach(first => {
 
@@ -25,6 +39,9 @@ class SplitSameClassStrategy {
                     edge.to === destination &&
                     edge.class === travelClass
                 );
+
+                console.log("Second Legs:");
+                console.dir(secondLegs, { depth: null });
 
                 secondLegs.forEach(second => {
 
@@ -38,6 +55,14 @@ class SplitSameClassStrategy {
 
                                     const sameCoach =
                                         firstCoach.coach === secondCoach.coach;
+
+                                    console.log("✅ Strategy Found");
+                                    console.log({
+                                        first: first.from + " -> " + first.to,
+                                        second: second.from + " -> " + second.to,
+                                        firstCoach: firstCoach.coach,
+                                        secondCoach: secondCoach.coach
+                                    });
 
                                     solutions.push({
 
@@ -86,6 +111,10 @@ class SplitSameClassStrategy {
             });
 
         }
+
+        console.log("\n================================");
+        console.log("TOTAL SOLUTIONS:", solutions.length);
+        console.log("================================");
 
         return solutions;
 

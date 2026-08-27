@@ -1,4 +1,5 @@
 const Recommendation = require("./recommendation.model");
+const recommendationFormatter = require("./formatter/recommendationFormatter");
 
 class RecommendationService {
 
@@ -33,7 +34,7 @@ class RecommendationService {
 
     async getRecommendations(journeyId) {
 
-        return await Recommendation.find({
+        const recommendations = await Recommendation.find({
 
             journey: journeyId,
 
@@ -44,6 +45,8 @@ class RecommendationService {
             score: -1
 
         });
+
+        return recommendationFormatter.format(recommendations);
 
     }
 

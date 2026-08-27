@@ -27,28 +27,39 @@ class JourneyOptimizerService {
 
         });
 
+        console.log("\n================ ANALYZED DATA ================");
+        console.dir(analyzedData, { depth: null });
+
         // Step 2
-        const graph =
-            reservationGraphBuilder.build(analyzedData);
+        const graph = reservationGraphBuilder.build(analyzedData);
+
+        console.log("\n================ GRAPH ================");
+        console.dir(graph, { depth: null });
 
         // Step 3
-        const strategies =
-            reservationStrategyEngine.execute(
+        const strategies = reservationStrategyEngine.execute(
 
-                graph,
-                analyzedData.journey
+            graph,
+            analyzedData.journey
 
-            );
+        );
+
+        console.log("\n================ STRATEGIES ================");
+        console.dir(strategies, { depth: null });
 
         // Step 4
-        const rankedStrategies =
-            strategyRanker.rank(strategies);
+        const rankedStrategies = strategyRanker.rank(strategies);
+
+        console.log("\n================ RANKED STRATEGIES ================");
+        console.dir(rankedStrategies, { depth: null });
 
         // Step 5
-        const recommendations =
-            recommendationGenerator.generate(
-                rankedStrategies
-            );
+        const recommendations = recommendationGenerator.generate(
+            rankedStrategies
+        );
+
+        console.log("\n================ RECOMMENDATIONS ================");
+        console.dir(recommendations, { depth: null });
 
         // Step 6
         await recommendationService.saveRecommendations(
@@ -58,6 +69,8 @@ class JourneyOptimizerService {
             recommendations
 
         );
+
+        console.log("✅ Recommendations Saved");
 
         return recommendations;
 

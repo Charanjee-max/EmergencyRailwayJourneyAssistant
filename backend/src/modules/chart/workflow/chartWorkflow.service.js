@@ -1,5 +1,7 @@
 const chartService = require("../chart.service");
 const journeyOptimizer = require("../../journeyOptimizer/journeyOptimizer.service");
+const mockChart = require("../mock/mockChart");
+const mockVacancies = require("../mock/mockVacancies");
 
 class ChartWorkflowService {
 
@@ -35,33 +37,73 @@ class ChartWorkflowService {
 
             );
 
-            // Check chart preparation
-            if (!chart.chartPrepared) {
+            // ==========================================
+// Development Override
+// ==========================================
 
-                console.log("⏳ Chart not prepared yet.");
+if (
+    process.env.NODE_ENV === "development" &&
+    process.env.FORCE_CHART === "true"
+) {
 
-                return null;
+    console.log("🧪 DEVELOPMENT MODE");
+    console.log("🚀 Forcing chart as prepared.");
 
-            }
+    chart.chartPrepared = true;
+
+}
+
+// ==========================================
+// Check Chart
+// ==========================================
+
+if (!chart.chartPrepared) {
+
+    console.log("⏳ Chart not prepared yet.");
+
+    return null;
+
+}
+
+console.log("✅ Chart Prepared");
 
             console.log("✅ Chart Prepared");
 
-            // Fetch vacant berths
-            const vacantBerths = await chartService.fetchVacantBerth(
+            // ==========================================
+// Development Mode
+// ==========================================
 
-                journey.trainNumber,
+let chartData = chart;
+let vacantBerths;
 
-                journey.journeyDate.toISOString().split("T")[0],
+if (
+    process.env.NODE_ENV === "development" &&
+    process.env.FORCE_CHART === "true"
+) {
 
-                journey.boardingStation,
+    console.log("🧪 USING MOCK CHART DATA");
 
-                enabledClass.class,
+    chartData = {
+        ...chart.toObject(),
+        chartPrepared: true,
+        cdd: mockChart.cdd
+    };
 
-                2
+    vacantBerths = mockVacancies;
 
-            );
+} else {
 
-            console.log("✅ Vacant Berths Received");
+    vacantBerths = await chartService.fetchVacantBerth(
+        journey.trainNumber,
+        journey.journeyDate.toISOString().split("T")[0],
+        journey.boardingStation,
+        enabledClass.class,
+        2
+    );
+
+}
+
+console.log("✅ Vacant Berths Received");
 
             // Run Journey Optimizer
             const recommendations = await journeyOptimizer.optimize({
@@ -69,14 +111,12 @@ class ChartWorkflowService {
                 journey,
 
                 route: {
+    stations: chartData.cdd || []
+},
 
-                    stations: chart.cdd
+chart: chartData,
 
-                },
-
-                chart,
-
-                vacancies: vacantBerths.vbd || []
+vacancies: vacantBerths.vbd || []
 
             });
 

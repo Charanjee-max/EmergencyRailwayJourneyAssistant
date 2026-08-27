@@ -44,6 +44,8 @@ class ChartService {
       );
 
       console.log("✅ Train Composition Response Received");
+      console.log("\n============= TRAIN COMPOSITION RESPONSE =============");
+console.dir(response.data, { depth: null });
 
       const data = response.data;
 
@@ -142,6 +144,8 @@ class ChartService {
       );
 
       console.log("✅ Vacant Berth Response Received");
+      console.log("\n============= VACANT BERTH RESPONSE =============");
+console.dir(response.data, { depth: null });
 
       return response.data;
     } catch (err) {

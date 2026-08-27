@@ -30,53 +30,116 @@ class ReservationGraphBuilder {
 
         const edgeMap = new Map();
 
-        vacancies.forEach(v => {
+        vacancies.forEach(vacancy => {
 
-            const from = v.from;
-            const to = v.to;
-            const travelClass = v.class || v.cls;
-            const coach = v.coach || v.coachName;
-            const berth = v.berth || v.berthNumber;
+            const from =
+                vacancy.from ||
+                vacancy.fromStation ||
+                vacancy.fromStn;
 
-            const key = `${from}-${to}-${travelClass}`;
+            const to =
+                vacancy.to ||
+                vacancy.toStation ||
+                vacancy.toStn;
 
-            if (!edgeMap.has(key)) {
+            const travelClass =
+                vacancy.class ||
+                vacancy.cls;
 
-                edgeMap.set(key, {
+            const coach =
+                vacancy.coach ||
+                vacancy.coachName;
+
+            const berth =
+                vacancy.berth ||
+                vacancy.berthNumber;
+
+            if (!from || !to || !travelClass || !coach)
+                return;
+
+            const edgeKey =
+                `${from}_${to}_${travelClass}`;
+
+            if (!edgeMap.has(edgeKey)) {
+
+                edgeMap.set(edgeKey, {
 
                     from,
+
                     to,
+
                     class: travelClass,
+
+                    totalAvailable: 0,
+
                     opportunities: []
 
                 });
 
             }
 
-            const edge = edgeMap.get(key);
+            const edge = edgeMap.get(edgeKey);
 
-            let coachObj = edge.opportunities.find(
-                c => c.coach === coach
+            let coachGroup = edge.opportunities.find(
+
+                opportunity =>
+                    opportunity.coach === coach
+
             );
 
-            if (!coachObj) {
+            if (!coachGroup) {
 
-                coachObj = {
+                coachGroup = {
 
                     coach,
+
+                    availableCount: 0,
+
                     berths: []
 
                 };
 
-                edge.opportunities.push(coachObj);
+                edge.opportunities.push(coachGroup);
 
             }
 
-            coachObj.berths.push(berth);
+            coachGroup.berths.push(berth);
+
+            coachGroup.availableCount++;
+
+            edge.totalAvailable++;
 
         });
 
         return Array.from(edgeMap.values());
+
+    }
+
+    getOutgoingEdges(graph, stationCode) {
+
+        return graph.edges.filter(edge =>
+            edge.from === stationCode
+        );
+
+    }
+
+    getIncomingEdges(graph, stationCode) {
+
+        return graph.edges.filter(edge =>
+            edge.to === stationCode
+        );
+
+    }
+
+    getDirectEdge(graph, from, to, travelClass) {
+
+        return graph.edges.find(edge =>
+
+            edge.from === from &&
+            edge.to === to &&
+            edge.class === travelClass
+
+        );
 
     }
 

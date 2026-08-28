@@ -2,15 +2,24 @@ class ReservationGraphBuilder {
 
     build(analyzedData) {
 
-        const nodes = this.buildNodes(analyzedData.route.stations);
-        const edges = this.buildEdges(analyzedData.vacancies);
+    const nodes = this.buildNodes(analyzedData.route.stations);
 
-        return {
-            nodes,
-            edges
-        };
+    const edges = this.buildEdges(analyzedData.vacancies);
 
-    }
+    console.log("\n========== GRAPH BUILDER ==========");
+    console.log("Chart Prepared:", analyzedData.chart.prepared);
+
+    return {
+
+        chartPrepared: analyzedData.chart.prepared,
+
+        nodes,
+
+        edges
+
+    };
+
+}
 
     buildNodes(stations = []) {
 

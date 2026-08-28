@@ -6,23 +6,19 @@ class SplitSameClassStrategy {
 
         const source = journey.source;
         const destination = journey.destination;
-
         const preferredClasses = journey.preferredClasses || [];
 
-        console.log("\n========== STRATEGY INPUT ==========");
+        console.log("\n========== SPLIT SAME CLASS ==========");
         console.log("Source:", source);
         console.log("Destination:", destination);
         console.log("Preferred Classes:", preferredClasses);
-        console.log("Graph Edges:");
-        console.dir(graph.edges, { depth: null });
+        const scoreEngine = require("../scoring/ScoreEngine");
 
         for (const travelClass of preferredClasses) {
 
-            console.log("\n================================");
-            console.log("Checking Class:", travelClass);
-            console.log("================================");
+            console.log(`\nChecking Class: ${travelClass}`);
 
-            // First Ticket
+            // First ticket
             const firstLegs = graph.edges.filter(edge =>
                 edge.from === source &&
                 edge.class === travelClass
@@ -33,7 +29,7 @@ class SplitSameClassStrategy {
 
             firstLegs.forEach(first => {
 
-                // Second Ticket
+                // Second ticket
                 const secondLegs = graph.edges.filter(edge =>
                     edge.from === first.to &&
                     edge.to === destination &&
@@ -58,8 +54,8 @@ class SplitSameClassStrategy {
 
                                     console.log("✅ Strategy Found");
                                     console.log({
-                                        first: first.from + " -> " + first.to,
-                                        second: second.from + " -> " + second.to,
+                                        first: `${first.from} -> ${first.to}`,
+                                        second: `${second.from} -> ${second.to}`,
                                         firstCoach: firstCoach.coach,
                                         secondCoach: secondCoach.coach
                                     });
@@ -70,7 +66,21 @@ class SplitSameClassStrategy {
 
                                         strategy: "SPLIT_SAME_CLASS",
 
-                                        score: sameCoach ? 97 : 95,
+                                        score: scoreEngine.calculate({
+    strategy: "SPLIT_SAME_CLASS",
+    tickets: [
+        {
+            from: first.from,
+            to: first.to
+        },
+        {
+            from: second.from,
+            to: second.to
+        }
+    ],
+    sameCoach,
+    sameClass: true
+}),
 
                                         tickets: [
 
@@ -114,7 +124,7 @@ class SplitSameClassStrategy {
 
         console.log("\n================================");
         console.log("TOTAL SOLUTIONS:", solutions.length);
-        console.log("================================");
+        console.log("================================\n");
 
         return solutions;
 

@@ -1,3 +1,5 @@
+const scoreEngine = require("../../scoring/ScoreEngine");
+
 class SplitSameClassStrategy {
 
     execute(graph, journey) {
@@ -12,7 +14,6 @@ class SplitSameClassStrategy {
         console.log("Source:", source);
         console.log("Destination:", destination);
         console.log("Preferred Classes:", preferredClasses);
-        const scoreEngine = require("../scoring/ScoreEngine");
 
         for (const travelClass of preferredClasses) {
 
@@ -60,52 +61,39 @@ class SplitSameClassStrategy {
                                         secondCoach: secondCoach.coach
                                     });
 
+                                    const tickets = [
+                                        {
+                                            from: first.from,
+                                            to: first.to,
+                                            class: first.class,
+                                            coach: firstCoach.coach,
+                                            berth: firstBerth
+                                        },
+                                        {
+                                            from: second.from,
+                                            to: second.to,
+                                            class: second.class,
+                                            coach: secondCoach.coach,
+                                            berth: secondBerth
+                                        }
+                                    ];
+
                                     solutions.push({
-
                                         success: true,
-
                                         strategy: "SPLIT_SAME_CLASS",
 
                                         score: scoreEngine.calculate({
-    strategy: "SPLIT_SAME_CLASS",
-    tickets: [
-        {
-            from: first.from,
-            to: first.to
-        },
-        {
-            from: second.from,
-            to: second.to
-        }
-    ],
-    sameCoach,
-    sameClass: true
-}),
+                                            strategy: "SPLIT_SAME_CLASS",
+                                            tickets,
+                                            sameCoach,
+                                            sameClass: true
+                                        }),
 
-                                        tickets: [
-
-                                            {
-                                                from: first.from,
-                                                to: first.to,
-                                                class: first.class,
-                                                coach: firstCoach.coach,
-                                                berth: firstBerth
-                                            },
-
-                                            {
-                                                from: second.from,
-                                                to: second.to,
-                                                class: second.class,
-                                                coach: secondCoach.coach,
-                                                berth: secondBerth
-                                            }
-
-                                        ],
+                                        tickets,
 
                                         reason: sameCoach
                                             ? "Same-class split reservation (same coach)."
                                             : "Same-class split reservation."
-
                                     });
 
                                 });
@@ -127,7 +115,6 @@ class SplitSameClassStrategy {
         console.log("================================\n");
 
         return solutions;
-
     }
 
 }

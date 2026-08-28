@@ -1,0 +1,69 @@
+.recommendation-container{
+    width:90%;
+    margin:40px auto;
+    font-family:Arial,sans-serif;
+}
+
+.back-btn{
+    padding:10px 18px;
+    border:none;
+    background:#1565c0;
+    color:#fff;
+    border-radius:6px;
+    cursor:pointer;
+    margin-bottom:20px;
+}
+
+.recommendation-container h1{
+    color:#1565c0;
+    margin-bottom:30px;
+}
+
+.recommendation-card{
+    background:#fff;
+    border-radius:12px;
+    padding:25px;
+    margin-bottom:25px;
+    box-shadow:0 2px 10px rgba(0,0,0,.15);
+}
+
+.recommendation-card h2{
+    color:#1565c0;
+    margin-bottom:15px;
+}
+
+.recommendation-card table{
+    width:100%;
+    border-collapse:collapse;
+    margin-top:20px;
+}
+
+.recommendation-card th,
+.recommendation-card td{
+    border:1px solid #ddd;
+    padding:12px;
+    text-align:center;
+}
+
+.recommendation-card th{
+    background:#1565c0;
+    color:#fff;
+}
+
+.accept-btn{
+    margin-top:20px;
+    background:#2e7d32;
+    color:white;
+    border:none;
+    padding:12px 22px;
+    border-radius:6px;
+    cursor:pointer;
+}
+
+.empty-card{
+    background:white;
+    padding:40px;
+    border-radius:12px;
+    text-align:center;
+    box-shadow:0 2px 10px rgba(0,0,0,.15);
+}

@@ -1,23 +1,50 @@
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 
 import Login from "../pages/Login/Login";
 import Dashboard from "../pages/Dashboard/Dashboard";
-import Journeys from "../pages/Journeys/Journeys";
-import JourneyDetails from "../pages/JourneyDetails/JourneyDetails";
-import Profile from "../pages/Profile/Profile";
 import AddJourney from "../pages/AddJourney/AddJourney";
+import Recommendation from "../pages/Recommendation/Recommendation";
 
-export default function AppRoutes() {
-  return (
-    <BrowserRouter>
-      <Routes>
-        <Route path="/" element={<Login />} />
-        <Route path="/dashboard" element={<Dashboard />} />
-        <Route path="/journeys" element={<Journeys />} />
-        <Route path="/journey/:id" element={<JourneyDetails />} />
-        <Route path="/profile" element={<Profile />} />
-        <Route path="/add-journey" element={<AddJourney />} />
-      </Routes>
-    </BrowserRouter>
-  );
+function AppRoutes() {
+    return (
+        <BrowserRouter>
+
+            <Routes>
+
+                <Route
+                    path="/"
+                    element={<Navigate to="/login" replace />}
+                />
+
+                <Route
+                    path="/login"
+                    element={<Login />}
+                />
+
+                <Route
+                    path="/dashboard"
+                    element={<Dashboard />}
+                />
+
+                <Route
+                    path="/add-journey"
+                    element={<AddJourney />}
+                />
+
+                <Route
+                    path="/recommendation/:id"
+                    element={<Recommendation />}
+                />
+
+                <Route
+                    path="*"
+                    element={<Navigate to="/login" replace />}
+                />
+
+            </Routes>
+
+        </BrowserRouter>
+    );
 }
+
+export default AppRoutes;

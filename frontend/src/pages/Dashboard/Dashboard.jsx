@@ -1,13 +1,15 @@
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
+
 import "./Dashboard.css";
 
 import Navbar from "../../components/Navbar/Navbar";
 import SummaryCard from "../../components/SummaryCard/SummaryCard";
 import { getJourneys } from "../../api/journeyAPI";
-import { useNavigate } from "react-router-dom";
 
-const navigate = useNavigate();
 function Dashboard() {
+    const navigate = useNavigate();
+
     const [journeys, setJourneys] = useState([]);
 
     useEffect(() => {
@@ -18,10 +20,9 @@ function Dashboard() {
         try {
             const response = await getJourneys();
 
-            // Supports either:
-            // response.data
-            // or response.data.data
-            setJourneys(response.data.data || response.data);
+            console.log("Journey Response:", response.data);
+
+            setJourneys(response.data.data || []);
         } catch (error) {
             console.error("Failed to load journeys:", error);
         }
@@ -69,12 +70,11 @@ function Dashboard() {
 
                 <div className="actions">
 
-                    <button className="add-btn">
-                        <button
-    onClick={() => navigate("/add-journey")}
->
-    + Add New Journey
-</button>
+                    <button
+                        className="add-btn"
+                        onClick={() => navigate("/add-journey")}
+                    >
+                        + Add New Journey
                     </button>
 
                 </div>
@@ -88,12 +88,15 @@ function Dashboard() {
                         <table>
 
                             <thead>
+
                                 <tr>
                                     <th>Train</th>
                                     <th>Route</th>
                                     <th>Date</th>
                                     <th>Status</th>
+                                    <th>Action</th>
                                 </tr>
+
                             </thead>
 
                             <tbody>
@@ -101,7 +104,10 @@ function Dashboard() {
                                 {journeys.length === 0 ? (
 
                                     <tr>
-                                        <td colSpan="4" style={{ textAlign: "center" }}>
+                                        <td
+                                            colSpan="5"
+                                            style={{ textAlign: "center" }}
+                                        >
                                             No journeys found.
                                         </td>
                                     </tr>
@@ -115,17 +121,34 @@ function Dashboard() {
                                             <td>{journey.trainNumber}</td>
 
                                             <td>
-                                                {journey.source} → {journey.destination}
+                                                {journey.boardingStation} → {journey.destinationStation}
                                             </td>
 
                                             <td>
-                                                {new Date(journey.journeyDate).toLocaleDateString()}
+                                                {new Date(
+                                                    journey.journeyDate
+                                                ).toLocaleDateString("en-GB")}
                                             </td>
 
                                             <td>
                                                 <span className="status active">
-                                                    {journey.status || "Monitoring"}
+                                                    {journey.status}
                                                 </span>
+                                            </td>
+
+                                            <td>
+
+                                                <button
+                                                    className="view-btn"
+                                                    onClick={() =>
+                                                        navigate(
+                                                            `/recommendation/${journey._id}`
+                                                        )
+                                                    }
+                                                >
+                                                    View
+                                                </button>
+
                                             </td>
 
                                         </tr>
@@ -158,7 +181,18 @@ function Dashboard() {
                                 <strong> 100</strong>
                             </p>
 
-                            <button className="view-btn">
+                            <button
+                                className="view-btn"
+                                onClick={() => {
+                                    if (journeys.length > 0) {
+                                        navigate(
+                                            `/recommendation/${journeys[0]._id}`
+                                        );
+                                    } else {
+                                        alert("No journeys available.");
+                                    }
+                                }}
+                            >
                                 View Recommendation
                             </button>
 

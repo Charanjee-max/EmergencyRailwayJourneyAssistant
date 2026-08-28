@@ -1,120 +1,100 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-
-import {
-  Box,
-  Paper,
-  Typography,
-  TextField,
-  Button,
-} from "@mui/material";
-
 import { loginUser } from "../../services/authService";
 
 export default function Login() {
-
   const navigate = useNavigate();
 
   const [email, setEmail] = useState("");
-
   const [password, setPassword] = useState("");
 
-  const handleLogin = async () => {
+  const handleLogin = async (e) => {
+    e.preventDefault();
 
     try {
-
       const response = await loginUser(email, password);
 
-      console.log(response);
+      console.log("LOGIN RESPONSE", response.data);
 
-      alert(response.message);
+      const token = response.data.data.token;
+      const user = response.data.data.user;
 
-      localStorage.setItem(
-        "user",
-        JSON.stringify(response.data)
-      );
+      localStorage.setItem("token", token);
+      localStorage.setItem("user", JSON.stringify(user));
 
       navigate("/dashboard");
-
-    } catch (err) {
-
+    } catch (error) {
+      console.error(error);
       alert(
-        err.response?.data?.message ||
-        "Login Failed"
+        error.response?.data?.message || "Login failed"
       );
-
     }
-
   };
 
   return (
-
-    <Box
-      sx={{
-        height: "100vh",
+    <div
+      style={{
         display: "flex",
         justifyContent: "center",
         alignItems: "center",
-        background: "#f5f7fa",
+        minHeight: "100vh",
+        background: "#f5f5f5",
       }}
     >
-
-      <Paper
-        elevation={5}
-        sx={{
-          width: 420,
-          p: 5,
-          borderRadius: 3,
+      <form
+        onSubmit={handleLogin}
+        style={{
+          width: "350px",
+          background: "#fff",
+          padding: "30px",
+          borderRadius: "10px",
+          boxShadow: "0 0 10px rgba(0,0,0,0.2)",
         }}
       >
+        <h2 style={{ textAlign: "center", marginBottom: "20px" }}>
+          ERJA Login
+        </h2>
 
-        <Typography
-          variant="h4"
-          align="center"
-          mb={1}
-          fontWeight="bold"
-        >
-          🚆 ERJA
-        </Typography>
-
-        <Typography
-          align="center"
-          color="gray"
-          mb={4}
-        >
-          Emergency Railway Journey Assistant
-        </Typography>
-
-        <TextField
-          fullWidth
-          label="Email"
-          margin="normal"
+        <input
+          type="email"
+          placeholder="Email"
           value={email}
-          onChange={(e)=>setEmail(e.target.value)}
+          onChange={(e) => setEmail(e.target.value)}
+          style={{
+            width: "100%",
+            padding: "10px",
+            marginBottom: "15px",
+          }}
+          required
         />
 
-        <TextField
-          fullWidth
+        <input
           type="password"
-          label="Password"
-          margin="normal"
+          placeholder="Password"
           value={password}
-          onChange={(e)=>setPassword(e.target.value)}
+          onChange={(e) => setPassword(e.target.value)}
+          style={{
+            width: "100%",
+            padding: "10px",
+            marginBottom: "20px",
+          }}
+          required
         />
 
-        <Button
-          fullWidth
-          variant="contained"
-          sx={{ mt:3 }}
-          onClick={handleLogin}
+        <button
+          type="submit"
+          style={{
+            width: "100%",
+            padding: "10px",
+            background: "#1565c0",
+            color: "#fff",
+            border: "none",
+            cursor: "pointer",
+          }}
         >
           Login
-        </Button>
-
-      </Paper>
-
-    </Box>
-
+        </button>
+      </form>
+    </div>
   );
-
 }

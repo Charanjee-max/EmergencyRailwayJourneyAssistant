@@ -14,5 +14,6 @@ API.interceptors.request.use((config) => {
   return config;
 });
 
-export const getRecommendations = (journeyId) =>
-  API.get(`/recommendation/${journeyId}`);
+export const getRecommendations = (journeyId) => {
+  return API.get(`/recommendations/${journeyId}`);
+};

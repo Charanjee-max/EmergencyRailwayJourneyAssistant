@@ -8,8 +8,14 @@ class RecommendationController {
 
             const { journeyId } = req.params;
 
+            // User is provided by authentication middleware
+            const userId = req.user.id;
+
             const recommendations =
-                await recommendationService.getRecommendations(journeyId);
+                await recommendationService.getRecommendations(
+                    journeyId,
+                    userId
+                );
 
             return res.status(200).json({
 
@@ -23,14 +29,22 @@ class RecommendationController {
 
         } catch (error) {
 
-            return res.status(500).json({
+            console.error(
+                "Get Recommendations Error:",
+                error
+            );
+
+            return res.status(
+                error.statusCode || 500
+            ).json({
 
                 success: false,
 
-                message: error.message
+                message:
+                    error.message ||
+                    "Failed to get recommendations"
 
             });
-
         }
 
     }

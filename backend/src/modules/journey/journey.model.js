@@ -1,5 +1,10 @@
 const mongoose = require("mongoose");
 
+
+// ==========================================
+// Allowed Class Schema
+// ==========================================
+
 const allowedClassSchema = new mongoose.Schema(
   {
     class: {
@@ -18,13 +23,27 @@ const allowedClassSchema = new mongoose.Schema(
   }
 );
 
+
+// ==========================================
+// Journey Schema
+// ==========================================
+
 const journeySchema = new mongoose.Schema(
   {
+    // ========================================
+    // User
+    // ========================================
+
     userId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
       required: true,
     },
+
+
+    // ========================================
+    // Train Information
+    // ========================================
 
     trainNumber: {
       type: String,
@@ -32,10 +51,16 @@ const journeySchema = new mongoose.Schema(
       trim: true,
     },
 
+
     journeyDate: {
       type: Date,
       required: true,
     },
+
+
+    // ========================================
+    // Journey Route
+    // ========================================
 
     boardingStation: {
       type: String,
@@ -44,6 +69,7 @@ const journeySchema = new mongoose.Schema(
       trim: true,
     },
 
+
     destinationStation: {
       type: String,
       required: true,
@@ -51,24 +77,50 @@ const journeySchema = new mongoose.Schema(
       trim: true,
     },
 
+
+    // ========================================
+    // Allowed Classes
+    // ========================================
+
     allowedClasses: {
       type: [allowedClassSchema],
       required: true,
     },
+
+
+    // ========================================
+    // Mixed Class
+    // ========================================
 
     allowMixedClass: {
       type: Boolean,
       default: false,
     },
 
+
+    // ========================================
+    // Preferred Strategy
+    // ========================================
+
     preferredStrategy: {
       type: String,
-      enum: ["SINGLE_TICKET", "FEWER_TICKET_CHANGES"],
+
+      enum: [
+        "SINGLE_TICKET",
+        "FEWER_TICKET_CHANGES",
+      ],
+
       default: "SINGLE_TICKET",
     },
 
+
+    // ========================================
+    // Journey Status
+    // ========================================
+
     status: {
       type: String,
+
       enum: [
         "PENDING",
         "MONITORING",
@@ -77,8 +129,14 @@ const journeySchema = new mongoose.Schema(
         "COMPLETED",
         "CANCELLED",
       ],
+
       default: "PENDING",
     },
+
+
+    // ========================================
+    // Monitoring Job
+    // ========================================
 
     monitoringJobId: {
       type: mongoose.Schema.Types.ObjectId,
@@ -86,29 +144,56 @@ const journeySchema = new mongoose.Schema(
       default: null,
     },
 
-    // Last monitored seat status
+
+    // ========================================
+    // Last Seat Status
+    // ========================================
+
     lastSeatStatus: {
       type: String,
       default: null,
     },
 
-    // Last available seats count
+
+    // ========================================
+    // Last Available Seats
+    // ========================================
+
     lastAvailableSeats: {
       type: Number,
       default: null,
     },
 
-    // Last monitoring time
+
+    // ========================================
+    // Last Monitoring Time
+    // ========================================
+
     lastCheckedAt: {
       type: Date,
       default: null,
     },
   },
+
+
+  // ========================================
+  // Schema Options
+  // ========================================
+
   {
     timestamps: true,
   }
 );
 
-const Journey = mongoose.model("Journey", journeySchema);
+
+// ==========================================
+// Model
+// ==========================================
+
+const Journey = mongoose.model(
+  "Journey",
+  journeySchema
+);
+
 
 module.exports = Journey;

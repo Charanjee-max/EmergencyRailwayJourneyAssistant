@@ -1,17 +1,23 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { loginUser } from "../../services/authService";
+import "./Login.css";
 
 export default function Login() {
   const navigate = useNavigate();
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [loading, setLoading] = useState(false);
 
   const handleLogin = async (e) => {
     e.preventDefault();
 
+    if (loading) return;
+
     try {
+      setLoading(true);
+
       const response = await loginUser(email, password);
 
       console.log("LOGIN RESPONSE", response.data);
@@ -25,76 +31,148 @@ export default function Login() {
       navigate("/dashboard");
     } catch (error) {
       console.error(error);
+
       alert(
         error.response?.data?.message || "Login failed"
       );
+    } finally {
+      setLoading(false);
     }
   };
 
   return (
-    <div
-      style={{
-        display: "flex",
-        justifyContent: "center",
-        alignItems: "center",
-        minHeight: "100vh",
-        background: "#f5f5f5",
-      }}
-    >
-      <form
-        onSubmit={handleLogin}
-        style={{
-          width: "350px",
-          background: "#fff",
-          padding: "30px",
-          borderRadius: "10px",
-          boxShadow: "0 0 10px rgba(0,0,0,0.2)",
-        }}
-      >
-        <h2 style={{ textAlign: "center", marginBottom: "20px" }}>
-          ERJA Login
-        </h2>
+    <div className="login-page">
 
-        <input
-          type="email"
-          placeholder="Email"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          style={{
-            width: "100%",
-            padding: "10px",
-            marginBottom: "15px",
-          }}
-          required
-        />
+      <div className="login-container">
 
-        <input
-          type="password"
-          placeholder="Password"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          style={{
-            width: "100%",
-            padding: "10px",
-            marginBottom: "20px",
-          }}
-          required
-        />
+        {/* Left side */}
+        <div className="login-info">
 
-        <button
-          type="submit"
-          style={{
-            width: "100%",
-            padding: "10px",
-            background: "#1565c0",
-            color: "#fff",
-            border: "none",
-            cursor: "pointer",
-          }}
-        >
-          Login
-        </button>
-      </form>
+          <div className="login-brand">
+            🚆 <span>ERJA</span>
+          </div>
+
+          <h1>
+            Emergency Railway
+            <span> Journey Assistant</span>
+          </h1>
+
+          <p>
+            Monitor your railway journey, analyze availability,
+            and discover alternative booking possibilities.
+          </p>
+
+          <div className="login-features">
+
+            <div>
+              <span>🔍</span>
+              <div>
+                <strong>Monitor</strong>
+                <small>Track journey availability</small>
+              </div>
+            </div>
+
+            <div>
+              <span>🧠</span>
+              <div>
+                <strong>Analyze</strong>
+                <small>Analyze available berths</small>
+              </div>
+            </div>
+
+            <div>
+              <span>🎯</span>
+              <div>
+                <strong>Recommend</strong>
+                <small>Find possible booking strategies</small>
+              </div>
+            </div>
+
+          </div>
+
+        </div>
+
+
+        {/* Login card */}
+        <div className="login-card">
+
+          <button
+            type="button"
+            className="back-home"
+            onClick={() => navigate("/")}
+          >
+            ← Home
+          </button>
+
+          <div className="login-heading">
+
+            <div className="login-icon">
+              🔐
+            </div>
+
+            <h2>Welcome Back</h2>
+
+            <p>
+              Login to continue to ERJA
+            </p>
+
+          </div>
+
+
+          <form onSubmit={handleLogin}>
+
+            <div className="login-form-group">
+
+              <label htmlFor="email">
+                Email
+              </label>
+
+              <input
+                id="email"
+                type="email"
+                placeholder="Enter your email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                autoComplete="email"
+                required
+              />
+
+            </div>
+
+
+            <div className="login-form-group">
+
+              <label htmlFor="password">
+                Password
+              </label>
+
+              <input
+                id="password"
+                type="password"
+                placeholder="Enter your password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                autoComplete="current-password"
+                required
+              />
+
+            </div>
+
+
+            <button
+              type="submit"
+              className="login-submit"
+              disabled={loading}
+            >
+              {loading ? "Logging in..." : "Login →"}
+            </button>
+
+          </form>
+
+        </div>
+
+      </div>
+
     </div>
   );
 }

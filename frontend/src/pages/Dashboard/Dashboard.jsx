@@ -6,27 +6,192 @@ import "./Dashboard.css";
 import Navbar from "../../components/Navbar/Navbar";
 import SummaryCard from "../../components/SummaryCard/SummaryCard";
 import { getJourneys } from "../../api/journeyAPI";
+import { getRecommendations } from "../../api/recommendationAPI";
 
 function Dashboard() {
     const navigate = useNavigate();
 
     const [journeys, setJourneys] = useState([]);
+    const [latestRecommendation, setLatestRecommendation] = useState(null);
+
+    const [loading, setLoading] = useState(true);
+    const [recommendationLoading, setRecommendationLoading] = useState(false);
+    const [error, setError] = useState("");
 
     useEffect(() => {
-        loadJourneys();
+        loadDashboard();
     }, []);
 
-    const loadJourneys = async () => {
+    const loadDashboard = async () => {
+        setLoading(true);
+        setError("");
+
         try {
             const response = await getJourneys();
 
-            console.log("Journey Response:", response.data);
+            const journeyData = response?.data?.data || [];
 
-            setJourneys(response.data.data || []);
-        } catch (error) {
-            console.error("Failed to load journeys:", error);
+            setJourneys(journeyData);
+
+            // Find recommendations from journeys
+            if (journeyData.length > 0) {
+                await loadLatestRecommendation(journeyData);
+            } else {
+                setLatestRecommendation(null);
+            }
+        } catch (err) {
+            console.error("Failed to load dashboard:", err);
+            setError("Unable to load dashboard data.");
+        } finally {
+            setLoading(false);
         }
     };
+
+    const loadLatestRecommendation = async (journeyData) => {
+        setRecommendationLoading(true);
+
+        try {
+            const results = await Promise.allSettled(
+                journeyData.map((journey) =>
+                    getRecommendations(journey._id)
+                )
+            );
+
+            const recommendations = [];
+
+            results.forEach((result, index) => {
+                if (result.status !== "fulfilled") return;
+
+                const data = result.value?.data?.data;
+
+                if (!data) return;
+
+                const journey = journeyData[index];
+
+                if (Array.isArray(data)) {
+                    data.forEach((recommendation) => {
+                        recommendations.push({
+                            ...recommendation,
+                            journeyId: journey._id,
+                            journeyDate: journey.journeyDate,
+                        });
+                    });
+                } else {
+                    recommendations.push({
+                        ...data,
+                        journeyId: journey._id,
+                        journeyDate: journey.journeyDate,
+                    });
+                }
+            });
+
+            if (recommendations.length === 0) {
+                setLatestRecommendation(null);
+                return;
+            }
+
+            // Prefer newest recommendation
+            recommendations.sort((a, b) => {
+                const dateA = new Date(
+                    a.analyzedAt ||
+                    a.createdAt ||
+                    a.updatedAt ||
+                    a.journeyDate ||
+                    0
+                );
+
+                const dateB = new Date(
+                    b.analyzedAt ||
+                    b.createdAt ||
+                    b.updatedAt ||
+                    b.journeyDate ||
+                    0
+                );
+
+                return dateB - dateA;
+            });
+
+            setLatestRecommendation(recommendations[0]);
+        } catch (err) {
+            console.error(
+                "Failed to load recommendations:",
+                err
+            );
+
+            setLatestRecommendation(null);
+        } finally {
+            setRecommendationLoading(false);
+        }
+    };
+
+    const getRecommendationName = (recommendation) => {
+        if (!recommendation) return "No recommendation";
+
+        const strategy =
+            recommendation.strategy ||
+            recommendation.type ||
+            recommendation.recommendationType;
+
+        if (!strategy) return "Recommendation Available";
+
+        return strategy
+            .replaceAll("_", " ")
+            .toLowerCase()
+            .replace(/\b\w/g, (char) => char.toUpperCase());
+    };
+
+    const getScore = (recommendation) => {
+        return (
+            recommendation?.score ??
+            recommendation?.confidence ??
+            "-"
+        );
+    };
+
+    const getCoach = (recommendation) => {
+        if (
+            recommendation?.tickets &&
+            recommendation.tickets.length > 0
+        ) {
+            return recommendation.tickets[0]?.coach || "-";
+        }
+
+        return recommendation?.coach || "-";
+    };
+
+    const monitoringCount = journeys.filter((journey) => {
+        const status = String(journey.status || "").toUpperCase();
+
+        return (
+            status === "PENDING" ||
+            status === "ACTIVE" ||
+            status === "MONITORING"
+        );
+    }).length;
+
+    const recommendationCount = latestRecommendation ? 1 : 0;
+
+    // Alerts are not currently provided by the Dashboard API,
+    // so we do not invent a value.
+    const alertCount = 0;
+
+    if (loading) {
+        return (
+            <>
+                <Navbar />
+
+                <div className="dashboard">
+                    <div className="dashboard-loading">
+                        <div className="loading-spinner"></div>
+                        <h2>Loading Dashboard...</h2>
+                        <p>
+                            Fetching your journeys and recommendations.
+                        </p>
+                    </div>
+                </div>
+            </>
+        );
+    }
 
     return (
         <>
@@ -34,11 +199,36 @@ function Dashboard() {
 
             <div className="dashboard">
 
-                <h1>Emergency Railway Journey Assistant</h1>
+                <div className="dashboard-header">
+                    <div>
+                        <span className="dashboard-eyebrow">
+                            ERJA CONTROL CENTER
+                        </span>
 
-                <p className="subtitle">
-                    Welcome back! Manage your monitored journeys.
-                </p>
+                        <h1>
+                            Emergency Railway Journey Assistant
+                        </h1>
+
+                        <p className="subtitle">
+                            Monitor your journeys, track availability,
+                            and discover the best booking options.
+                        </p>
+                    </div>
+
+                    <button
+                        className="header-add-btn"
+                        onClick={() => navigate("/add-journey")}
+                    >
+                        <span>＋</span>
+                        Add Journey
+                    </button>
+                </div>
+
+                {error && (
+                    <div className="dashboard-error">
+                        ⚠️ {error}
+                    </div>
+                )}
 
                 <div className="summary-grid">
 
@@ -50,160 +240,267 @@ function Dashboard() {
 
                     <SummaryCard
                         title="Monitoring"
-                        value={journeys.length}
+                        value={monitoringCount}
                         color="#43A047"
                     />
 
                     <SummaryCard
                         title="Recommendations"
-                        value="5"
+                        value={recommendationCount}
                         color="#FB8C00"
                     />
 
                     <SummaryCard
                         title="Alerts"
-                        value="1"
+                        value={alertCount}
                         color="#E53935"
                     />
 
                 </div>
 
                 <div className="actions">
-
                     <button
                         className="add-btn"
                         onClick={() => navigate("/add-journey")}
                     >
-                        + Add New Journey
+                        <span>＋</span>
+                        Add New Journey
                     </button>
-
                 </div>
 
                 <div className="content-grid">
 
-                    <div className="card">
+                    {/* JOURNEYS */}
 
-                        <h2>My Journeys</h2>
+                    <div className="card journeys-card">
 
-                        <table>
+                        <div className="card-header">
+                            <div>
+                                <span className="section-label">
+                                    MONITORED
+                                </span>
 
-                            <thead>
+                                <h2>My Journeys</h2>
+                            </div>
 
-                                <tr>
-                                    <th>Train</th>
-                                    <th>Route</th>
-                                    <th>Date</th>
-                                    <th>Status</th>
-                                    <th>Action</th>
-                                </tr>
+                            <button
+                                className="secondary-btn"
+                                onClick={() => navigate("/journeys")}
+                            >
+                                View All →
+                            </button>
+                        </div>
 
-                            </thead>
+                        {journeys.length === 0 ? (
 
-                            <tbody>
+                            <div className="empty-state">
+                                <div className="empty-icon">🚆</div>
 
-                                {journeys.length === 0 ? (
+                                <h3>No journeys yet</h3>
 
-                                    <tr>
-                                        <td
-                                            colSpan="5"
-                                            style={{ textAlign: "center" }}
-                                        >
-                                            No journeys found.
-                                        </td>
-                                    </tr>
+                                <p>
+                                    Add a journey to start monitoring
+                                    railway availability.
+                                </p>
 
-                                ) : (
+                                <button
+                                    className="view-btn"
+                                    onClick={() =>
+                                        navigate("/add-journey")
+                                    }
+                                >
+                                    Add Your First Journey
+                                </button>
+                            </div>
 
-                                    journeys.map((journey) => (
+                        ) : (
 
-                                        <tr key={journey._id}>
+                            <div className="table-wrapper">
+                                <table>
 
-                                            <td>{journey.trainNumber}</td>
-
-                                            <td>
-                                                {journey.boardingStation} → {journey.destinationStation}
-                                            </td>
-
-                                            <td>
-                                                {new Date(
-                                                    journey.journeyDate
-                                                ).toLocaleDateString("en-GB")}
-                                            </td>
-
-                                            <td>
-                                                <span className="status active">
-                                                    {journey.status}
-                                                </span>
-                                            </td>
-
-                                            <td>
-
-                                                <button
-                                                    className="view-btn"
-                                                    onClick={() =>
-                                                        navigate(
-                                                            `/recommendation/${journey._id}`
-                                                        )
-                                                    }
-                                                >
-                                                    View
-                                                </button>
-
-                                            </td>
-
+                                    <thead>
+                                        <tr>
+                                            <th>Train</th>
+                                            <th>Route</th>
+                                            <th>Date</th>
+                                            <th>Status</th>
+                                            <th>Action</th>
                                         </tr>
+                                    </thead>
 
-                                    ))
+                                    <tbody>
 
-                                )}
+                                        {journeys.slice(0, 6).map(
+                                            (journey) => (
 
-                            </tbody>
+                                                <tr key={journey._id}>
 
-                        </table>
+                                                    <td>
+                                                        <strong>
+                                                            {journey.trainNumber}
+                                                        </strong>
+                                                    </td>
+
+                                                    <td>
+                                                        <span className="route">
+                                                            {
+                                                                journey.boardingStation
+                                                            }
+                                                            <span>
+                                                                →
+                                                            </span>
+                                                            {
+                                                                journey.destinationStation
+                                                            }
+                                                        </span>
+                                                    </td>
+
+                                                    <td>
+                                                        {new Date(
+                                                            journey.journeyDate
+                                                        ).toLocaleDateString(
+                                                            "en-GB"
+                                                        )}
+                                                    </td>
+
+                                                    <td>
+                                                        <span className="status active">
+                                                            {
+                                                                journey.status ||
+                                                                "PENDING"
+                                                            }
+                                                        </span>
+                                                    </td>
+
+                                                    <td>
+                                                        <button
+                                                            className="view-btn small"
+                                                            onClick={() =>
+                                                                navigate(
+                                                                    `/recommendation/${journey._id}`
+                                                                )
+                                                            }
+                                                        >
+                                                            View
+                                                        </button>
+                                                    </td>
+
+                                                </tr>
+
+                                            )
+                                        )}
+
+                                    </tbody>
+
+                                </table>
+                            </div>
+
+                        )}
 
                     </div>
 
-                    <div className="card">
+                    {/* LATEST RECOMMENDATION */}
 
-                        <h2>Latest Recommendation</h2>
+                    <div className="card recommendation-card">
 
-                        <div className="recommendation">
+                        <div className="card-header">
+                            <div>
+                                <span className="section-label">
+                                    AI BOOKING ENGINE
+                                </span>
 
-                            <h3>✅ Split Same Class</h3>
-
-                            <p>
-                                Coach:
-                                <strong> B1</strong>
-                            </p>
-
-                            <p>
-                                Score:
-                                <strong> 100</strong>
-                            </p>
-
-                            <button
-                                className="view-btn"
-                                onClick={() => {
-                                    if (journeys.length > 0) {
-                                        navigate(
-                                            `/recommendation/${journeys[0]._id}`
-                                        );
-                                    } else {
-                                        alert("No journeys available.");
-                                    }
-                                }}
-                            >
-                                View Recommendation
-                            </button>
-
+                                <h2>Latest Recommendation</h2>
+                            </div>
                         </div>
+
+                        {recommendationLoading ? (
+
+                            <div className="recommendation-loading">
+                                <div className="loading-spinner small"></div>
+                                <p>
+                                    Loading recommendation...
+                                </p>
+                            </div>
+
+                        ) : latestRecommendation ? (
+
+                            <div className="recommendation">
+
+                                <div className="recommendation-icon">
+                                    ✓
+                                </div>
+
+                                <div className="recommendation-title">
+                                    <span>Recommended Strategy</span>
+
+                                    <h3>
+                                        {getRecommendationName(
+                                            latestRecommendation
+                                        )}
+                                    </h3>
+                                </div>
+
+                                <div className="recommendation-info">
+
+                                    <div className="info-item">
+                                        <span>Coach</span>
+                                        <strong>
+                                            {getCoach(
+                                                latestRecommendation
+                                            )}
+                                        </strong>
+                                    </div>
+
+                                    <div className="info-item">
+                                        <span>Score</span>
+                                        <strong>
+                                            {getScore(
+                                                latestRecommendation
+                                            )}
+                                        </strong>
+                                    </div>
+
+                                </div>
+
+                                <button
+                                    className="view-btn full"
+                                    onClick={() =>
+                                        navigate(
+                                            `/recommendation/${latestRecommendation.journeyId}`
+                                        )
+                                    }
+                                >
+                                    View Recommendation →
+                                </button>
+
+                            </div>
+
+                        ) : (
+
+                            <div className="empty-recommendation">
+
+                                <div className="empty-icon">
+                                    🔎
+                                </div>
+
+                                <h3>
+                                    No Recommendation Yet
+                                </h3>
+
+                                <p>
+                                    Recommendations will appear here
+                                    once ERJA analyzes your journey.
+                                </p>
+
+                            </div>
+
+                        )}
 
                     </div>
 
                 </div>
 
             </div>
-
         </>
     );
 }

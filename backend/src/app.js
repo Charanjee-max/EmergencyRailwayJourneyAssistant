@@ -7,38 +7,107 @@ const trainRoutes = require("./modules/train/train.routes");
 const chartRoutes = require("./modules/chart/chart.routes");
 const recommendationRoutes = require("./modules/recommendation/recommendation.routes");
 
+const profileRoutes = require("./modules/profile/profile.routes");
+const settingsRoutes = require("./modules/settings/settings.routes");
+const notificationRoutes = require("./modules/notification/notification.routes");
+
 const app = express();
 
+
+// ==========================================
+// Middleware
+// ==========================================
+
 app.use(cors());
+
 app.use(express.json());
 
-/**
- * ==========================================
- * Health Check
- * ==========================================
- */
+
+// ==========================================
+// Health Check
+// ==========================================
+
 app.get("/", (req, res) => {
+
   res.status(200).json({
+
     success: true,
-    project: "Emergency Railway Journey Assistant",
+
+    project:
+      "Emergency Railway Journey Assistant",
+
     version: "1.0.0",
-    message: "ERJA Backend is running successfully 🚆",
+
+    message:
+      "ERJA Backend is running successfully 🚆",
+
   });
+
 });
 
-/**
- * ==========================================
- * API Routes
- * ==========================================
- */
 
-app.use("/api/auth", authRoutes);
+// ==========================================
+// API Routes
+// ==========================================
 
-app.use("/api/journey", journeyRoutes);
+// Authentication
+app.use(
+  "/api/auth",
+  authRoutes
+);
 
-app.use("/api/train", trainRoutes);
 
-app.use("/api/chart", chartRoutes);
+// Journey
+app.use(
+  "/api/journey",
+  journeyRoutes
+);
 
-app.use("/api/recommendations", recommendationRoutes);
+
+// Train
+app.use(
+  "/api/train",
+  trainRoutes
+);
+
+
+// Chart
+app.use(
+  "/api/chart",
+  chartRoutes
+);
+
+
+// Recommendations
+app.use(
+  "/api/recommendations",
+  recommendationRoutes
+);
+
+
+// Profile
+app.use(
+  "/api/profile",
+  profileRoutes
+);
+
+
+// Settings
+app.use(
+  "/api/settings",
+  settingsRoutes
+);
+
+
+// Notifications
+app.use(
+  "/api/notifications",
+  notificationRoutes
+);
+
+
+// ==========================================
+// Export App
+// ==========================================
+
 module.exports = app;

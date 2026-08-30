@@ -1,15 +1,20 @@
 const cron = require("node-cron");
-const { monitorPendingJourneys } = require("../services/monitor.service");
+const {
+  monitorPendingJourneys,
+} = require("../services/monitor.service");
 
-// Run every 5 minutes
+// Run every 30 minutes
 const startJourneyMonitoringJob = () => {
   console.log("========================================");
   console.log("🚆 Journey Monitoring Job Started");
-  console.log("Runs every 5 minutes");
+  console.log("Runs every 30 minutes");
   console.log("========================================");
 
-  cron.schedule("*/30 * * * * *", async () => {
-    console.log("\n⏰ Running Journey Monitoring Job...");
+  cron.schedule("*/30 * * * *", async () => {
+    console.log(
+      "\n⏰ Running Journey Monitoring Job..."
+    );
+
     await monitorPendingJourneys();
   });
 };

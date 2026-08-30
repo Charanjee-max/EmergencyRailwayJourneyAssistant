@@ -21,3 +21,5 @@ export const createJourney = (data) =>
 
 export const getJourneys = () =>
     API.get("/journey");
+export const getJourneyById = (journeyId) =>
+    API.get(`/journey/${journeyId}`);

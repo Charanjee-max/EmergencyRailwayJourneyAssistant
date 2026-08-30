@@ -7,54 +7,65 @@ class ScoreEngine {
         sameClass = false
     }) {
 
-        let score = 100;
+        let score;
 
-        // Base deduction for number of tickets
-        score -= (tickets.length - 1) * 5;
-
-        // Strategy bonuses
         switch (strategy) {
 
             case "DIRECT_SEAT":
-                score += 5;
+                score = 100;
                 break;
 
             case "SPLIT_SAME_CLASS":
-                score += 2;
+                score = 92;
                 break;
 
             case "SPLIT_MIXED_CLASS":
-                score -= 5;
+                score = 84;
                 break;
 
             case "MULTI_HOP":
-                score -= 8;
+                score = 75;
                 break;
 
             case "WAIT_FOR_CHART":
-                score = 80;
+                score = 65;
                 break;
 
+            case "TTE_RECOMMENDATION":
             case "TTE":
-                score = 60;
+                score = 55;
                 break;
 
+            default:
+                score = 50;
         }
 
-        // Bonus for same coach
-        if (sameCoach)
+        // Same coach is preferable for split reservations.
+        if (
+            sameCoach &&
+            strategy !== "DIRECT_SEAT"
+        ) {
             score += 3;
+        }
 
-        // Bonus for same class
-        if (sameClass)
+        // Same class is preferable to mixed class.
+        if (
+            sameClass &&
+            strategy === "SPLIT_SAME_CLASS"
+        ) {
             score += 2;
+        }
 
-        // Clamp score
-        score = Math.max(0, Math.min(score, 100));
+        // More tickets means more booking complexity.
+        if (
+            tickets.length > 2 &&
+            strategy === "MULTI_HOP"
+        ) {
+            score -= (tickets.length - 2) * 2;
+        }
 
-        return score;
+        return Math.max(0, Math.min(score, 100));
     }
-
 }
 
 module.exports = new ScoreEngine();

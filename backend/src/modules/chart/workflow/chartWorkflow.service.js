@@ -1,5 +1,6 @@
 const chartService = require("../chart.service");
 const journeyOptimizer = require("../../journeyOptimizer/journeyOptimizer.service");
+
 const mockChart = require("../mock/mockChart");
 const mockVacancies = require("../mock/mockVacancies");
 
@@ -13,7 +14,22 @@ class ChartWorkflowService {
             console.log("🚆 CHART WORKFLOW STARTED");
             console.log("========================================");
 
+            console.log("Journey ID:", journey._id);
+            console.log("Train Number:", journey.trainNumber);
+            console.log("Journey Date:", journey.journeyDate);
+            console.log(
+                "Source:",
+                journey.boardingStation
+            );
+            console.log(
+                "Destination:",
+                journey.destinationStation
+            );
+
+            // ==========================================
             // Get enabled class
+            // ==========================================
+
             const enabledClass = journey.allowedClasses.find(
                 cls => cls.enabled
             );
@@ -23,121 +39,229 @@ class ChartWorkflowService {
                 console.log("❌ No enabled class found.");
 
                 return null;
-
             }
 
-            // Fetch chart
+            console.log(
+                "Preferred Class:",
+                enabledClass.class
+            );
+
+            // ==========================================
+            // Fetch real chart
+            // ==========================================
+
             const chart = await chartService.fetchAndCacheChart(
 
                 journey.trainNumber,
 
-                journey.journeyDate.toISOString().split("T")[0],
+                journey.journeyDate
+                    .toISOString()
+                    .split("T")[0],
 
                 journey.boardingStation
 
             );
 
             // ==========================================
-// Development Override
-// ==========================================
+            // Development Override
+            // ==========================================
 
-if (
-    process.env.NODE_ENV === "development" &&
-    process.env.FORCE_CHART === "true"
-) {
+            const useMockData =
+                process.env.NODE_ENV === "development" &&
+                process.env.FORCE_CHART === "true";
 
-    console.log("🧪 DEVELOPMENT MODE");
-    console.log("🚀 Forcing chart as prepared.");
+            if (useMockData) {
 
-    chart.chartPrepared = true;
+                console.log("\n🧪 DEVELOPMENT MODE");
+                console.log("🚀 Using dynamic mock chart data.");
 
-}
+                chart.chartPrepared = true;
 
-// ==========================================
-// Check Chart
-// ==========================================
+            }
 
-if (!chart.chartPrepared) {
+            // ==========================================
+            // Check Chart
+            // ==========================================
 
-    console.log("⏳ Chart not prepared yet.");
+            if (!chart.chartPrepared) {
 
-    return null;
+                console.log(
+                    "⏳ Chart not prepared yet."
+                );
 
-}
-
-console.log("✅ Chart Prepared");
+                return null;
+            }
 
             console.log("✅ Chart Prepared");
 
             // ==========================================
-// Development Mode
-// ==========================================
+            // Prepare Chart + Vacancies
+            // ==========================================
 
-let chartData = chart;
-let vacantBerths;
+            let chartData = chart;
+            let vacantBerths = [];
 
-if (
-    process.env.NODE_ENV === "development" &&
-    process.env.FORCE_CHART === "true"
-) {
+            if (useMockData) {
 
-    console.log("🧪 USING MOCK CHART DATA");
+                console.log(
+                    "\n🧪 USING DYNAMIC MOCK DATA"
+                );
 
-    chartData = {
-        ...chart.toObject(),
-        chartPrepared: true,
-        cdd: mockChart.cdd
-    };
+                console.log(
+                    "Mock Source:",
+                    journey.boardingStation
+                );
 
-    vacantBerths = mockVacancies;
+                console.log(
+                    "Mock Destination:",
+                    journey.destinationStation
+                );
 
-} else {
+                console.log(
+                    "Mock Class:",
+                    enabledClass.class
+                );
 
-    vacantBerths = await chartService.fetchVacantBerth(
-        journey.trainNumber,
-        journey.journeyDate.toISOString().split("T")[0],
-        journey.boardingStation,
-        enabledClass.class,
-        2
-    );
+                // ------------------------------------------
+                // Use the mock chart route
+                // ------------------------------------------
 
-}
+                chartData = {
+                    ...chart.toObject(),
 
-console.log("✅ Vacant Berths Received");
+                    chartPrepared: true,
 
+                    cdd: mockChart.cdd
+                };
+
+                // ------------------------------------------
+                // Generate vacancies according to journey
+                // ------------------------------------------
+
+                vacantBerths =
+                    mockVacancies.generateVacancies({
+
+                        source:
+                            journey.boardingStation,
+
+                        destination:
+                            journey.destinationStation,
+
+                        travelClass:
+                            enabledClass.class
+
+                    });
+
+                console.log(
+                    "\n========== MOCK VACANCIES =========="
+                );
+
+                console.dir(
+                    vacantBerths,
+                    {
+                        depth: null
+                    }
+                );
+
+            } else {
+
+                // ==========================================
+                // REAL IRCTC VACANCY DATA
+                // ==========================================
+
+                const vacancyResponse =
+                    await chartService.fetchVacantBerth(
+
+                        journey.trainNumber,
+
+                        journey.journeyDate
+                            .toISOString()
+                            .split("T")[0],
+
+                        journey.boardingStation,
+
+                        enabledClass.class,
+
+                        2
+
+                    );
+
+                vacantBerths =
+                    vacancyResponse?.vbd || [];
+
+            }
+
+            console.log(
+                "\n✅ Vacant Berths Received:",
+                vacantBerths.length
+            );
+
+            // ==========================================
             // Run Journey Optimizer
-            const recommendations = await journeyOptimizer.optimize({
+            // ==========================================
 
-                journey,
+            console.log(
+                "\n========================================"
+            );
 
-                route: {
-    stations: chartData.cdd || []
-},
+            console.log(
+                "🧠 RUNNING JOURNEY OPTIMIZER"
+            );
 
-chart: chartData,
+            console.log(
+                "========================================"
+            );
 
-vacancies: vacantBerths.vbd || []
+            const recommendations =
+                await journeyOptimizer.optimize({
 
-            });
+                    journey,
 
-            console.log("✅ Journey Optimizer Completed");
+                    route: {
+                        stations:
+                            chartData.cdd || []
+                    },
+
+                    chart: chartData,
+
+                    vacancies: vacantBerths
+
+                });
+
+            console.log(
+                "\n✅ Journey Optimizer Completed"
+            );
+
+            console.log(
+                "Recommendations Generated:",
+                recommendations?.length || 0
+            );
 
             return recommendations;
 
         } catch (error) {
 
-            console.log("========================================");
-            console.log("❌ CHART WORKFLOW FAILED");
-            console.log("========================================");
+            console.log(
+                "\n========================================"
+            );
+
+            console.log(
+                "❌ CHART WORKFLOW FAILED"
+            );
+
+            console.log(
+                "========================================"
+            );
 
             console.log(error.message);
 
+            if (error.stack) {
+                console.log(error.stack);
+            }
+
             throw error;
-
         }
-
     }
-
 }
 
 module.exports = new ChartWorkflowService();

@@ -1,3 +1,5 @@
+const scoreEngine = require("../../scoring/ScoreEngine");
+
 class MultiHopStrategy {
 
     execute(graph, journey) {
@@ -5,6 +7,7 @@ class MultiHopStrategy {
         console.log("\n========== MULTI HOP STRATEGY ==========");
         console.log("Source:", journey.source);
         console.log("Destination:", journey.destination);
+        console.log("Preferred Classes:", journey.preferredClasses);
 
         const solutions = [];
 
@@ -14,63 +17,108 @@ class MultiHopStrategy {
             journey.destination,
             [],
             new Set(),
-            solutions
+            solutions,
+            journey.preferredClasses || []
         );
 
-        console.log("\nTOTAL MULTI HOP SOLUTIONS:", solutions.length);
+        console.log(
+            "\nTOTAL MULTI HOP SOLUTIONS:",
+            solutions.length
+        );
 
         return solutions;
     }
 
-    findPaths(graph, current, destination, path, visited, solutions) {
+    findPaths(
+        graph,
+        current,
+        destination,
+        path,
+        visited,
+        solutions,
+        preferredClasses
+    ) {
 
-        // Stop infinite loops
+        // Prevent circular routes.
         if (visited.has(current)) {
             return;
         }
 
         visited.add(current);
 
-        // Destination reached
+        // Destination reached.
         if (current === destination) {
-            // Skip 2-ticket journeys.
-// They are already handled by SplitSameClassStrategy.
-if (path.length <= 2) {
-    visited.delete(current);
-    return;
-}
 
-            console.log("✅ Path Found");
+            // Direct and two-ticket journeys are handled
+            // by DirectSeatStrategy / SplitSameClassStrategy /
+            // SplitMixedClassStrategy.
+            if (path.length <= 2) {
+                visited.delete(current);
+                return;
+            }
+
+            console.log("✅ Multi-hop path found");
             console.dir(path, { depth: null });
+
+            const classes = [
+                ...new Set(path.map(ticket => ticket.class))
+            ];
+
+            const sameClass = classes.length === 1;
+
+            const sameCoach =
+                path.length > 1 &&
+                path.every(ticket => ticket.coach === path[0].coach);
 
             solutions.push({
                 success: true,
+
                 strategy: "MULTI_HOP",
-                score: 85,
+
+                score: scoreEngine.calculate({
+                    strategy: "MULTI_HOP",
+                    tickets: path,
+                    sameCoach,
+                    sameClass
+                }),
+
                 tickets: [...path],
-                reason: `Journey completed using ${path.length} split tickets.`
+
+                reason:
+                    sameClass
+                        ? `Journey completed using ${path.length} split tickets in ${classes[0]}.`
+                        : `Journey completed using ${path.length} split tickets across multiple classes.`
             });
 
             visited.delete(current);
             return;
         }
 
-        // Outgoing edges
-        const outgoing = graph.edges.filter(
-            edge => edge.from === current
+        // Only use the user's preferred classes.
+        const outgoing = graph.edges.filter(edge =>
+            edge.from === current &&
+            preferredClasses.includes(edge.class)
         );
 
         outgoing.forEach(edge => {
 
-            edge.opportunities.forEach(coach => {
+            if (!edge.opportunities) {
+                return;
+            }
 
-                coach.berths.forEach(berth => {
+            edge.opportunities.forEach(opportunity => {
+
+                if (!opportunity.berths) {
+                    return;
+                }
+
+                opportunity.berths.forEach(berth => {
 
                     path.push({
                         from: edge.from,
                         to: edge.to,
                         class: edge.class,
-                        coach: coach.coach,
+                        coach: opportunity.coach,
                         berth
                     });
 
@@ -80,11 +128,11 @@ if (path.length <= 2) {
                         destination,
                         path,
                         visited,
-                        solutions
+                        solutions,
+                        preferredClasses
                     );
 
                     path.pop();
-
                 });
 
             });
@@ -93,7 +141,6 @@ if (path.length <= 2) {
 
         visited.delete(current);
     }
-
 }
 
 module.exports = new MultiHopStrategy();

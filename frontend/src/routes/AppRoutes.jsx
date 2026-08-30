@@ -6,6 +6,7 @@ import {
 
 import Login from "../pages/Login/Login";
 import Dashboard from "../pages/Dashboard/Dashboard";
+import Journeys from "../pages/Journeys/Journeys";
 import AddJourney from "../pages/AddJourney/AddJourney";
 import Recommendation from "../pages/Recommendation/Recommendation";
 
@@ -55,12 +56,12 @@ function AppRoutes() {
 
 
             {/* ================================
-                JOURNEYS
+                ALL JOURNEYS
             ================================= */}
 
             <Route
                 path="/journeys"
-                element={<Dashboard />}
+                element={<Journeys />}
             />
 
 
@@ -122,5 +123,6 @@ function AppRoutes() {
 
     );
 }
+
 
 export default AppRoutes;

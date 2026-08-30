@@ -139,18 +139,21 @@ class ChartWorkflowService {
                 // ------------------------------------------
 
                 vacantBerths =
-                    mockVacancies.generateVacancies({
+    mockVacancies.generateVacancies({
 
-                        source:
-                            journey.boardingStation,
+        source:
+            journey.boardingStation,
 
-                        destination:
-                            journey.destinationStation,
+        destination:
+            journey.destinationStation,
 
-                        travelClass:
-                            enabledClass.class
+        travelClass:
+            enabledClass.class,
 
-                    });
+        allowMixedClass:
+            journey.allowMixedClass || false
+
+    });
 
                 console.log(
                     "\n========== MOCK VACANCIES =========="

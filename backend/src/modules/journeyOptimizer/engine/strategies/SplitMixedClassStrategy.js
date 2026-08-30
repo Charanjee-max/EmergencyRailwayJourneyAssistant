@@ -1,7 +1,9 @@
 const scoreEngine = require("../../scoring/ScoreEngine");
 
 class SplitMixedClassStrategy {
+
     execute(graph, journey) {
+
         const solutions = [];
 
         const source = journey.source;
@@ -14,39 +16,109 @@ class SplitMixedClassStrategy {
         console.log("Preferred Classes:", preferredClasses);
         console.log("Allow Mixed Class:", journey.allowMixedClass);
 
-        // Mixed class is only allowed when the user explicitly enabled it.
+        // Mixed class is only allowed when explicitly enabled.
         if (!journey.allowMixedClass) {
             console.log("⛔ Mixed class disabled by user.");
             return solutions;
         }
 
+        /*
+         * IMPORTANT:
+         *
+         * preferredClasses contains the user's preferred class,
+         * but when mixed class is enabled, the second class can be
+         * another class available in the graph.
+         *
+         * Example:
+         *
+         * preferredClasses = ["3A"]
+         *
+         * Graph:
+         * BDCR -> KRA = 3A
+         * KRA  -> SC  = SL
+         *
+         * We must therefore check:
+         *
+         * 3A -> SL
+         */
+
+        const availableClasses = [
+            ...new Set(
+                graph.edges
+                    .map(edge => edge.class)
+                    .filter(Boolean)
+            )
+        ];
+
+        console.log(
+            "Available Classes in Graph:",
+            availableClasses
+        );
+
+        /*
+         * First leg must respect the user's preferred class.
+         * Second leg may use another available class.
+         */
         for (const firstClass of preferredClasses) {
-            for (const secondClass of preferredClasses) {
 
-                if (firstClass === secondClass) {
-                    continue;
-                }
+            const secondClasses = availableClasses.filter(
+                secondClass => secondClass !== firstClass
+            );
 
-                console.log(`Checking ${firstClass} -> ${secondClass}`);
+            for (const secondClass of secondClasses) {
 
+                console.log(
+                    `Checking ${firstClass} -> ${secondClass}`
+                );
+
+                /*
+                 * First leg:
+                 * Source -> intermediate station
+                 */
                 const firstLegs = graph.edges.filter(edge =>
                     edge.from === source &&
                     edge.class === firstClass
                 );
 
+                console.log("First Legs:");
+                console.dir(firstLegs, { depth: null });
+
                 firstLegs.forEach(first => {
 
+                    /*
+                     * Second leg:
+                     * Intermediate station -> destination
+                     */
                     const secondLegs = graph.edges.filter(edge =>
                         edge.from === first.to &&
                         edge.to === destination &&
                         edge.class === secondClass
                     );
 
+                    console.log("Second Legs:");
+                    console.dir(secondLegs, { depth: null });
+
                     secondLegs.forEach(second => {
+
+                        if (!first.opportunities) {
+                            return;
+                        }
+
+                        if (!second.opportunities) {
+                            return;
+                        }
 
                         first.opportunities.forEach(firstCoach => {
 
+                            if (!firstCoach.berths) {
+                                return;
+                            }
+
                             second.opportunities.forEach(secondCoach => {
+
+                                if (!secondCoach.berths) {
+                                    return;
+                                }
 
                                 firstCoach.berths.forEach(firstBerth => {
 
@@ -70,22 +142,33 @@ class SplitMixedClassStrategy {
                                         ];
 
                                         const sameCoach =
-                                            firstCoach.coach === secondCoach.coach;
+                                            firstCoach.coach ===
+                                            secondCoach.coach;
 
-                                        console.log("✅ Mixed Strategy Found");
-                                        console.dir(tickets, { depth: null });
+                                        console.log(
+                                            "✅ Mixed Strategy Found"
+                                        );
+
+                                        console.dir(
+                                            tickets,
+                                            { depth: null }
+                                        );
 
                                         solutions.push({
+
                                             success: true,
 
-                                            strategy: "SPLIT_MIXED_CLASS",
+                                            strategy:
+                                                "SPLIT_MIXED_CLASS",
 
-                                            score: scoreEngine.calculate({
-                                                strategy: "SPLIT_MIXED_CLASS",
-                                                tickets,
-                                                sameCoach,
-                                                sameClass: false
-                                            }),
+                                            score:
+                                                scoreEngine.calculate({
+                                                    strategy:
+                                                        "SPLIT_MIXED_CLASS",
+                                                    tickets,
+                                                    sameCoach,
+                                                    sameClass: false
+                                                }),
 
                                             tickets,
 
@@ -107,6 +190,7 @@ class SplitMixedClassStrategy {
                 });
 
             }
+
         }
 
         console.log(

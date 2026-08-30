@@ -1,18 +1,388 @@
-*{
-  margin:0;
-  padding:0;
-  box-sizing:border-box;
+/* =========================================================
+   ERJA - GLOBAL 3D DESIGN SYSTEM
+   Emergency Railway Journey Assistant
+   ========================================================= */
+
+:root {
+  --erja-primary: #1769c2;
+  --erja-primary-dark: #0d4f9e;
+  --erja-primary-light: #e8f3ff;
+
+  --erja-success: #2f9e44;
+  --erja-warning: #f08c00;
+  --erja-danger: #d63333;
+
+  --erja-bg: #eef3f8;
+  --erja-surface: rgba(255, 255, 255, 0.92);
+  --erja-text: #172033;
+  --erja-muted: #64748b;
+  --erja-border: rgba(15, 23, 42, 0.08);
+
+  --erja-radius-sm: 10px;
+  --erja-radius-md: 16px;
+  --erja-radius-lg: 22px;
+
+  --erja-shadow-sm:
+    0 4px 12px rgba(15, 23, 42, 0.08);
+
+  --erja-shadow-md:
+    0 10px 28px rgba(15, 23, 42, 0.12);
+
+  --erja-shadow-lg:
+    0 18px 45px rgba(15, 23, 42, 0.16);
+
+  --erja-transition:
+    transform 0.22s ease,
+    box-shadow 0.22s ease,
+    background 0.22s ease,
+    border-color 0.22s ease;
 }
 
-body{
-  font-family: Arial, Helvetica, sans-serif;
-  background:#f4f6f9;
+
+/* =========================================================
+   RESET
+   ========================================================= */
+
+* {
+  box-sizing: border-box;
 }
 
-a{
-  text-decoration:none;
+html {
+  scroll-behavior: smooth;
 }
 
-button{
-  cursor:pointer;
+body {
+  margin: 0;
+  min-width: 320px;
+
+  font-family:
+    Inter,
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    Roboto,
+    Arial,
+    sans-serif;
+
+  color: var(--erja-text);
+
+  background:
+    radial-gradient(
+      circle at 10% 10%,
+      rgba(23, 105, 194, 0.08),
+      transparent 28%
+    ),
+    radial-gradient(
+      circle at 90% 20%,
+      rgba(47, 158, 68, 0.06),
+      transparent 25%
+    ),
+    linear-gradient(
+      135deg,
+      #f7faff 0%,
+      var(--erja-bg) 50%,
+      #e9f0f7 100%
+    );
+
+  background-attachment: fixed;
+
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+
+/* =========================================================
+   LINKS
+   ========================================================= */
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+
+/* =========================================================
+   BUTTON BASE
+   ========================================================= */
+
+button {
+  font: inherit;
+  cursor: pointer;
+}
+
+button,
+.erja-button {
+  transition: var(--erja-transition);
+}
+
+
+/* =========================================================
+   3D BUTTON
+   ========================================================= */
+
+.erja-button {
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: var(--erja-radius-sm);
+
+  padding: 12px 22px;
+
+  color: white;
+
+  background:
+    linear-gradient(
+      145deg,
+      #2479d5,
+      var(--erja-primary-dark)
+    );
+
+  box-shadow:
+    0 6px 0 #093d7b,
+    0 10px 22px rgba(13, 79, 158, 0.25);
+
+  transform: translateY(0);
+}
+
+.erja-button:hover {
+  transform: translateY(-3px);
+
+  box-shadow:
+    0 8px 0 #093d7b,
+    0 16px 28px rgba(13, 79, 158, 0.28);
+}
+
+.erja-button:active {
+  transform: translateY(3px);
+
+  box-shadow:
+    0 2px 0 #093d7b,
+    0 5px 12px rgba(13, 79, 158, 0.2);
+}
+
+
+/* =========================================================
+   3D CARD
+   ========================================================= */
+
+.erja-card {
+  position: relative;
+
+  background: var(--erja-surface);
+
+  border: 1px solid rgba(255, 255, 255, 0.85);
+
+  border-radius: var(--erja-radius-lg);
+
+  box-shadow: var(--erja-shadow-md);
+
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+
+  transition: var(--erja-transition);
+}
+
+.erja-card:hover {
+  transform: translateY(-4px);
+
+  box-shadow: var(--erja-shadow-lg);
+}
+
+
+/* =========================================================
+   RAISED CARD
+   ========================================================= */
+
+.erja-raised {
+  box-shadow:
+    8px 8px 20px rgba(15, 23, 42, 0.10),
+    -5px -5px 15px rgba(255, 255, 255, 0.9);
+}
+
+
+/* =========================================================
+   STATUS BADGES
+   ========================================================= */
+
+.erja-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+
+  padding: 7px 13px;
+
+  border-radius: 999px;
+
+  font-size: 13px;
+  font-weight: 700;
+
+  box-shadow:
+    inset 0 1px 2px rgba(255, 255, 255, 0.8),
+    0 3px 8px rgba(15, 23, 42, 0.08);
+}
+
+.erja-status::before {
+  content: "";
+
+  width: 8px;
+  height: 8px;
+
+  border-radius: 50%;
+
+  background: currentColor;
+
+  box-shadow:
+    0 0 0 4px rgba(255, 255, 255, 0.35);
+}
+
+.erja-status-success {
+  color: var(--erja-success);
+  background: #e7f7eb;
+}
+
+.erja-status-warning {
+  color: var(--erja-warning);
+  background: #fff4dc;
+}
+
+.erja-status-danger {
+  color: var(--erja-danger);
+  background: #ffe8e8;
+}
+
+
+/* =========================================================
+   3D INPUT
+   ========================================================= */
+
+input,
+select,
+textarea {
+  border: 1px solid rgba(15, 23, 42, 0.12);
+  border-radius: 12px;
+
+  background: rgba(255, 255, 255, 0.85);
+
+  color: var(--erja-text);
+
+  transition:
+    border-color 0.2s ease,
+    box-shadow 0.2s ease,
+    transform 0.2s ease;
+}
+
+input:focus,
+select:focus,
+textarea:focus {
+  outline: none;
+
+  border-color: var(--erja-primary);
+
+  box-shadow:
+    0 0 0 4px rgba(23, 105, 194, 0.12),
+    0 5px 15px rgba(23, 105, 194, 0.08);
+
+  transform: translateY(-1px);
+}
+
+
+/* =========================================================
+   PAGE CONTAINER
+   ========================================================= */
+
+.erja-page {
+  width: min(1200px, calc(100% - 40px));
+
+  margin: 0 auto;
+
+  padding: 40px 0 60px;
+}
+
+
+/* =========================================================
+   PAGE TITLE
+   ========================================================= */
+
+.erja-page-title {
+  color: var(--erja-primary);
+
+  font-size: clamp(30px, 4vw, 46px);
+
+  font-weight: 800;
+
+  letter-spacing: -0.8px;
+
+  text-shadow:
+    0 2px 0 rgba(255, 255, 255, 0.8),
+    0 5px 12px rgba(23, 105, 194, 0.12);
+}
+
+
+/* =========================================================
+   FLOATING EFFECT
+   ========================================================= */
+
+@keyframes erjaFloat {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+
+  50% {
+    transform: translateY(-4px);
+  }
+}
+
+.erja-floating {
+  animation: erjaFloat 4s ease-in-out infinite;
+}
+
+
+/* =========================================================
+   MONITORING PULSE
+   ========================================================= */
+
+@keyframes erjaPulse {
+  0% {
+    box-shadow:
+      0 0 0 0 rgba(47, 158, 68, 0.35);
+  }
+
+  70% {
+    box-shadow:
+      0 0 0 10px rgba(47, 158, 68, 0);
+  }
+
+  100% {
+    box-shadow:
+      0 0 0 0 rgba(47, 158, 68, 0);
+  }
+}
+
+.erja-pulse {
+  animation: erjaPulse 2s infinite;
+}
+
+
+/* =========================================================
+   RESPONSIVE
+   ========================================================= */
+
+@media (max-width: 768px) {
+  .erja-page {
+    width: min(100% - 24px, 1200px);
+    padding-top: 24px;
+  }
+
+  .erja-page-title {
+    font-size: 32px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }

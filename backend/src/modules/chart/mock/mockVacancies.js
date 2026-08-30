@@ -10,9 +10,9 @@ const stationOrder = {
 const createVacancy = (
     from,
     to,
-    travelClass = "3A",
-    coach = "B1",
-    berth = 21
+    travelClass,
+    coach,
+    berth
 ) => {
     return {
         from,
@@ -23,107 +23,165 @@ const createVacancy = (
     };
 };
 
-const getIntermediateSegments = (source, destination) => {
-    const sourceOrder = stationOrder[source];
-    const destinationOrder = stationOrder[destination];
-
-    if (!sourceOrder || !destinationOrder) {
-        return [];
-    }
-
-    const segments = [];
-
-    if (sourceOrder < destinationOrder) {
-        for (let order = sourceOrder; order < destinationOrder; order++) {
-
-            const from = Object.keys(stationOrder).find(
-                code => stationOrder[code] === order
-            );
-
-            const to = Object.keys(stationOrder).find(
-                code => stationOrder[code] === order + 1
-            );
-
-            if (from && to) {
-                segments.push({ from, to });
-            }
-        }
-    } else if (sourceOrder > destinationOrder) {
-        for (let order = sourceOrder; order > destinationOrder; order--) {
-
-            const from = Object.keys(stationOrder).find(
-                code => stationOrder[code] === order
-            );
-
-            const to = Object.keys(stationOrder).find(
-                code => stationOrder[code] === order - 1
-            );
-
-            if (from && to) {
-                segments.push({ from, to });
-            }
-        }
-    }
-
-    return segments;
-};
-
 const generateVacancies = ({
     source,
     destination,
-    travelClass = "3A"
+    travelClass = "3A",
+    allowMixedClass = false
 }) => {
 
-    console.log("\n========== GENERATING TEST VACANCIES ==========");
+    console.log("\n========== GENERATING MOCK VACANCIES ==========");
     console.log("Source:", source);
     console.log("Destination:", destination);
-    console.log("Class:", travelClass);
+    console.log("Requested Class:", travelClass);
+    console.log("Allow Mixed Class:", allowMixedClass);
 
     const vacancies = [];
 
-    // ==========================================
-    // DIRECT SEAT TEST
-    // ==========================================
-    //
-    // Always create one direct seat for the
-    // requested journey.
-    //
-    // This lets us verify that DIRECT_SEAT
-    // beats MULTI_HOP.
-    // ==========================================
+    // ==================================================
+    // BDCR -> SC TEST DATA
+    // ==================================================
 
-    vacancies.push(
-        createVacancy(
-            source,
-            destination,
-            travelClass,
-            "B1",
-            10
-        )
-    );
+    if (
+        source === "BDCR" &&
+        destination === "SC"
+    ) {
 
-    // ==========================================
-    // Also create the normal intermediate legs
-    // ==========================================
+        // ==================================================
+        // MIXED CLASS TEST
+        // ==================================================
+        if (allowMixedClass) {
 
-    const segments = getIntermediateSegments(
-        source,
-        destination
-    );
+            console.log("\n🧪 GENERATING MIXED CLASS TEST");
 
-    segments.forEach((segment, index) => {
+            vacancies.push(
+                createVacancy(
+                    "BDCR",
+                    "KRA",
+                    "3A",
+                    "B1",
+                    21
+                )
+            );
 
-        vacancies.push(
-            createVacancy(
-                segment.from,
-                segment.to,
-                travelClass,
-                "B1",
-                21 - index
-            )
-        );
+            vacancies.push(
+                createVacancy(
+                    "KRA",
+                    "SC",
+                    "SL",
+                    "S1",
+                    20
+                )
+            );
 
-    });
+        }
+
+        // ==================================================
+        // SAME CLASS TEST
+        // ==================================================
+        else {
+
+            console.log("\n🧪 GENERATING SAME CLASS TEST");
+
+            vacancies.push(
+                createVacancy(
+                    "BDCR",
+                    "KRA",
+                    travelClass,
+                    "B1",
+                    21
+                )
+            );
+
+            vacancies.push(
+                createVacancy(
+                    "KRA",
+                    "SC",
+                    travelClass,
+                    "B1",
+                    20
+                )
+            );
+        }
+
+    }
+
+    // ==================================================
+    // GENERIC FALLBACK
+    // ==================================================
+
+    else {
+
+        const sourceOrder = stationOrder[source];
+        const destinationOrder = stationOrder[destination];
+
+        if (sourceOrder && destinationOrder) {
+
+            // Forward journey
+            if (sourceOrder < destinationOrder) {
+
+                for (
+                    let order = sourceOrder;
+                    order < destinationOrder;
+                    order++
+                ) {
+
+                    const from = Object.keys(stationOrder).find(
+                        code => stationOrder[code] === order
+                    );
+
+                    const to = Object.keys(stationOrder).find(
+                        code => stationOrder[code] === order + 1
+                    );
+
+                    if (from && to) {
+
+                        vacancies.push(
+                            createVacancy(
+                                from,
+                                to,
+                                travelClass,
+                                "B1",
+                                21 - vacancies.length
+                            )
+                        );
+                    }
+                }
+            }
+
+            // Reverse journey
+            else if (sourceOrder > destinationOrder) {
+
+                for (
+                    let order = sourceOrder;
+                    order > destinationOrder;
+                    order--
+                ) {
+
+                    const from = Object.keys(stationOrder).find(
+                        code => stationOrder[code] === order
+                    );
+
+                    const to = Object.keys(stationOrder).find(
+                        code => stationOrder[code] === order - 1
+                    );
+
+                    if (from && to) {
+
+                        vacancies.push(
+                            createVacancy(
+                                from,
+                                to,
+                                travelClass,
+                                "B1",
+                                21 - vacancies.length
+                            )
+                        );
+                    }
+                }
+            }
+        }
+    }
 
     console.log(
         "\n========== GENERATED VACANCIES =========="

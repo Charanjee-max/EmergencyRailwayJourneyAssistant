@@ -1,11 +1,21 @@
 const chartService = require("../chart.service");
-const journeyOptimizer = require("../../journeyOptimizer/journeyOptimizer.service");
 
-// Mock modules are kept for explicit development/testing only.
+const journeyOptimizer =
+    require("../../journeyOptimizer/journeyOptimizer.service");
+
+const recommendationService =
+    require("../../recommendation/recommendation.service");
+
+// Mock modules are kept only for explicit testing.
 const mockChart = require("../mock/mockChart");
 const mockVacancies = require("../mock/mockVacancies");
 
+
 class ChartWorkflowService {
+
+    // =========================================================
+    // PROCESS JOURNEY
+    // =========================================================
 
     async processJourney(journey) {
 
@@ -15,9 +25,20 @@ class ChartWorkflowService {
             console.log("🚆 CHART WORKFLOW STARTED");
             console.log("========================================");
 
-            console.log("Journey ID:", journey._id);
-            console.log("Train Number:", journey.trainNumber);
-            console.log("Journey Date:", journey.journeyDate);
+            console.log(
+                "Journey ID:",
+                journey._id
+            );
+
+            console.log(
+                "Train Number:",
+                journey.trainNumber
+            );
+
+            console.log(
+                "Journey Date:",
+                journey.journeyDate
+            );
 
             console.log(
                 "Source:",
@@ -30,14 +51,15 @@ class ChartWorkflowService {
             );
 
 
-            // ==========================================
-            // Get enabled class
-            // ==========================================
+            // =====================================================
+            // GET ENABLED CLASS
+            // =====================================================
 
             const enabledClass =
                 journey.allowedClasses?.find(
                     cls => cls.enabled
                 );
+
 
             if (!enabledClass) {
 
@@ -48,27 +70,23 @@ class ChartWorkflowService {
                 return null;
             }
 
+
             console.log(
                 "Preferred Class:",
                 enabledClass.class
             );
 
 
-            // ==========================================
-            // EXPLICIT MOCK MODE ONLY
-            // ==========================================
+            // =====================================================
+            // EXPLICIT MOCK MODE
+            // =====================================================
 
             /*
-             * Mock data must NEVER be enabled simply
-             * because NODE_ENV is development.
-             *
-             * Enable it explicitly with:
+             * Mock data is ONLY enabled when:
              *
              * USE_MOCK_CHART=true
              *
-             * This allows us to test the optimizer
-             * without pretending that mock data is
-             * real railway availability.
+             * NODE_ENV=development alone will NOT enable mocks.
              */
 
             const useMockData =
@@ -77,7 +95,10 @@ class ChartWorkflowService {
 
             if (useMockData) {
 
-                console.log("\n🧪 EXPLICIT MOCK MODE");
+                console.log(
+                    "\n🧪 EXPLICIT MOCK MODE"
+                );
+
                 console.log(
                     "⚠️ Real IRCTC chart data will NOT be used."
                 );
@@ -91,9 +112,9 @@ class ChartWorkflowService {
             }
 
 
-            // ==========================================
+            // =====================================================
             // MOCK WORKFLOW
-            // ==========================================
+            // =====================================================
 
             if (useMockData) {
 
@@ -101,12 +122,21 @@ class ChartWorkflowService {
                     "\n🧪 USING DYNAMIC MOCK CHART DATA"
                 );
 
+
                 const mockChartData = {
+
                     chartPrepared: true,
-                    cdd: mockChart.cdd || [],
+
+                    cdd:
+                        mockChart.cdd || [],
+
                     chartOneTime: null,
+
                     chartTwoTime: null,
-                    coaches: mockChart.cdd || []
+
+                    coaches:
+                        mockChart.cdd || []
+
                 };
 
 
@@ -126,9 +156,9 @@ class ChartWorkflowService {
                 );
 
 
-                // ==========================================
-                // Generate mock vacancies
-                // ==========================================
+                // =================================================
+                // GENERATE MOCK VACANCIES
+                // =================================================
 
                 const vacantBerths =
                     mockVacancies.generateVacancies({
@@ -166,19 +196,23 @@ class ChartWorkflowService {
 
 
                 return await this.runOptimizer(
+
                     journey,
+
                     mockChartData,
+
                     vacantBerths
+
                 );
             }
 
 
-            // ==========================================
-            // REAL IRCTC CHART
-            // ==========================================
+            // =====================================================
+            // REAL IRCTC WORKFLOW
+            // =====================================================
 
             const journeyDate =
-                journey.journeyDate
+                new Date(journey.journeyDate)
                     .toISOString()
                     .split("T")[0];
 
@@ -197,6 +231,11 @@ class ChartWorkflowService {
 
 
             let chart;
+
+
+            // =====================================================
+            // FETCH REAL CHART
+            // =====================================================
 
             try {
 
@@ -226,39 +265,88 @@ class ChartWorkflowService {
                 );
 
                 console.log(
+                    "Error:",
                     error.message
                 );
 
 
-                /*
-                 * IMPORTANT:
-                 *
-                 * Do NOT use mock data here.
-                 *
-                 * Do NOT mark the chart as prepared.
-                 *
-                 * Do NOT run the optimizer.
-                 *
-                 * The next monitoring cycle can try again.
-                 */
+                // =================================================
+                // IMPORTANT
+                // =================================================
+                //
+                // Do NOT:
+                // - generate mock data
+                // - mark chart prepared
+                // - run optimizer
+                //
+                // Clear old recommendations so that
+                // stale recommendations are not displayed.
+                // =================================================
+
+                try {
+
+                    await recommendationService
+                        .saveRecommendations(
+                            journey._id,
+                            []
+                        );
+
+                    console.log(
+                        "🧹 Old recommendations cleared."
+                    );
+
+                } catch (clearError) {
+
+                    console.log(
+                        "⚠️ Could not clear old recommendations:",
+                        clearError.message
+                    );
+                }
+
 
                 return null;
             }
 
 
-            // ==========================================
-            // REAL CHART STATUS
-            // ==========================================
+            // =====================================================
+            // EMPTY RESPONSE
+            // =====================================================
 
             if (!chart) {
 
                 console.log(
-                    "⚠️ Empty chart response."
+                    "⚠️ Empty IRCTC chart response."
                 );
+
+
+                try {
+
+                    await recommendationService
+                        .saveRecommendations(
+                            journey._id,
+                            []
+                        );
+
+                    console.log(
+                        "🧹 Old recommendations cleared."
+                    );
+
+                } catch (clearError) {
+
+                    console.log(
+                        "⚠️ Could not clear old recommendations:",
+                        clearError.message
+                    );
+                }
+
 
                 return null;
             }
 
+
+            // =====================================================
+            // REAL CHART STATUS
+            // =====================================================
 
             console.log(
                 "\n============= REAL CHART STATUS ============="
@@ -270,9 +358,9 @@ class ChartWorkflowService {
             );
 
 
-            // ==========================================
+            // =====================================================
             // CHART NOT PREPARED
-            // ==========================================
+            // =====================================================
 
             if (!chart.chartPrepared) {
 
@@ -305,13 +393,38 @@ class ChartWorkflowService {
                 );
 
 
+                // =================================================
+                // CLEAR STALE RECOMMENDATIONS
+                // =================================================
+
+                try {
+
+                    await recommendationService
+                        .saveRecommendations(
+                            journey._id,
+                            []
+                        );
+
+                    console.log(
+                        "🧹 Old recommendations cleared."
+                    );
+
+                } catch (clearError) {
+
+                    console.log(
+                        "⚠️ Could not clear old recommendations:",
+                        clearError.message
+                    );
+                }
+
+
                 return null;
             }
 
 
-            // ==========================================
+            // =====================================================
             // REAL CHART PREPARED
-            // ==========================================
+            // =====================================================
 
             console.log(
                 "\n========================================"
@@ -326,11 +439,12 @@ class ChartWorkflowService {
             );
 
 
-            // ==========================================
-            // Fetch REAL vacant berths
-            // ==========================================
+            // =====================================================
+            // FETCH REAL VACANT BERTHS
+            // =====================================================
 
             let vacancyResponse;
+
 
             try {
 
@@ -377,18 +491,43 @@ class ChartWorkflowService {
                 );
 
                 console.log(
+                    "Error:",
                     error.message
                 );
 
 
-                /*
-                 * Again, NEVER replace this with
-                 * mock vacancy data automatically.
-                 */
+                // =================================================
+                // Do NOT fallback to mock vacancy data.
+                // =================================================
+
+                try {
+
+                    await recommendationService
+                        .saveRecommendations(
+                            journey._id,
+                            []
+                        );
+
+                    console.log(
+                        "🧹 Old recommendations cleared."
+                    );
+
+                } catch (clearError) {
+
+                    console.log(
+                        "⚠️ Could not clear old recommendations:",
+                        clearError.message
+                    );
+                }
+
 
                 return null;
             }
 
+
+            // =====================================================
+            // EXTRACT REAL VACANCIES
+            // =====================================================
 
             const vacantBerths =
                 vacancyResponse?.vbd || [];
@@ -400,23 +539,66 @@ class ChartWorkflowService {
             );
 
 
+            console.dir(
+                vacantBerths,
+                {
+                    depth: null
+                }
+            );
+
+
+            // =====================================================
+            // NO VACANCIES
+            // =====================================================
+
             if (!vacantBerths.length) {
 
                 console.log(
-                    "ℹ️ No vacant berths returned by IRCTC."
+                    "\nℹ️ IRCTC returned no vacant berths."
                 );
 
+                console.log(
+                    "Journey Optimizer will NOT run."
+                );
+
+
+                try {
+
+                    await recommendationService
+                        .saveRecommendations(
+                            journey._id,
+                            []
+                        );
+
+                    console.log(
+                        "🧹 Old recommendations cleared."
+                    );
+
+                } catch (clearError) {
+
+                    console.log(
+                        "⚠️ Could not clear old recommendations:",
+                        clearError.message
+                    );
+                }
+
+
+                return null;
             }
 
 
-            // ==========================================
+            // =====================================================
             // RUN OPTIMIZER
-            // ==========================================
+            // =====================================================
 
             return await this.runOptimizer(
+
                 journey,
+
                 chart,
+
                 vacantBerths
+
             );
 
         } catch (error) {
@@ -434,21 +616,27 @@ class ChartWorkflowService {
             );
 
             console.log(
+                "Error:",
                 error.message
             );
 
+
             if (error.stack) {
-                console.log(error.stack);
+
+                console.log(
+                    error.stack
+                );
             }
+
 
             throw error;
         }
     }
 
 
-    // ==========================================
+    // =========================================================
     // JOURNEY OPTIMIZER
-    // ==========================================
+    // =========================================================
 
     async runOptimizer(
         journey,
@@ -475,11 +663,14 @@ class ChartWorkflowService {
                 journey,
 
                 route: {
+
                     stations:
                         chartData.cdd || []
+
                 },
 
-                chart: chartData,
+                chart:
+                    chartData,
 
                 vacancies:
                     vacantBerths || []
@@ -501,6 +692,10 @@ class ChartWorkflowService {
     }
 }
 
+
+// =========================================================
+// EXPORT
+// =========================================================
 
 module.exports =
     new ChartWorkflowService();

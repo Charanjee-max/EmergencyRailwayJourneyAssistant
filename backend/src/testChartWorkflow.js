@@ -13,95 +13,20 @@ async function testChartWorkflow() {
         console.log("🧪 MANUAL CHART WORKFLOW TEST");
         console.log("========================================");
 
-
-        // =====================================================
-        // MONGODB
-        // =====================================================
-
         await mongoose.connect(
             process.env.MONGODB_URI
         );
 
-        console.log(
-            "✅ MongoDB Connected"
-        );
-
+        console.log("✅ MongoDB Connected");
 
         // =====================================================
-        // TEST JOURNEY
-        // =====================================================
-
-        const TRAIN_NUMBER = "12764";
-        const BOARDING_STATION = "SC";
-        const DESTINATION_STATION = "BZA";
-
-        // Today: 31 August 2026
-        const JOURNEY_START =
-            new Date("2026-08-31T00:00:00.000Z");
-
-        const JOURNEY_END =
-            new Date("2026-09-01T00:00:00.000Z");
-
-
-        console.log(
-            "\n🔎 Searching for test journey..."
-        );
-
-        console.log(
-            "Train:",
-            TRAIN_NUMBER
-        );
-
-        console.log(
-            "Source:",
-            BOARDING_STATION
-        );
-
-        console.log(
-            "Destination:",
-            DESTINATION_STATION
-        );
-
-        console.log(
-            "Date:",
-            "2026-08-31"
-        );
-
-
-        // =====================================================
-        // FIND JOURNEY
+        // EXACT TEST JOURNEY
         // =====================================================
 
         const journey =
             await Journey.findOne({
-
-                trainNumber:
-                    TRAIN_NUMBER,
-
-                boardingStation:
-                    BOARDING_STATION,
-
-                destinationStation:
-                    DESTINATION_STATION,
-
-                journeyDate: {
-                    $gte:
-                        JOURNEY_START,
-
-                    $lt:
-                        JOURNEY_END,
-                },
-
-            }).sort({
-
-                createdAt: -1,
-
+                _id: "6a955657de494ea70daf6874"
             });
-
-
-        // =====================================================
-        // JOURNEY NOT FOUND
-        // =====================================================
 
         if (!journey) {
 
@@ -109,33 +34,8 @@ async function testChartWorkflow() {
                 "\n❌ TEST JOURNEY NOT FOUND"
             );
 
-            console.log(
-                "\nCreate this journey first:"
-            );
-
-            console.log(
-                "Train: 12764"
-            );
-
-            console.log(
-                "Source: SC"
-            );
-
-            console.log(
-                "Destination: BZA"
-            );
-
-            console.log(
-                "Date: 2026-08-31"
-            );
-
             return;
         }
-
-
-        // =====================================================
-        // JOURNEY FOUND
-        // =====================================================
 
         console.log(
             "\n========================================"
@@ -175,7 +75,7 @@ async function testChartWorkflow() {
         );
 
         console.log(
-            "Preferred Classes:",
+            "Allowed Classes:",
             journey.allowedClasses
         );
 
@@ -183,7 +83,6 @@ async function testChartWorkflow() {
             "Allow Mixed Class:",
             journey.allowMixedClass
         );
-
 
         // =====================================================
         // START WORKFLOW
@@ -193,11 +92,9 @@ async function testChartWorkflow() {
             "\n🚆 Starting Workflow Manager..."
         );
 
-
         await workflowManager.processJourney(
             journey
         );
-
 
         // =====================================================
         // COMPLETE
@@ -214,7 +111,6 @@ async function testChartWorkflow() {
         console.log(
             "========================================"
         );
-
 
     } catch (error) {
 
@@ -248,6 +144,5 @@ async function testChartWorkflow() {
         );
     }
 }
-
 
 testChartWorkflow();

@@ -19,14 +19,45 @@ export default function AddJourney() {
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState("");
 
-    const today = new Date().toISOString().split("T")[0];
+    // Today's date in local time
+    const getTodayDate = () => {
+        const now = new Date();
+
+        const year = now.getFullYear();
+        const month = String(now.getMonth() + 1).padStart(2, "0");
+        const day = String(now.getDate()).padStart(2, "0");
+
+        return `${year}-${month}-${day}`;
+    };
+
+    const today = getTodayDate();
 
     const handleChange = (e) => {
         const { name, value, type, checked } = e.target;
 
+        let updatedValue =
+            type === "checkbox"
+                ? checked
+                : value;
+
+        // Keep railway station codes uppercase
+        if (
+            name === "boardingStation" ||
+            name === "destinationStation"
+        ) {
+            updatedValue = value
+                .toUpperCase()
+                .replace(/[^A-Z0-9]/g, "");
+        }
+
+        // Keep train number numeric
+        if (name === "trainNumber") {
+            updatedValue = value.replace(/\D/g, "");
+        }
+
         setFormData((prev) => ({
             ...prev,
-            [name]: type === "checkbox" ? checked : value,
+            [name]: updatedValue,
         }));
 
         setError("");
@@ -38,65 +69,216 @@ export default function AddJourney() {
         setError("");
 
         const trainNumber = formData.trainNumber.trim();
-        const source = formData.boardingStation.trim().toUpperCase();
-        const destination = formData.destinationStation.trim().toUpperCase();
 
+        const source = formData.boardingStation
+            .trim()
+            .toUpperCase();
+
+        const destination = formData.destinationStation
+            .trim()
+            .toUpperCase();
+
+        const journeyDate = formData.journeyDate;
+
+        /*
+        ========================================
+        VALIDATION
+        ========================================
+        */
+
+        // Train number
         if (!/^\d{4,6}$/.test(trainNumber)) {
-            setError("Please enter a valid train number.");
+            setError(
+                "Please enter a valid train number (4–6 digits)."
+            );
             return;
         }
 
-        if (source.length !== 4 || destination.length !== 2 && destination.length !== 4) {
-            setError("Please enter valid railway station codes.");
+        // Railway station codes
+        //
+        // Indian Railway station codes used by ERJA:
+        // minimum 2 characters
+        // maximum 5 characters
+        //
+        // Examples:
+        // SC
+        // BZA
+        // BDCR
+        // MUGR
+        //
+        const stationCodeRegex = /^[A-Z0-9]{2,5}$/;
+
+        if (!stationCodeRegex.test(source)) {
+            setError(
+                "Please enter a valid source railway station code."
+            );
             return;
         }
 
+        if (!stationCodeRegex.test(destination)) {
+            setError(
+                "Please enter a valid destination railway station code."
+            );
+            return;
+        }
+
+        // Same station
         if (source === destination) {
-            setError("Source and destination cannot be the same.");
+            setError(
+                "Source and destination cannot be the same."
+            );
             return;
         }
 
-        if (!formData.journeyDate) {
-            setError("Please select a journey date.");
+        // Journey date
+        if (!journeyDate) {
+            setError(
+                "Please select a journey date."
+            );
             return;
         }
+
+        // Journey must not be in the past
+        if (journeyDate < today) {
+            setError(
+                "Journey date cannot be in the past."
+            );
+            return;
+        }
+
+        /*
+        ========================================
+        CREATE JOURNEY PAYLOAD
+        ========================================
+        */
+
+        const payload = {
+            trainNumber,
+
+            journeyDate,
+
+            boardingStation: source,
+
+            destinationStation: destination,
+
+            allowedClasses: [
+                {
+                    class: formData.preferredClass,
+                    enabled: true,
+                },
+            ],
+
+            allowMixedClass:
+                formData.allowMixedClass,
+
+            preferredStrategy:
+                "SINGLE_TICKET",
+        };
+
+        console.log(
+            "========================================"
+        );
+
+        console.log(
+            "🚆 CREATE JOURNEY PAYLOAD"
+        );
+
+        console.log(
+            "========================================"
+        );
+
+        console.log(payload);
+
+        /*
+        ========================================
+        SEND TO BACKEND
+        ========================================
+        */
 
         try {
             setLoading(true);
 
-            const payload = {
-                trainNumber,
+            const response =
+                await createJourney(payload);
 
-                journeyDate: formData.journeyDate,
+            console.log(
+                "========================================"
+            );
 
-                boardingStation: source,
+            console.log(
+                "✅ JOURNEY CREATED SUCCESSFULLY"
+            );
 
-                destinationStation: destination,
+            console.log(
+                "========================================"
+            );
 
-                allowedClasses: [
-                    {
-                        class: formData.preferredClass,
-                        enabled: true,
-                    },
-                ],
+            console.log(response);
 
-                allowMixedClass: formData.allowMixedClass,
-
-                preferredStrategy: "SINGLE_TICKET",
-            };
-
-            console.log("CREATE JOURNEY PAYLOAD =", payload);
-
-            await createJourney(payload);
+            /*
+            ========================================
+            REDIRECT TO DASHBOARD
+            ========================================
+            */
 
             navigate("/dashboard");
-        } catch (error) {
-            console.error("CREATE JOURNEY ERROR =", error);
 
+        } catch (error) {
+
+            console.error(
+                "========================================"
+            );
+
+            console.error(
+                "❌ CREATE JOURNEY ERROR"
+            );
+
+            console.error(
+                "========================================"
+            );
+
+            console.error(error);
+
+            /*
+            ========================================
+            BACKEND ERROR HANDLING
+            ========================================
+            */
+
+            const backendData =
+                error?.response?.data;
+
+            // Validation errors from backend
+            if (
+                backendData?.errors &&
+                Array.isArray(backendData.errors) &&
+                backendData.errors.length > 0
+            ) {
+                const firstError =
+                    backendData.errors[0];
+
+                setError(
+                    firstError.message ||
+                    "Please check the journey details."
+                );
+
+                return;
+            }
+
+            // Normal backend message
+            if (backendData?.message) {
+                setError(
+                    backendData.message
+                );
+
+                return;
+            }
+
+            // Generic error
             setError(
-                error.response?.data?.message ||
                 "Unable to save journey. Please try again."
             );
+
         } finally {
             setLoading(false);
         }
@@ -105,18 +287,26 @@ export default function AddJourney() {
     return (
         <div className="addJourneyPage">
 
-            {/* Back */}
+            {/* ========================================
+                BACK BUTTON
+            ======================================== */}
+
             <button
                 type="button"
                 className="backButton"
-                onClick={() => navigate("/dashboard")}
+                onClick={() =>
+                    navigate("/dashboard")
+                }
             >
                 ← Back to Dashboard
             </button>
 
             <div className="addJourneyLayout">
 
-                {/* LEFT INFORMATION PANEL */}
+                {/* ========================================
+                    LEFT INFORMATION PANEL
+                ======================================== */}
+
                 <div className="journeyInfo">
 
                     <div className="infoBadge">
@@ -129,42 +319,78 @@ export default function AddJourney() {
                     </h1>
 
                     <p className="infoDescription">
-                        Tell ERJA about your railway journey and we'll
-                        monitor availability, analyze vacant berths and
-                        find possible booking strategies.
+                        Tell ERJA about your railway journey
+                        and we'll monitor availability, analyze
+                        vacant berths and find possible booking
+                        strategies.
                     </p>
 
                     <div className="journeySteps">
 
                         <div className="journeyStep">
-                            <div className="stepIcon">🚆</div>
+                            <div className="stepIcon">
+                                🚆
+                            </div>
+
                             <div>
-                                <strong>Enter Journey</strong>
-                                <span>Provide your train and route details.</span>
+                                <strong>
+                                    Enter Journey
+                                </strong>
+
+                                <span>
+                                    Provide your train and
+                                    route details.
+                                </span>
                             </div>
                         </div>
 
                         <div className="journeyStep">
-                            <div className="stepIcon">🔍</div>
+                            <div className="stepIcon">
+                                🔍
+                            </div>
+
                             <div>
-                                <strong>Monitor Availability</strong>
-                                <span>ERJA tracks available seats.</span>
+                                <strong>
+                                    Monitor Availability
+                                </strong>
+
+                                <span>
+                                    ERJA tracks available seats.
+                                </span>
                             </div>
                         </div>
 
                         <div className="journeyStep">
-                            <div className="stepIcon">🧠</div>
+                            <div className="stepIcon">
+                                🧠
+                            </div>
+
                             <div>
-                                <strong>Analyze & Optimize</strong>
-                                <span>Find practical booking possibilities.</span>
+                                <strong>
+                                    Analyze & Optimize
+                                </strong>
+
+                                <span>
+                                    Find practical booking
+                                    possibilities.
+                                </span>
                             </div>
                         </div>
 
                         <div className="journeyStep">
-                            <div className="stepIcon">🎯</div>
+                            <div className="stepIcon">
+                                🎯
+                            </div>
+
                             <div>
-                                <strong>Get Recommendation</strong>
-                                <span>Receive the best available strategy.</span>
+                                <strong>
+                                    Get Recommendation
+                                </strong>
+
+                                <span>
+                                    Receive the best available
+                                    strategy.
+                                </span>
                             </div>
                         </div>
 
@@ -172,11 +398,16 @@ export default function AddJourney() {
 
                 </div>
 
-                {/* FORM CARD */}
+                {/* ========================================
+                    FORM CARD
+                ======================================== */}
+
                 <div className="journeyCard">
 
                     <div className="cardHeader">
+
                         <div>
+
                             <span className="cardLabel">
                                 JOURNEY REQUEST
                             </span>
@@ -186,14 +417,21 @@ export default function AddJourney() {
                             </h2>
 
                             <p>
-                                Enter the details you want ERJA to monitor.
+                                Enter the details you want
+                                ERJA to monitor.
                             </p>
+
                         </div>
 
                         <div className="cardTrainIcon">
                             🚆
                         </div>
+
                     </div>
+
+                    {/* ========================================
+                        ERROR
+                    ======================================== */}
 
                     {error && (
                         <div className="formError">
@@ -203,128 +441,198 @@ export default function AddJourney() {
 
                     <form onSubmit={handleSubmit}>
 
-                        {/* TRAIN NUMBER */}
+                        {/* ========================================
+                            TRAIN NUMBER
+                        ======================================== */}
+
                         <div className="formGroup">
+
                             <label htmlFor="trainNumber">
                                 Train Number
                             </label>
 
                             <div className="inputWrapper">
-                                <span>🚆</span>
+
+                                <span>
+                                    🚆
+                                </span>
 
                                 <input
                                     id="trainNumber"
                                     type="text"
                                     name="trainNumber"
-                                    value={formData.trainNumber}
-                                    onChange={handleChange}
+                                    value={
+                                        formData.trainNumber
+                                    }
+                                    onChange={
+                                        handleChange
+                                    }
                                     placeholder="e.g. 12746"
                                     inputMode="numeric"
                                     maxLength="6"
                                     required
                                 />
+
                             </div>
 
                             <small>
-                                Enter the Indian Railways train number.
+                                Enter the Indian Railways
+                                train number.
                             </small>
+
                         </div>
 
-                        {/* DATE */}
+                        {/* ========================================
+                            JOURNEY DATE
+                        ======================================== */}
+
                         <div className="formGroup">
+
                             <label htmlFor="journeyDate">
                                 Journey Date
                             </label>
 
                             <div className="inputWrapper">
-                                <span>📅</span>
+
+                                <span>
+                                    📅
+                                </span>
 
                                 <input
                                     id="journeyDate"
                                     type="date"
                                     name="journeyDate"
-                                    value={formData.journeyDate}
-                                    onChange={handleChange}
+                                    value={
+                                        formData.journeyDate
+                                    }
+                                    onChange={
+                                        handleChange
+                                    }
                                     min={today}
                                     required
                                 />
+
                             </div>
+
                         </div>
 
-                        {/* ROUTE */}
+                        {/* ========================================
+                            ROUTE
+                        ======================================== */}
+
                         <div className="routeRow">
 
+                            {/* SOURCE */}
+
                             <div className="formGroup">
+
                                 <label htmlFor="boardingStation">
                                     Source
                                 </label>
 
                                 <div className="inputWrapper">
-                                    <span>📍</span>
+
+                                    <span>
+                                        📍
+                                    </span>
 
                                     <input
                                         id="boardingStation"
                                         type="text"
                                         name="boardingStation"
-                                        value={formData.boardingStation}
-                                        onChange={handleChange}
-                                        placeholder="BDCR"
-                                        maxLength="4"
+                                        value={
+                                            formData.boardingStation
+                                        }
+                                        onChange={
+                                            handleChange
+                                        }
+                                        placeholder="SC"
+                                        maxLength="5"
+                                        minLength="2"
                                         required
                                     />
+
                                 </div>
 
                                 <small>
-                                    Station code
+                                    Railway station code
                                 </small>
+
                             </div>
+
+                            {/* ARROW */}
 
                             <div className="routeArrow">
                                 →
                             </div>
 
+                            {/* DESTINATION */}
+
                             <div className="formGroup">
+
                                 <label htmlFor="destinationStation">
                                     Destination
                                 </label>
 
                                 <div className="inputWrapper">
-                                    <span>📍</span>
+
+                                    <span>
+                                        📍
+                                    </span>
 
                                     <input
                                         id="destinationStation"
                                         type="text"
                                         name="destinationStation"
-                                        value={formData.destinationStation}
-                                        onChange={handleChange}
-                                        placeholder="SC"
-                                        maxLength="4"
+                                        value={
+                                            formData.destinationStation
+                                        }
+                                        onChange={
+                                            handleChange
+                                        }
+                                        placeholder="BZA"
+                                        maxLength="5"
+                                        minLength="2"
                                         required
                                     />
+
                                 </div>
 
                                 <small>
-                                    Station code
+                                    Railway station code
                                 </small>
+
                             </div>
 
                         </div>
 
-                        {/* CLASS */}
+                        {/* ========================================
+                            PREFERRED CLASS
+                        ======================================== */}
+
                         <div className="formGroup">
+
                             <label htmlFor="preferredClass">
                                 Preferred Class
                             </label>
 
                             <div className="inputWrapper">
-                                <span>💺</span>
+
+                                <span>
+                                    💺
+                                </span>
 
                                 <select
                                     id="preferredClass"
                                     name="preferredClass"
-                                    value={formData.preferredClass}
-                                    onChange={handleChange}
+                                    value={
+                                        formData.preferredClass
+                                    }
+                                    onChange={
+                                        handleChange
+                                    }
                                 >
+
                                     <option value="1A">
                                         1A — First AC
                                     </option>
@@ -344,11 +652,17 @@ export default function AddJourney() {
                                     <option value="SL">
                                         SL — Sleeper
                                     </option>
+
                                 </select>
+
                             </div>
+
                         </div>
 
-                        {/* MIXED CLASS */}
+                        {/* ========================================
+                            MIXED CLASS
+                        ======================================== */}
+
                         <label
                             className={`mixedClassOption ${
                                 formData.allowMixedClass
@@ -360,33 +674,47 @@ export default function AddJourney() {
                             <input
                                 type="checkbox"
                                 name="allowMixedClass"
-                                checked={formData.allowMixedClass}
-                                onChange={handleChange}
+                                checked={
+                                    formData.allowMixedClass
+                                }
+                                onChange={
+                                    handleChange
+                                }
                             />
 
                             <div className="customCheckbox">
-                                {formData.allowMixedClass && "✓"}
+
+                                {formData.allowMixedClass &&
+                                    "✓"}
+
                             </div>
 
                             <div className="mixedClassText">
+
                                 <strong>
                                     Allow Mixed Class
                                 </strong>
 
                                 <span>
-                                    Allow ERJA to recommend different
-                                    classes for different journey segments.
+                                    Allow ERJA to recommend
+                                    different classes for
+                                    different journey segments.
                                 </span>
+
                             </div>
 
                         </label>
 
-                        {/* SUBMIT */}
+                        {/* ========================================
+                            SUBMIT
+                        ======================================== */}
+
                         <button
                             type="submit"
                             className="saveJourneyButton"
                             disabled={loading}
                         >
+
                             {loading ? (
                                 <>
                                     <span className="spinner" />
@@ -397,13 +725,18 @@ export default function AddJourney() {
                                     Start Monitoring →
                                 </>
                             )}
+
                         </button>
 
                     </form>
 
+                    {/* ========================================
+                        SECURITY NOTE
+                    ======================================== */}
+
                     <div className="secureNote">
-                        🔒 Your journey information is securely stored
-                        and used only for monitoring.
+                        🔒 Your journey information is securely
+                        stored and used only for monitoring.
                     </div>
 
                 </div>

@@ -11,6 +11,9 @@ const profileRoutes = require("./modules/profile/profile.routes");
 const settingsRoutes = require("./modules/settings/settings.routes");
 const notificationRoutes = require("./modules/notification/notification.routes");
 
+// Station
+const stationRoutes = require("./modules/station/station.routes");
+
 const app = express();
 
 
@@ -68,6 +71,13 @@ app.use(
 app.use(
   "/api/train",
   trainRoutes
+);
+
+
+// Station
+app.use(
+  "/api/station",
+  stationRoutes
 );
 
 

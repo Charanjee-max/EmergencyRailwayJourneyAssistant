@@ -213,7 +213,7 @@
 
     backdrop-filter: blur(14px);
 
-    overflow: hidden;
+    overflow: visible;
 }
 
 .journeyCard::before {
@@ -234,6 +234,8 @@
             #4d9bea,
             #1769c2
         );
+
+    border-radius: 24px 24px 0 0;
 }
 
 
@@ -358,6 +360,8 @@
 ========================================================= */
 
 .inputWrapper {
+    position: relative;
+
     display: flex;
 
     align-items: center;
@@ -427,6 +431,156 @@
 
 
 /* =========================================================
+   STATION AUTOCOMPLETE
+========================================================= */
+
+.autocompleteWrapper {
+    position: relative;
+
+    width: 100%;
+}
+
+.autocompleteDropdown {
+    position: absolute;
+
+    top: calc(100% + 6px);
+
+    left: 0;
+    right: 0;
+
+    z-index: 2000;
+
+    max-height: 260px;
+
+    overflow-y: auto;
+
+    border: 1px solid #d9e4f0;
+
+    border-radius: 12px;
+
+    background: #ffffff;
+
+    box-shadow:
+        0 12px 30px rgba(15, 23, 42, 0.15);
+
+    animation: autocompleteAppear .15s ease;
+}
+
+@keyframes autocompleteAppear {
+
+    from {
+        opacity: 0;
+        transform: translateY(-4px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+
+}
+
+.stationSuggestion {
+    width: 100%;
+
+    display: flex;
+
+    align-items: center;
+
+    gap: 12px;
+
+    padding: 12px 14px;
+
+    border: none;
+
+    border-bottom: 1px solid #edf2f7;
+
+    background: #ffffff;
+
+    color: #172033;
+
+    cursor: pointer;
+
+    text-align: left;
+
+    transition:
+        background .15s ease,
+        transform .15s ease;
+}
+
+.stationSuggestion:last-child {
+    border-bottom: none;
+}
+
+.stationSuggestion:hover {
+    background: #f1f7ff;
+}
+
+.stationSuggestion:active {
+    transform: scale(.99);
+}
+
+.stationSuggestion strong {
+    min-width: 58px;
+
+    color: #1769c2;
+
+    font-size: 14px;
+
+    font-weight: 800;
+}
+
+.stationSuggestion span {
+    overflow: hidden;
+
+    color: #46566d;
+
+    font-size: 13px;
+
+    white-space: nowrap;
+
+    text-overflow: ellipsis;
+}
+
+
+/* =========================================================
+   STATION LOADING
+========================================================= */
+
+.stationSearchSpinner {
+    position: absolute;
+
+    right: 13px;
+
+    width: 18px;
+    height: 18px;
+
+    display: flex;
+
+    align-items: center;
+    justify-content: center;
+
+    color: #1769c2;
+
+    font-size: 18px;
+
+    animation: stationSpin .7s linear infinite;
+}
+
+@keyframes stationSpin {
+
+    from {
+        transform: rotate(0deg);
+    }
+
+    to {
+        transform: rotate(360deg);
+    }
+
+}
+
+
+/* =========================================================
    ROUTE
 ========================================================= */
 
@@ -458,6 +612,8 @@
 ========================================================= */
 
 .mixedClassOption {
+    position: relative;
+
     display: flex;
 
     align-items: center;
@@ -642,9 +798,11 @@
 }
 
 @keyframes spin {
+
     to {
         transform: rotate(360deg);
     }
+
 }
 
 
@@ -697,6 +855,7 @@
     .journeyInfo h1 span {
         display: inline;
     }
+
 }
 
 
@@ -732,4 +891,9 @@
 
         font-size: 22px;
     }
+
+    .autocompleteDropdown {
+        max-height: 220px;
+    }
+
 }

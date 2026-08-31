@@ -14,6 +14,10 @@ async function testChartWorkflow() {
         console.log("========================================");
 
 
+        // =====================================================
+        // MONGODB
+        // =====================================================
+
         await mongoose.connect(
             process.env.MONGODB_URI
         );
@@ -23,32 +27,126 @@ async function testChartWorkflow() {
         );
 
 
+        // =====================================================
+        // TEST JOURNEY
+        // =====================================================
+
+        const TRAIN_NUMBER = "12764";
+        const BOARDING_STATION = "SC";
+        const DESTINATION_STATION = "BZA";
+
+        // Today: 31 August 2026
+        const JOURNEY_START =
+            new Date("2026-08-31T00:00:00.000Z");
+
+        const JOURNEY_END =
+            new Date("2026-09-01T00:00:00.000Z");
+
+
+        console.log(
+            "\n🔎 Searching for test journey..."
+        );
+
+        console.log(
+            "Train:",
+            TRAIN_NUMBER
+        );
+
+        console.log(
+            "Source:",
+            BOARDING_STATION
+        );
+
+        console.log(
+            "Destination:",
+            DESTINATION_STATION
+        );
+
+        console.log(
+            "Date:",
+            "2026-08-31"
+        );
+
+
+        // =====================================================
+        // FIND JOURNEY
+        // =====================================================
+
         const journey =
             await Journey.findOne({
-                trainNumber: "12746",
-                boardingStation: "BDCR",
-                destinationStation: "SC",
+
+                trainNumber:
+                    TRAIN_NUMBER,
+
+                boardingStation:
+                    BOARDING_STATION,
+
+                destinationStation:
+                    DESTINATION_STATION,
+
                 journeyDate: {
-                    $gte: new Date("2026-09-06T00:00:00.000Z"),
-                    $lt: new Date("2026-09-07T00:00:00.000Z")
-                }
+                    $gte:
+                        JOURNEY_START,
+
+                    $lt:
+                        JOURNEY_END,
+                },
+
             }).sort({
-                createdAt: -1
+
+                createdAt: -1,
+
             });
 
+
+        // =====================================================
+        // JOURNEY NOT FOUND
+        // =====================================================
 
         if (!journey) {
 
             console.log(
-                "❌ 06/09/2026 journey not found."
+                "\n❌ TEST JOURNEY NOT FOUND"
+            );
+
+            console.log(
+                "\nCreate this journey first:"
+            );
+
+            console.log(
+                "Train: 12764"
+            );
+
+            console.log(
+                "Source: SC"
+            );
+
+            console.log(
+                "Destination: BZA"
+            );
+
+            console.log(
+                "Date: 2026-08-31"
             );
 
             return;
         }
 
 
+        // =====================================================
+        // JOURNEY FOUND
+        // =====================================================
+
         console.log(
-            "\nJourney Found:"
+            "\n========================================"
+        );
+
+        console.log(
+            "🚆 JOURNEY FOUND"
+        );
+
+        console.log(
+            "========================================"
         );
 
         console.log(
@@ -76,6 +174,20 @@ async function testChartWorkflow() {
             journey.destinationStation
         );
 
+        console.log(
+            "Preferred Classes:",
+            journey.allowedClasses
+        );
+
+        console.log(
+            "Allow Mixed Class:",
+            journey.allowMixedClass
+        );
+
+
+        // =====================================================
+        // START WORKFLOW
+        // =====================================================
 
         console.log(
             "\n🚆 Starting Workflow Manager..."
@@ -86,6 +198,10 @@ async function testChartWorkflow() {
             journey
         );
 
+
+        // =====================================================
+        // COMPLETE
+        // =====================================================
 
         console.log(
             "\n========================================"
@@ -103,10 +219,19 @@ async function testChartWorkflow() {
     } catch (error) {
 
         console.error(
-            "\n❌ TEST FAILED"
+            "\n========================================"
         );
 
         console.error(
+            "❌ TEST FAILED"
+        );
+
+        console.error(
+            "========================================"
+        );
+
+        console.error(
+            "Message:",
             error.message
         );
 
@@ -119,7 +244,7 @@ async function testChartWorkflow() {
         await mongoose.disconnect();
 
         console.log(
-            "MongoDB disconnected."
+            "\nMongoDB disconnected."
         );
     }
 }

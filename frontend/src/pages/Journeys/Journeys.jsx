@@ -1,40 +1,38 @@
-import { useCallback, useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import Navbar from "../../components/Navbar/Navbar";
 import "./Journeys.css";
 
-const API_BASE_URL = "http://localhost:5000/api";
+const API_BASE_URL = "http://localhost:5000";
 
-export default function Journeys() {
+function Journeys() {
     const navigate = useNavigate();
 
     const [journeys, setJourneys] = useState([]);
     const [loading, setLoading] = useState(true);
-    const [refreshing, setRefreshing] = useState(false);
     const [error, setError] = useState("");
 
-    const token = localStorage.getItem("token");
-
-    // =========================================
+    // =========================================================
     // FETCH JOURNEYS
-    // =========================================
+    // =========================================================
 
-    const loadJourneys = useCallback(async (refresh = false) => {
+    const fetchJourneys = async () => {
         try {
-            if (refresh) {
-                setRefreshing(true);
-            } else {
-                setLoading(true);
-            }
-
+            setLoading(true);
             setError("");
 
+            const token = localStorage.getItem("token");
+
+            if (!token) {
+                setError("Please login again.");
+                return;
+            }
+
             const response = await fetch(
-                `${API_BASE_URL}/journey`,
+                `${API_BASE_URL}/api/journey`,
                 {
                     method: "GET",
                     headers: {
-                        Accept: "application/json",
+                        "Content-Type": "application/json",
                         Authorization: `Bearer ${token}`,
                     },
                 }
@@ -44,40 +42,17 @@ export default function Journeys() {
 
             if (!response.ok) {
                 throw new Error(
-                    result?.message ||
-                    "Failed to load journeys."
+                    result.message ||
+                    "Failed to fetch journeys."
                 );
             }
 
-            /*
-             * Supports common backend response formats:
-             *
-             * {
-             *   success: true,
-             *   data: [...]
-             * }
-             *
-             * or
-             *
-             * {
-             *   success: true,
-             *   journeys: [...]
-             * }
-             */
-
-            const data =
-                result?.data ||
-                result?.journeys ||
-                result?.results ||
-                [];
-
-            setJourneys(
-                Array.isArray(data) ? data : []
-            );
+            setJourneys(result.data || []);
 
         } catch (err) {
+
             console.error(
-                "Journey loading error:",
+                "Failed to fetch journeys:",
                 err
             );
 
@@ -85,54 +60,53 @@ export default function Journeys() {
                 err.message ||
                 "Unable to load journeys."
             );
+
         } finally {
             setLoading(false);
-            setRefreshing(false);
         }
-    }, [token]);
+    };
 
 
-    // =========================================
-    // INITIAL LOAD
-    // =========================================
-
-    useEffect(() => {
-        loadJourneys();
-    }, [loadJourneys]);
-
-
-    // =========================================
+    // =========================================================
     // DELETE JOURNEY
-    // =========================================
+    // =========================================================
 
     const handleDelete = async (journeyId) => {
-        const confirmed = window.confirm(
-            "Are you sure you want to delete this journey?"
-        );
+
+        const confirmed =
+            window.confirm(
+                "Are you sure you want to delete this journey?"
+            );
 
         if (!confirmed) {
             return;
         }
 
         try {
-            setError("");
 
-            const response = await fetch(
-                `${API_BASE_URL}/journey/${journeyId}`,
-                {
-                    method: "DELETE",
-                    headers: {
-                        Accept: "application/json",
-                        Authorization: `Bearer ${token}`,
-                    },
-                }
-            );
+            const token =
+                localStorage.getItem("token");
 
-            const result = await response.json();
+            const response =
+                await fetch(
+                    `${API_BASE_URL}/api/journey/${journeyId}`,
+                    {
+                        method: "DELETE",
+                        headers: {
+                            "Content-Type":
+                                "application/json",
+                            Authorization:
+                                `Bearer ${token}`,
+                        },
+                    }
+                );
+
+            const result =
+                await response.json();
 
             if (!response.ok) {
                 throw new Error(
-                    result?.message ||
+                    result.message ||
                     "Failed to delete journey."
                 );
             }
@@ -140,20 +114,18 @@ export default function Journeys() {
             setJourneys((previous) =>
                 previous.filter(
                     (journey) =>
-                        String(
-                            journey._id ||
-                            journey.id
-                        ) !== String(journeyId)
+                        journey._id !== journeyId
                 )
             );
 
         } catch (err) {
+
             console.error(
-                "Journey deletion error:",
+                "Delete journey error:",
                 err
             );
 
-            setError(
+            alert(
                 err.message ||
                 "Unable to delete journey."
             );
@@ -161,22 +133,62 @@ export default function Journeys() {
     };
 
 
-    // =========================================
+    // =========================================================
+    // OPEN RECOMMENDATIONS
+    // =========================================================
+
+    const handleRecommendations = (
+        journeyId,
+        chartPrepared
+    ) => {
+
+        // Do not open recommendations when
+        // the chart has not been prepared.
+
+        if (!chartPrepared) {
+
+            alert(
+                "IRCTC chart has not been prepared yet. Recommendations will be available after chart preparation."
+            );
+
+            return;
+        }
+
+        navigate(
+            `/recommendation/${journeyId}`
+        );
+    };
+
+
+    // =========================================================
+    // LOAD DATA
+    // =========================================================
+
+    useEffect(() => {
+        fetchJourneys();
+    }, []);
+
+
+    // =========================================================
     // DATE FORMATTER
-    // =========================================
+    // =========================================================
 
-    const formatDate = (value) => {
-        if (!value) {
+    const formatDate = (date) => {
+
+        if (!date) {
             return "—";
         }
 
-        const date = new Date(value);
+        const parsedDate =
+            new Date(date);
 
-        if (Number.isNaN(date.getTime())) {
+        if (Number.isNaN(
+            parsedDate.getTime()
+        )) {
             return "—";
         }
 
-        return date.toLocaleDateString(
+        return parsedDate.toLocaleDateString(
             "en-IN",
             {
                 day: "2-digit",
@@ -187,588 +199,541 @@ export default function Journeys() {
     };
 
 
-    // =========================================
+    // =========================================================
     // CLASS FORMATTER
-    // =========================================
+    // =========================================================
 
-    const getClassName = (journey) => {
-        const classes =
-            journey.preferredClasses ||
-            journey.preferredClass ||
-            journey.classCode ||
-            journey.class;
-
-        if (Array.isArray(classes)) {
-            return classes.join(", ");
-        }
-
-        return classes || "—";
-    };
-
-
-    // =========================================
-    // STATUS
-    // =========================================
-
-    const getStatus = (journey) => {
-        return (
-            journey.status ||
-            journey.monitoringStatus ||
-            "PENDING"
-        );
-    };
-
-
-    // =========================================
-    // STATUS CLASS
-    // =========================================
-
-    const getStatusClass = (status) => {
-        const normalized =
-            String(status)
-                .toLowerCase()
-                .replace(/\s+/g, "_");
+    const getClasses = (journey) => {
 
         if (
-            normalized === "active" ||
-            normalized === "monitoring" ||
-            normalized === "success" ||
-            normalized === "completed"
+            !journey.allowedClasses ||
+            !journey.allowedClasses.length
         ) {
-            return "status-active";
+            return "—";
         }
+
+        return journey.allowedClasses
+            .filter(
+                (item) => item.enabled
+            )
+            .map(
+                (item) => item.class
+            )
+            .join(", ");
+    };
+
+
+    // =========================================================
+    // CHART STATUS
+    // =========================================================
+
+    const getChartStatus = (journey) => {
 
         if (
-            normalized === "cancelled" ||
-            normalized === "canceled" ||
-            normalized === "failed"
+            !journey.chart ||
+            typeof journey.chart.chartPrepared !==
+                "boolean"
         ) {
-            return "status-danger";
+            return {
+                type: "unknown",
+                label: "Chart Status Unknown",
+            };
         }
 
-        return "status-pending";
+
+        if (
+            journey.chart.chartPrepared === true
+        ) {
+            return {
+                type: "prepared",
+                label: "Chart Prepared",
+            };
+        }
+
+
+        return {
+            type: "not-prepared",
+            label: "Chart Not Prepared",
+        };
     };
 
 
-    // =========================================
-    // VIEW JOURNEY
-    // =========================================
-
-    const handleView = (journey) => {
-        const id =
-            journey._id ||
-            journey.id;
-
-        if (!id) {
-            return;
-        }
-
-        navigate(`/recommendation/${id}`);
-    };
-
-
-    // =========================================
+    // =========================================================
     // LOADING
-    // =========================================
+    // =========================================================
 
     if (loading) {
+
         return (
             <div className="journeys-page">
-                <Navbar />
+
+                <div className="journeys-header">
+                    <h1>My Journeys</h1>
+                    <p>
+                        Monitor your railway journeys
+                        and seat availability.
+                    </p>
+                </div>
 
                 <div className="journeys-loading">
-
-                    <div className="journeys-loading-icon">
-                        🚆
-                    </div>
-
-                    <span>
-                        ERJA JOURNEY CENTER
-                    </span>
-
-                    <h1>
-                        Loading Journeys
-                    </h1>
-
-                    <p>
-                        Fetching your monitored railway
-                        journeys...
-                    </p>
-
-                    <div className="loading-line">
-                        <div />
-                    </div>
-
+                    Loading journeys...
                 </div>
+
             </div>
         );
     }
 
 
-    // =========================================
-    // MAIN PAGE
-    // =========================================
+    // =========================================================
+    // ERROR
+    // =========================================================
+
+    if (error) {
+
+        return (
+            <div className="journeys-page">
+
+                <div className="journeys-header">
+                    <h1>My Journeys</h1>
+                    <p>
+                        Monitor your railway journeys
+                        and seat availability.
+                    </p>
+                </div>
+
+                <div className="journeys-error">
+                    <h3>
+                        Unable to load journeys
+                    </h3>
+
+                    <p>
+                        {error}
+                    </p>
+
+                    <button
+                        onClick={fetchJourneys}
+                    >
+                        Try Again
+                    </button>
+                </div>
+
+            </div>
+        );
+    }
+
+
+    // =========================================================
+    // PAGE
+    // =========================================================
 
     return (
         <div className="journeys-page">
 
-            <Navbar />
+            {/* =================================================
+                HEADER
+            ================================================= */}
 
-            <main className="journeys-container">
+            <div className="journeys-header">
 
-                {/* =================================
-                    HEADER
-                ================================== */}
+                <div>
 
-                <section className="journeys-header">
+                    <h1>
+                        My Journeys
+                    </h1>
 
-                    <div>
+                    <p>
+                        Monitor your railway
+                        journeys and seat
+                        availability.
+                    </p>
 
-                        <span className="journeys-eyebrow">
-                            ERJA CONTROL CENTER
-                        </span>
+                </div>
 
-                        <h1>
-                            My Journeys
-                        </h1>
+                <button
+                    className="create-journey-button"
+                    onClick={() =>
+                        navigate(
+                            "/journeys/create"
+                        )
+                    }
+                >
+                    + New Journey
+                </button>
 
-                        <p>
-                            Manage and monitor all your
-                            railway journeys from one place.
-                        </p>
+            </div>
 
+
+            {/* =================================================
+                JOURNEY COUNT
+            ================================================= */}
+
+            <div className="journey-summary">
+
+                <div className="summary-card">
+
+                    <span className="summary-number">
+                        {journeys.length}
+                    </span>
+
+                    <span className="summary-label">
+                        Total Journeys
+                    </span>
+
+                </div>
+
+                <div className="summary-card">
+
+                    <span className="summary-number">
+                        {
+                            journeys.filter(
+                                (journey) =>
+                                    journey.chart &&
+                                    journey.chart
+                                        .chartPrepared ===
+                                        true
+                            ).length
+                        }
+                    </span>
+
+                    <span className="summary-label">
+                        Charts Prepared
+                    </span>
+
+                </div>
+
+                <div className="summary-card">
+
+                    <span className="summary-number">
+                        {
+                            journeys.filter(
+                                (journey) =>
+                                    !journey.chart ||
+                                    journey.chart
+                                        .chartPrepared !==
+                                        true
+                            ).length
+                        }
+                    </span>
+
+                    <span className="summary-label">
+                        Waiting for Chart
+                    </span>
+
+                </div>
+
+            </div>
+
+
+            {/* =================================================
+                EMPTY STATE
+            ================================================= */}
+
+            {journeys.length === 0 ? (
+
+                <div className="journeys-empty">
+
+                    <div className="empty-icon">
+                        🚆
                     </div>
 
+                    <h2>
+                        No journeys yet
+                    </h2>
+
+                    <p>
+                        Create a journey to start
+                        monitoring railway
+                        availability.
+                    </p>
 
                     <button
-                        className="add-journey-button"
                         onClick={() =>
-                            navigate("/add-journey")
+                            navigate(
+                                "/journeys/create"
+                            )
                         }
                     >
-                        + Add Journey
+                        Create Journey
                     </button>
 
-                </section>
+                </div>
 
+            ) : (
 
-                {/* =================================
-                    ERROR
-                ================================== */}
+                /* =================================================
+                   JOURNEYS TABLE
+                ================================================= */
 
-                {error && (
+                <div className="journeys-table-container">
 
-                    <div className="journeys-error">
+                    <table className="journeys-table">
 
-                        <span>⚠️</span>
+                        <thead>
 
-                        <p>
-                            {error}
-                        </p>
+                            <tr>
 
-                        <button
-                            onClick={() =>
-                                setError("")
-                            }
-                        >
-                            ×
-                        </button>
+                                <th>
+                                    TRAIN
+                                </th>
 
-                    </div>
+                                <th>
+                                    ROUTE
+                                </th>
 
-                )}
+                                <th>
+                                    JOURNEY DATE
+                                </th>
 
+                                <th>
+                                    CLASS
+                                </th>
 
-                {/* =================================
-                    SUMMARY CARDS
-                ================================== */}
+                                <th>
+                                    STATUS
+                                </th>
 
-                <section className="journey-summary">
+                                <th>
+                                    CHART STATUS
+                                </th>
 
-                    <div className="summary-card blue">
+                                <th>
+                                    ACTIONS
+                                </th>
 
-                        <div className="summary-icon">
-                            🚆
-                        </div>
-
-                        <div>
-                            <strong>
-                                {journeys.length}
-                            </strong>
-
-                            <span>
-                                Total Journeys
-                            </span>
-                        </div>
-
-                    </div>
-
-
-                    <div className="summary-card green">
+                            </tr>
 
-                        <div className="summary-icon">
-                            📡
-                        </div>
+                        </thead>
 
-                        <div>
-                            <strong>
-                                {
-                                    journeys.filter(
-                                        (journey) => {
-                                            const status =
-                                                getStatus(
-                                                    journey
-                                                ).toLowerCase();
 
-                                            return (
-                                                status ===
-                                                    "pending" ||
-                                                status ===
-                                                    "active" ||
-                                                status ===
-                                                    "monitoring"
-                                            );
-                                        }
-                                    ).length
-                                }
-                            </strong>
+                        <tbody>
 
-                            <span>
-                                Monitoring
-                            </span>
-                        </div>
+                            {journeys.map(
+                                (journey) => {
 
-                    </div>
+                                    const chartStatus =
+                                        getChartStatus(
+                                            journey
+                                        );
 
+                                    const chartPrepared =
+                                        chartStatus.type ===
+                                        "prepared";
 
-                    <div className="summary-card orange">
 
-                        <div className="summary-icon">
-                            ✨
-                        </div>
+                                    return (
 
-                        <div>
-                            <strong>
-                                {
-                                    journeys.filter(
-                                        (journey) =>
-                                            journey.recommendation ||
-                                            journey.hasRecommendation
-                                    ).length
-                                }
-                            </strong>
+                                        <tr
+                                            key={
+                                                journey._id
+                                            }
+                                        >
 
-                            <span>
-                                Recommendations
-                            </span>
-                        </div>
-
-                    </div>
+                                            {/* TRAIN */}
 
+                                            <td>
 
-                    <div className="summary-card red">
+                                                <div className="train-info">
 
-                        <div className="summary-icon">
-                            ⚠️
-                        </div>
+                                                    <strong>
+                                                        {
+                                                            journey.trainNumber
+                                                        }
+                                                    </strong>
 
-                        <div>
-                            <strong>
-                                {
-                                    journeys.filter(
-                                        (journey) => {
-                                            const status =
-                                                getStatus(
-                                                    journey
-                                                ).toLowerCase();
-
-                                            return (
-                                                status ===
-                                                    "failed" ||
-                                                status ===
-                                                    "cancelled" ||
-                                                status ===
-                                                    "canceled"
-                                            );
-                                        }
-                                    ).length
-                                }
-                            </strong>
+                                                </div>
 
-                            <span>
-                                Alerts
-                            </span>
-                        </div>
+                                            </td>
 
-                    </div>
 
-                </section>
+                                            {/* ROUTE */}
 
+                                            <td>
 
-                {/* =================================
-                    TOOLBAR
-                ================================== */}
+                                                <div className="route-info">
 
-                <section className="journeys-toolbar">
+                                                    <strong>
+                                                        {
+                                                            journey.boardingStation
+                                                        }
+                                                    </strong>
 
-                    <div>
+                                                    <span>
+                                                        →
+                                                    </span>
 
-                        <span>
-                            MONITORED JOURNEYS
-                        </span>
+                                                    <strong>
+                                                        {
+                                                            journey.destinationStation
+                                                        }
+                                                    </strong>
 
-                        <strong>
-                            All Your Journeys
-                        </strong>
+                                                </div>
 
-                    </div>
+                                            </td>
 
 
-                    <div className="journeys-toolbar-actions">
+                                            {/* DATE */}
 
-                        <button
-                            onClick={() =>
-                                loadJourneys(true)
-                            }
-                            disabled={refreshing}
-                        >
-                            {refreshing
-                                ? "Refreshing..."
-                                : "↻ Refresh"}
-                        </button>
+                                            <td>
 
-                        <button
-                            className="toolbar-add"
-                            onClick={() =>
-                                navigate("/add-journey")
-                            }
-                        >
-                            + Add New Journey
-                        </button>
+                                                {
+                                                    formatDate(
+                                                        journey.journeyDate
+                                                    )
+                                                }
 
-                    </div>
+                                            </td>
 
-                </section>
 
+                                            {/* CLASS */}
 
-                {/* =================================
-                    EMPTY STATE
-                ================================== */}
+                                            <td>
 
-                {journeys.length === 0 && (
+                                                <div className="class-info">
 
-                    <section className="journeys-empty">
+                                                    {
+                                                        getClasses(
+                                                            journey
+                                                        )
+                                                    }
 
-                        <div className="empty-icon">
-                            🚆
-                        </div>
+                                                    {journey.allowMixedClass && (
+                                                        <span className="mixed-class-badge">
+                                                            Mixed
+                                                        </span>
+                                                    )}
 
-                        <span>
-                            NO JOURNEYS
-                        </span>
+                                                </div>
 
-                        <h2>
-                            No Journeys Yet
-                        </h2>
+                                            </td>
 
-                        <p>
-                            Add your first railway journey
-                            and ERJA will start monitoring
-                            availability for you.
-                        </p>
 
-                        <button
-                            onClick={() =>
-                                navigate("/add-journey")
-                            }
-                        >
-                            + Add Your First Journey
-                        </button>
+                                            {/* JOURNEY STATUS */}
 
-                    </section>
+                                            <td>
 
-                )}
-
-
-                {/* =================================
-                    JOURNEY TABLE
-                ================================== */}
-
-                {journeys.length > 0 && (
-
-                    <section className="journeys-table-card">
-
-                        <div className="table-wrapper">
-
-                            <table>
-
-                                <thead>
-
-                                    <tr>
-                                        <th>TRAIN</th>
-                                        <th>ROUTE</th>
-                                        <th>DATE</th>
-                                        <th>CLASS</th>
-                                        <th>STATUS</th>
-                                        <th>ACTION</th>
-                                    </tr>
-
-                                </thead>
-
-
-                                <tbody>
-
-                                    {journeys.map(
-                                        (journey) => {
-
-                                            const id =
-                                                journey._id ||
-                                                journey.id;
-
-                                            const train =
-                                                journey.trainNumber ||
-                                                journey.trainNo ||
-                                                "—";
-
-                                            const source =
-                                                journey.source ||
-                                                journey.from ||
-                                                "—";
-
-                                            const destination =
-                                                journey.destination ||
-                                                journey.to ||
-                                                "—";
-
-                                            const status =
-                                                getStatus(
-                                                    journey
-                                                );
-
-                                            return (
-
-                                                <tr
-                                                    key={id}
+                                                <span
+                                                    className={`journey-status status-${String(
+                                                        journey.status ||
+                                                        "UNKNOWN"
+                                                    ).toLowerCase()}`}
                                                 >
 
-                                                    <td>
+                                                    {
+                                                        journey.status ||
+                                                        "UNKNOWN"
+                                                    }
 
-                                                        <div className="train-cell">
+                                                </span>
 
-                                                            <span className="train-icon">
-                                                                🚆
-                                                            </span>
-
-                                                            <strong>
-                                                                {train}
-                                                            </strong>
-
-                                                        </div>
-
-                                                    </td>
+                                            </td>
 
 
-                                                    <td>
+                                            {/* CHART STATUS */}
 
-                                                        <div className="route-cell">
+                                            <td>
 
-                                                            <span>
-                                                                {source}
-                                                            </span>
+                                                <div
+                                                    className={`chart-status chart-status-${chartStatus.type}`}
+                                                >
 
-                                                            <b>
-                                                                →
-                                                            </b>
+                                                    <span className="chart-status-icon">
 
-                                                            <span>
-                                                                {destination}
-                                                            </span>
+                                                        {chartStatus.type ===
+                                                        "prepared"
+                                                            ? "🟢"
+                                                            : chartStatus.type ===
+                                                              "not-prepared"
+                                                            ? "🟡"
+                                                            : "⚪"}
 
-                                                        </div>
+                                                    </span>
 
-                                                    </td>
+                                                    <div>
 
+                                                        <strong>
+                                                            {
+                                                                chartStatus.label
+                                                            }
+                                                        </strong>
 
-                                                    <td>
-                                                        {formatDate(
-                                                            journey.journeyDate ||
-                                                            journey.date
-                                                        )}
-                                                    </td>
-
-
-                                                    <td>
-
-                                                        <span className="class-badge">
-                                                            {getClassName(
-                                                                journey
-                                                            )}
-                                                        </span>
-
-                                                    </td>
-
-
-                                                    <td>
-
-                                                        <span
-                                                            className={`journey-status ${getStatusClass(
-                                                                status
-                                                            )}`}
-                                                        >
-                                                            {status}
-                                                        </span>
-
-                                                    </td>
-
-
-                                                    <td>
-
-                                                        <div className="journey-actions">
-
-                                                            <button
-                                                                className="view-button"
-                                                                onClick={() =>
-                                                                    handleView(
+                                                        {journey.chart?.fetchedAt && (
+                                                            <small>
+                                                                Checked{" "}
+                                                                {
+                                                                    formatDate(
                                                                         journey
+                                                                            .chart
+                                                                            .fetchedAt
                                                                     )
                                                                 }
-                                                            >
-                                                                View
-                                                            </button>
+                                                            </small>
+                                                        )}
 
-                                                            <button
-                                                                className="delete-button"
-                                                                onClick={() =>
-                                                                    handleDelete(
-                                                                        id
-                                                                    )
-                                                                }
-                                                            >
-                                                                🗑
-                                                            </button>
+                                                    </div>
 
-                                                        </div>
+                                                </div>
 
-                                                    </td>
+                                            </td>
 
-                                                </tr>
 
-                                            );
-                                        }
-                                    )}
+                                            {/* ACTIONS */}
 
-                                </tbody>
+                                            <td>
 
-                            </table>
+                                                <div className="journey-actions">
 
-                        </div>
+                                                    <button
+                                                        className={
+                                                            chartPrepared
+                                                                ? "recommendation-button"
+                                                                : "recommendation-button disabled"
+                                                        }
+                                                        onClick={() =>
+                                                            handleRecommendations(
+                                                                journey._id,
+                                                                chartPrepared
+                                                            )
+                                                        }
+                                                    >
+                                                        {chartPrepared
+                                                            ? "View Recommendations"
+                                                            : "Waiting for Chart"}
+                                                    </button>
 
-                    </section>
 
-                )}
+                                                    <button
+                                                        className="delete-journey-button"
+                                                        onClick={() =>
+                                                            handleDelete(
+                                                                journey._id
+                                                            )
+                                                        }
+                                                        title="Delete journey"
+                                                    >
+                                                        🗑️
+                                                    </button>
 
-            </main>
+                                                </div>
+
+                                            </td>
+
+                                        </tr>
+
+                                    );
+                                }
+                            )}
+
+                        </tbody>
+
+                    </table>
+
+                </div>
+
+            )}
 
         </div>
     );
 }
+
+export default Journeys;

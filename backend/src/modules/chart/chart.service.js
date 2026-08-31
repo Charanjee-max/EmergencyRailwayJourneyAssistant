@@ -17,11 +17,15 @@ const COMMON_HEADERS = {
 };
 
 class ChartService {
-  // ==========================================
-  // Train Composition
-  // ==========================================
+  // =========================================================
+  // TRAIN COMPOSITION / CHART STATUS
+  // =========================================================
 
-  async fetchAndCacheChart(trainNumber, journeyDate, boardingStation) {
+  async fetchAndCacheChart(
+    trainNumber,
+    journeyDate,
+    boardingStation
+  ) {
     try {
       const payload = {
         trainNo: trainNumber,
@@ -44,72 +48,163 @@ class ChartService {
       );
 
       console.log("✅ Train Composition Response Received");
-      console.log("\n============= TRAIN COMPOSITION RESPONSE =============");
-console.dir(response.data, { depth: null });
 
-      const data = response.data;
-
-      const chartPrepared = !data.error;
-
-      const chart = await Chart.findOneAndUpdate(
-        {
-          trainNumber,
-          journeyDate,
-          boardingStation,
-        },
-        {
-          trainNumber,
-          journeyDate,
-          boardingStation,
-
-          chartPrepared,
-
-          trainName: data.trainName || null,
-
-          from: data.from || null,
-
-          to: data.to || null,
-
-          chartOneDate: data.chartOneDate || null,
-
-          chartTwoDate: data.chartTwoDate || null,
-
-          cdd: data.cdd || [],
-
-          vbd: data.vbd || [],
-
-          rawResponse: data,
-
-          fetchedAt: new Date(),
-        },
-        {
-          new: true,
-          upsert: true,
-        }
+      console.log(
+        "\n============= TRAIN COMPOSITION RESPONSE ============="
       );
+
+      console.dir(response.data, {
+        depth: null,
+      });
+
+      const data = response.data || {};
+
+      // =====================================================
+      // REAL IRCTC CHART STATUS
+      // =====================================================
+      //
+      // IRCTC provides chart status through:
+      //
+      // chartStatusResponseDto.chartOneFlag
+      // chartStatusResponseDto.chartTwoFlag
+      //
+      // 0 = not prepared
+      // 1 = prepared
+      //
+      // We do NOT use only !data.error because an API response
+      // can contain data while the chart is still not prepared.
+      // =====================================================
+
+      const chartStatus =
+        data.chartStatusResponseDto || {};
+
+      const chartOneFlag =
+        Number(chartStatus.chartOneFlag || 0);
+
+      const chartTwoFlag =
+        Number(chartStatus.chartTwoFlag || 0);
+
+      const chartPrepared =
+        chartOneFlag === 1 ||
+        chartTwoFlag === 1;
+
+      console.log(
+        "\n============= REAL CHART STATUS ============="
+      );
+
+      console.log(
+        "Chart One Flag:",
+        chartOneFlag
+      );
+
+      console.log(
+        "Chart Two Flag:",
+        chartTwoFlag
+      );
+
+      console.log(
+        "Chart Prepared:",
+        chartPrepared
+      );
+
+      // =====================================================
+      // CACHE CHART
+      // =====================================================
+
+      const chart =
+        await Chart.findOneAndUpdate(
+          {
+            trainNumber,
+            journeyDate,
+            boardingStation,
+          },
+          {
+            trainNumber,
+            journeyDate,
+            boardingStation,
+
+            chartPrepared,
+
+            trainName:
+              data.trainName || null,
+
+            from:
+              data.from || null,
+
+            to:
+              data.to || null,
+
+            chartOneDate:
+              data.chartOneDate || null,
+
+            chartTwoDate:
+              data.chartTwoDate || null,
+
+            cdd:
+              Array.isArray(data.cdd)
+                ? data.cdd
+                : [],
+
+            vbd:
+              Array.isArray(data.vbd)
+                ? data.vbd
+                : [],
+
+            rawResponse:
+              data,
+
+            fetchedAt:
+              new Date(),
+          },
+          {
+            new: true,
+            upsert: true,
+          }
+        );
 
       console.log("✅ Chart Cached");
 
       return chart;
-    } catch (err) {
-      console.log("\n========================================");
-      console.log("❌ Train Composition Error");
-      console.log("========================================");
 
-      console.log(err.message);
+    } catch (err) {
+
+      console.log(
+        "\n========================================"
+      );
+
+      console.log(
+        "❌ Train Composition Error"
+      );
+
+      console.log(
+        "========================================"
+      );
+
+      console.log(
+        "Message:",
+        err.message
+      );
 
       if (err.response) {
-        console.log(err.response.status);
-        console.log(err.response.data);
+
+        console.log(
+          "Status:",
+          err.response.status
+        );
+
+        console.log(
+          "Response:",
+          err.response.data
+        );
       }
 
       throw err;
     }
   }
 
-  // ==========================================
-  // Vacant Berth
-  // ==========================================
+  // =========================================================
+  // VACANT BERTH
+  // =========================================================
 
   async fetchVacantBerth(
     trainNumber,
@@ -118,46 +213,105 @@ console.dir(response.data, { depth: null });
     classCode,
     chartType = 2
   ) {
+
     try {
+
       const payload = {
         trainNo: trainNumber,
+
         boardingStation,
-        remoteStation: boardingStation,
-        trainSourceStation: boardingStation,
-        cls: classCode,
+
+        remoteStation:
+          boardingStation,
+
+        trainSourceStation:
+          boardingStation,
+
+        cls:
+          classCode,
+
         chartType,
-        jDate: journeyDate,
+
+        jDate:
+          journeyDate,
       };
 
-      console.log("\n========================================");
-      console.log("🚆 Calling IRCTC Vacant Berth API");
-      console.log("========================================");
-      console.log(payload);
+      console.log(
+        "\n========================================"
+      );
 
-      const response = await axios.post(
-        VACANT_BERTH_URL,
-        payload,
+      console.log(
+        "🚆 Calling IRCTC Vacant Berth API"
+      );
+
+      console.log(
+        "========================================"
+      );
+
+      console.log(
+        payload
+      );
+
+      const response =
+        await axios.post(
+          VACANT_BERTH_URL,
+          payload,
+          {
+            headers:
+              COMMON_HEADERS,
+
+            timeout:
+              10000,
+          }
+        );
+
+      console.log(
+        "✅ Vacant Berth Response Received"
+      );
+
+      console.log(
+        "\n============= VACANT BERTH RESPONSE ============="
+      );
+
+      console.dir(
+        response.data,
         {
-          headers: COMMON_HEADERS,
-          timeout: 10000,
+          depth: null,
         }
       );
 
-      console.log("✅ Vacant Berth Response Received");
-      console.log("\n============= VACANT BERTH RESPONSE =============");
-console.dir(response.data, { depth: null });
-
       return response.data;
-    } catch (err) {
-      console.log("\n========================================");
-      console.log("❌ Vacant Berth Error");
-      console.log("========================================");
 
-      console.log(err.message);
+    } catch (err) {
+
+      console.log(
+        "\n========================================"
+      );
+
+      console.log(
+        "❌ Vacant Berth Error"
+      );
+
+      console.log(
+        "========================================"
+      );
+
+      console.log(
+        "Message:",
+        err.message
+      );
 
       if (err.response) {
-        console.log(err.response.status);
-        console.log(err.response.data);
+
+        console.log(
+          "Status:",
+          err.response.status
+        );
+
+        console.log(
+          "Response:",
+          err.response.data
+        );
       }
 
       throw err;

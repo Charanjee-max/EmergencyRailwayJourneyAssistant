@@ -6,12 +6,178 @@ const journeyOptimizer =
 const recommendationService =
     require("../../recommendation/recommendation.service");
 
+const TrainStop =
+    require("../../train/trainStop.model");
+
 // Mock modules are kept only for explicit testing.
 const mockChart = require("../mock/mockChart");
 const mockVacancies = require("../mock/mockVacancies");
 
 
 class ChartWorkflowService {
+
+    // =========================================================
+    // GET DATABASE TRAIN ROUTE
+    // =========================================================
+
+    async getDatabaseRoute(trainNumber) {
+
+        const normalizedTrainNumber =
+            String(trainNumber).trim();
+
+        const stops =
+            await TrainStop.find({
+                trainNumber: normalizedTrainNumber
+            })
+            .lean();
+
+        if (!stops.length) {
+
+            console.log(
+                `⚠️ No timetable found in trainStops for train ${normalizedTrainNumber}.`
+            );
+
+            return [];
+        }
+
+        // ---------------------------------------------------------
+        // IMPORTANT:
+        //
+        // The "no" field contains values such as:
+        //
+        // 1
+        // 1.1
+        // 1.2
+        // 2
+        // ...
+        //
+        // We convert it to a numeric route order.
+        // ---------------------------------------------------------
+
+        const orderedStops =
+            stops
+                .map((stop) => ({
+                    ...stop,
+
+                    routeOrder:
+                        Number.parseFloat(stop.no)
+                }))
+                .filter(
+                    (stop) =>
+                        Number.isFinite(
+                            stop.routeOrder
+                        )
+                )
+                .sort(
+                    (a, b) =>
+                        a.routeOrder -
+                        b.routeOrder
+                );
+
+        // ---------------------------------------------------------
+        // Convert database timetable records into the format
+        // expected by ReservationGraphBuilder.
+        //
+        // ReservationGraphBuilder accepts:
+        //
+        // station.code
+        // station.name
+        // ---------------------------------------------------------
+
+        const route =
+            orderedStops.map((stop) => ({
+                code:
+                    String(
+                        stop.code || ""
+                    )
+                    .trim()
+                    .toUpperCase(),
+
+                name:
+                    stop.station || "",
+
+                stationCode:
+                    String(
+                        stop.code || ""
+                    )
+                    .trim()
+                    .toUpperCase(),
+
+                stationName:
+                    stop.station || "",
+
+                arrival:
+                    stop.arrival || "",
+
+                departure:
+                    stop.departure || "",
+
+                halt:
+                    stop.halt || "",
+
+                platform:
+                    stop.pf || "",
+
+                day:
+                    stop.day || "",
+
+                distanceKm:
+                    stop.km || "",
+
+                routeOrder:
+                    stop.routeOrder
+            }));
+
+        console.log(
+            `✅ Database timetable loaded: ${route.length} stops`
+        );
+
+        if (route.length > 0) {
+
+            console.log(
+                "First stop:",
+                route[0].code,
+                route[0].name
+            );
+
+            console.log(
+                "Last stop:",
+                route[route.length - 1].code,
+                route[route.length - 1].name
+            );
+        }
+
+        return route;
+    }
+
+
+    // =========================================================
+    // CLEAR RECOMMENDATIONS
+    // =========================================================
+
+    async clearRecommendations(journeyId) {
+
+        try {
+
+            await recommendationService
+                .saveRecommendations(
+                    journeyId,
+                    []
+                );
+
+            console.log(
+                "🧹 Old recommendations cleared."
+            );
+
+        } catch (clearError) {
+
+            console.log(
+                "⚠️ Could not clear old recommendations:",
+                clearError.message
+            );
+        }
+    }
+
 
     // =========================================================
     // PROCESS JOURNEY
@@ -21,9 +187,18 @@ class ChartWorkflowService {
 
         try {
 
-            console.log("\n========================================");
-            console.log("🚆 CHART WORKFLOW STARTED");
-            console.log("========================================");
+            console.log(
+                "\n========================================"
+            );
+
+            console.log(
+                "🚆 CHART WORKFLOW STARTED"
+            );
+
+            console.log(
+                "========================================"
+            );
+
 
             console.log(
                 "Journey ID:",
@@ -57,7 +232,7 @@ class ChartWorkflowService {
 
             const enabledClass =
                 journey.allowedClasses?.find(
-                    cls => cls.enabled
+                    (cls) => cls.enabled
                 );
 
 
@@ -108,7 +283,6 @@ class ChartWorkflowService {
                 console.log(
                     "\n🚆 REAL IRCTC MODE"
                 );
-
             }
 
 
@@ -136,7 +310,6 @@ class ChartWorkflowService {
 
                     coaches:
                         mockChart.cdd || []
-
                 };
 
 
@@ -174,7 +347,6 @@ class ChartWorkflowService {
 
                         allowMixedClass:
                             journey.allowMixedClass || false
-
                     });
 
 
@@ -247,7 +419,6 @@ class ChartWorkflowService {
                         journeyDate,
 
                         journey.boardingStation
-
                     );
 
             } catch (error) {
@@ -270,38 +441,9 @@ class ChartWorkflowService {
                 );
 
 
-                // =================================================
-                // IMPORTANT
-                // =================================================
-                //
-                // Do NOT:
-                // - generate mock data
-                // - mark chart prepared
-                // - run optimizer
-                //
-                // Clear old recommendations so that
-                // stale recommendations are not displayed.
-                // =================================================
-
-                try {
-
-                    await recommendationService
-                        .saveRecommendations(
-                            journey._id,
-                            []
-                        );
-
-                    console.log(
-                        "🧹 Old recommendations cleared."
-                    );
-
-                } catch (clearError) {
-
-                    console.log(
-                        "⚠️ Could not clear old recommendations:",
-                        clearError.message
-                    );
-                }
+                await this.clearRecommendations(
+                    journey._id
+                );
 
 
                 return null;
@@ -319,25 +461,9 @@ class ChartWorkflowService {
                 );
 
 
-                try {
-
-                    await recommendationService
-                        .saveRecommendations(
-                            journey._id,
-                            []
-                        );
-
-                    console.log(
-                        "🧹 Old recommendations cleared."
-                    );
-
-                } catch (clearError) {
-
-                    console.log(
-                        "⚠️ Could not clear old recommendations:",
-                        clearError.message
-                    );
-                }
+                await this.clearRecommendations(
+                    journey._id
+                );
 
 
                 return null;
@@ -393,29 +519,9 @@ class ChartWorkflowService {
                 );
 
 
-                // =================================================
-                // CLEAR STALE RECOMMENDATIONS
-                // =================================================
-
-                try {
-
-                    await recommendationService
-                        .saveRecommendations(
-                            journey._id,
-                            []
-                        );
-
-                    console.log(
-                        "🧹 Old recommendations cleared."
-                    );
-
-                } catch (clearError) {
-
-                    console.log(
-                        "⚠️ Could not clear old recommendations:",
-                        clearError.message
-                    );
-                }
+                await this.clearRecommendations(
+                    journey._id
+                );
 
 
                 return null;
@@ -473,7 +579,6 @@ class ChartWorkflowService {
                         enabledClass.class,
 
                         2
-
                     );
 
             } catch (error) {
@@ -496,29 +601,11 @@ class ChartWorkflowService {
                 );
 
 
-                // =================================================
                 // Do NOT fallback to mock vacancy data.
-                // =================================================
 
-                try {
-
-                    await recommendationService
-                        .saveRecommendations(
-                            journey._id,
-                            []
-                        );
-
-                    console.log(
-                        "🧹 Old recommendations cleared."
-                    );
-
-                } catch (clearError) {
-
-                    console.log(
-                        "⚠️ Could not clear old recommendations:",
-                        clearError.message
-                    );
-                }
+                await this.clearRecommendations(
+                    journey._id
+                );
 
 
                 return null;
@@ -562,25 +649,9 @@ class ChartWorkflowService {
                 );
 
 
-                try {
-
-                    await recommendationService
-                        .saveRecommendations(
-                            journey._id,
-                            []
-                        );
-
-                    console.log(
-                        "🧹 Old recommendations cleared."
-                    );
-
-                } catch (clearError) {
-
-                    console.log(
-                        "⚠️ Could not clear old recommendations:",
-                        clearError.message
-                    );
-                }
+                await this.clearRecommendations(
+                    journey._id
+                );
 
 
                 return null;
@@ -657,6 +728,100 @@ class ChartWorkflowService {
         );
 
 
+        // =====================================================
+        // GET REAL DATABASE ROUTE
+        // =====================================================
+
+        let databaseRoute = [];
+
+
+        try {
+
+            databaseRoute =
+                await this.getDatabaseRoute(
+                    journey.trainNumber
+                );
+
+        } catch (error) {
+
+            console.log(
+                "⚠️ Could not load database timetable:",
+                error.message
+            );
+        }
+
+
+        // =====================================================
+        // SELECT ROUTE
+        // =====================================================
+
+        let routeStations;
+
+
+        if (databaseRoute.length > 0) {
+
+            console.log(
+                "\n🚆 USING MONGODB TRAIN TIMETABLE"
+            );
+
+            console.log(
+                "Train:",
+                journey.trainNumber
+            );
+
+            console.log(
+                "Stops:",
+                databaseRoute.length
+            );
+
+            routeStations =
+                databaseRoute;
+
+        } else {
+
+            console.log(
+                "\n⚠️ MONGODB TIMETABLE NOT AVAILABLE"
+            );
+
+            console.log(
+                "Falling back to IRCTC chart route."
+            );
+
+            routeStations =
+                chartData?.cdd || [];
+        }
+
+
+        console.log(
+            "\n========== OPTIMIZER ROUTE =========="
+        );
+
+        console.log(
+            "Route station count:",
+            routeStations.length
+        );
+
+
+        if (routeStations.length > 0) {
+
+            console.log(
+                "Route start:",
+                routeStations[0]
+            );
+
+            console.log(
+                "Route end:",
+                routeStations[
+                    routeStations.length - 1
+                ]
+            );
+        }
+
+
+        // =====================================================
+        // RUN JOURNEY OPTIMIZER
+        // =====================================================
+
         const recommendations =
             await journeyOptimizer.optimize({
 
@@ -665,16 +830,19 @@ class ChartWorkflowService {
                 route: {
 
                     stations:
-                        chartData.cdd || []
-
+                        routeStations
                 },
 
                 chart:
                     chartData,
 
                 vacancies:
-                    vacantBerths || []
-
+                    Array.isArray(vacantBerths)
+                        ? vacantBerths
+                        : (
+                            vacantBerths?.vbd ||
+                            []
+                        )
             });
 
 

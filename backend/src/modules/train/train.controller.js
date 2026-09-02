@@ -2,9 +2,15 @@ const {
   searchTrainService,
   getLiveTrainStatusService,
   getSeatAvailabilityService,
+  getTrainStopsService,
+  checkTrainStopService,
+  getStopsBetweenService,
 } = require("./train.service");
 
+// ============================================================
 // Search Train
+// ============================================================
+
 const searchTrain = async (req, res) => {
   try {
     const result = await searchTrainService(req.query);
@@ -22,7 +28,10 @@ const searchTrain = async (req, res) => {
   }
 };
 
+// ============================================================
 // Live Train Running Status
+// ============================================================
+
 const getLiveTrainStatus = async (req, res) => {
   try {
     const result = await getLiveTrainStatusService(req.query);
@@ -40,7 +49,10 @@ const getLiveTrainStatus = async (req, res) => {
   }
 };
 
+// ============================================================
 // Seat Availability Forecast
+// ============================================================
+
 const getSeatAvailability = async (req, res) => {
   try {
     const result = await getSeatAvailabilityService(req.query);
@@ -58,8 +70,79 @@ const getSeatAvailability = async (req, res) => {
   }
 };
 
+// ============================================================
+// Get Complete Train Timetable
+// ============================================================
+
+const getTrainStops = async (req, res) => {
+  try {
+    const result = await getTrainStopsService(req.query);
+
+    return res.status(200).json({
+      success: true,
+      message: "Train timetable fetched successfully.",
+      count: result.length,
+      data: result,
+    });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};
+
+// ============================================================
+// Check Train Stop
+// ============================================================
+
+const checkTrainStop = async (req, res) => {
+  try {
+    const result = await checkTrainStopService(req.query);
+
+    return res.status(200).json({
+      success: true,
+      message: "Train stop checked successfully.",
+      data: result,
+    });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};
+
+// ============================================================
+// Get Stops Between Two Stations
+// ============================================================
+
+const getStopsBetween = async (req, res) => {
+  try {
+    const result = await getStopsBetweenService(req.query);
+
+    return res.status(200).json({
+      success: true,
+      message: "Stops between stations fetched successfully.",
+      data: result,
+    });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};
+
+// ============================================================
+// Exports
+// ============================================================
+
 module.exports = {
   searchTrain,
   getLiveTrainStatus,
   getSeatAvailability,
+  getTrainStops,
+  checkTrainStop,
+  getStopsBetween,
 };

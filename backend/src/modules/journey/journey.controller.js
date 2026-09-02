@@ -8,10 +8,11 @@ const {
   createJourneyValidation,
 } = require("./journey.validation");
 
+const workflowManager = require("../../workflows/workflowManager");
+
 // Create Journey Request
 const create = async (req, res) => {
   try {
-    // Validate Request
     const { error } = createJourneyValidation(req.body);
 
     if (error) {
@@ -25,7 +26,10 @@ const create = async (req, res) => {
       });
     }
 
-    const journey = await createJourney(req.body, req.user.id);
+    const journey = await createJourney(
+      req.body,
+      req.user.id
+    );
 
     return res.status(201).json({
       success: true,
@@ -39,6 +43,7 @@ const create = async (req, res) => {
     });
   }
 };
+
 
 // Get All Journey Requests
 const getAll = async (req, res) => {
@@ -57,6 +62,7 @@ const getAll = async (req, res) => {
     });
   }
 };
+
 
 // Get Journey By ID
 const getById = async (req, res) => {
@@ -79,8 +85,80 @@ const getById = async (req, res) => {
   }
 };
 
+
+// =========================================================
+// MANUAL WORKFLOW TEST
+// =========================================================
+
+const runWorkflow = async (req, res) => {
+  try {
+    console.log("\n========================================");
+    console.log("🧪 MANUAL JOURNEY WORKFLOW TRIGGERED");
+    console.log("========================================");
+
+    // Get journey and verify ownership
+    const journey = await getJourneyById(
+      req.params.id,
+      req.user.id
+    );
+
+    console.log("Journey ID:", journey._id);
+    console.log("Train:", journey.trainNumber);
+    console.log(
+      "Source:",
+      journey.boardingStation
+    );
+    console.log(
+      "Destination:",
+      journey.destinationStation
+    );
+
+    console.log(
+      "\n🚆 Starting Workflow Manager..."
+    );
+
+    await workflowManager.processJourney(
+      journey
+    );
+
+    console.log(
+      "✅ Manual Workflow Completed"
+    );
+
+    console.log(
+      "========================================\n"
+    );
+
+    return res.status(200).json({
+      success: true,
+      message:
+        "Journey workflow executed successfully.",
+      data: {
+        journeyId: journey._id,
+        trainNumber: journey.trainNumber,
+        source: journey.boardingStation,
+        destination: journey.destinationStation,
+      },
+    });
+
+  } catch (err) {
+
+    console.log(
+      "❌ Manual Workflow Failed:",
+      err.message
+    );
+
+    return res.status(500).json({
+      success: false,
+      message: err.message,
+    });
+  }
+};
+
+
 module.exports = {
   create,
   getAll,
   getById,
+  runWorkflow,
 };

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
 import "./AddJourney.css";
@@ -7,10 +7,12 @@ import { createJourney } from "../../api/journeyAPI";
 import { searchStation } from "../../api/trainAPI";
 
 
+// =========================================================
+// COMPONENT
+// =========================================================
+
 export default function AddJourney() {
-
     const navigate = useNavigate();
-
 
     // =========================================================
     // FORM DATA
@@ -25,15 +27,12 @@ export default function AddJourney() {
         allowMixedClass: false,
     });
 
-
     // =========================================================
     // UI STATE
     // =========================================================
 
     const [loading, setLoading] = useState(false);
-
     const [error, setError] = useState("");
-
 
     // =========================================================
     // STATION AUTOCOMPLETE STATE
@@ -45,47 +44,103 @@ export default function AddJourney() {
     const [destinationSuggestions, setDestinationSuggestions] =
         useState([]);
 
-
     const [activeStationField, setActiveStationField] =
         useState(null);
 
+    /*
+     * Which station field is currently loading.
+     *
+     * null
+     * "boardingStation"
+     * "destinationStation"
+     */
+    const [stationLoadingField, setStationLoadingField] =
+        useState(null);
 
-    const [stationLoading, setStationLoading] =
-        useState(false);
+    // =========================================================
+    // SEARCH REQUEST IDS
+    // =========================================================
+    //
+    // IMPORTANT:
+    // Each field has its own request ID.
+    //
+    // If user types:
+    //
+    // B
+    // BZ
+    // BZA
+    //
+    // and the B request finishes after BZA,
+    // the old B result will be ignored.
+    //
+    // This prevents old results such as BZA/CSMT from
+    // overwriting the latest search.
+    // =========================================================
 
+    const boardingSearchId = useRef(0);
+    const destinationSearchId = useRef(0);
 
     // =========================================================
     // TODAY DATE
     // =========================================================
 
     const getTodayDate = () => {
-
         const now = new Date();
 
-        const year =
-            now.getFullYear();
+        const year = now.getFullYear();
 
-        const month =
-            String(now.getMonth() + 1)
-                .padStart(2, "0");
+        const month = String(
+            now.getMonth() + 1
+        ).padStart(2, "0");
 
-        const day =
-            String(now.getDate())
-                .padStart(2, "0");
+        const day = String(
+            now.getDate()
+        ).padStart(2, "0");
 
         return `${year}-${month}-${day}`;
     };
 
-
     const today = getTodayDate();
 
+    // =========================================================
+    // NORMALIZE STATION
+    // =========================================================
+
+    const normalizeStation = (station) => {
+        if (!station) {
+            return null;
+        }
+
+        const code = String(
+            station.code ||
+            station.stationCode ||
+            ""
+        )
+            .trim()
+            .toUpperCase();
+
+        const name = String(
+            station.name ||
+            station.stationName ||
+            ""
+        ).trim();
+
+        if (!code || !name) {
+            return null;
+        }
+
+        return {
+            code,
+            name,
+            city: station.city || "",
+        };
+    };
 
     // =========================================================
     // NORMAL INPUT CHANGE
     // =========================================================
 
     const handleChange = (e) => {
-
         const {
             name,
             value,
@@ -93,60 +148,104 @@ export default function AddJourney() {
             checked,
         } = e.target;
 
-
         let updatedValue =
             type === "checkbox"
                 ? checked
                 : value;
 
-
         // -----------------------------------------------------
-        // Train number
+        // TRAIN NUMBER
         // -----------------------------------------------------
 
         if (name === "trainNumber") {
-
             updatedValue =
                 value.replace(/\D/g, "");
-
         }
 
-
         // -----------------------------------------------------
-        // Station fields
-        //
-        // IMPORTANT:
-        // Do NOT remove spaces here.
-        //
-        // User should be able to type:
-        //
-        // Secunderabad
-        // Vijayawada
-        // Secunderabad Junction
-        //
+        // STATION FIELDS
         // -----------------------------------------------------
 
         if (
             name === "boardingStation" ||
             name === "destinationStation"
         ) {
-
             updatedValue =
-                value
-                    .toUpperCase();
-
+                value.toUpperCase();
         }
-
 
         setFormData((prev) => ({
             ...prev,
             [name]: updatedValue,
         }));
 
-
         setError("");
+
+        // -----------------------------------------------------
+        // CLEAR SUGGESTIONS WHEN FIELD IS EMPTY
+        // -----------------------------------------------------
+
+        if (
+            name === "boardingStation" &&
+            !String(updatedValue).trim()
+        ) {
+            setBoardingSuggestions([]);
+
+            boardingSearchId.current += 1;
+
+            if (
+                activeStationField ===
+                "boardingStation"
+            ) {
+                setStationLoadingField(null);
+            }
+        }
+
+        if (
+            name === "destinationStation" &&
+            !String(updatedValue).trim()
+        ) {
+            setDestinationSuggestions([]);
+
+            destinationSearchId.current += 1;
+
+            if (
+                activeStationField ===
+                "destinationStation"
+            ) {
+                setStationLoadingField(null);
+            }
+        }
     };
 
+    // =========================================================
+    // SET SUGGESTIONS
+    // =========================================================
+
+    const setSuggestionsForField = (
+        field,
+        results
+    ) => {
+        if (
+            field ===
+            "boardingStation"
+        ) {
+            setBoardingSuggestions(
+                results
+            );
+
+            return;
+        }
+
+        if (
+            field ===
+            "destinationStation"
+        ) {
+            setDestinationSuggestions(
+                results
+            );
+        }
+    };
 
     // =========================================================
     // STATION SEARCH
@@ -154,187 +253,281 @@ export default function AddJourney() {
 
     const searchStations = async (
         field,
-        value
+        value,
+        requestId
     ) => {
-
         const search =
-            value.trim();
+            String(value || "").trim();
 
+        // -----------------------------------------------------
+        // CURRENT REQUEST ID
+        // -----------------------------------------------------
 
-        // Clear suggestions for short input
+        const currentRequestId =
+            field === "boardingStation"
+                ? boardingSearchId.current
+                : destinationSearchId.current;
+
+        // -----------------------------------------------------
+        // IGNORE OLD REQUEST
+        // -----------------------------------------------------
+
+        if (
+            requestId !==
+            currentRequestId
+        ) {
+            return;
+        }
+
+        // -----------------------------------------------------
+        // LESS THAN 2 CHARACTERS
+        // -----------------------------------------------------
 
         if (search.length < 2) {
+            setSuggestionsForField(
+                field,
+                []
+            );
 
             if (
                 field ===
                 "boardingStation"
             ) {
-
-                setBoardingSuggestions([]);
-
+                if (
+                    requestId ===
+                    boardingSearchId.current
+                ) {
+                    setStationLoadingField(
+                        null
+                    );
+                }
+            } else {
+                if (
+                    requestId ===
+                    destinationSearchId.current
+                ) {
+                    setStationLoadingField(
+                        null
+                    );
+                }
             }
-
-
-            if (
-                field ===
-                "destinationStation"
-            ) {
-
-                setDestinationSuggestions([]);
-
-            }
-
 
             return;
         }
 
+        // -----------------------------------------------------
+        // START LOADING
+        // -----------------------------------------------------
+
+        setStationLoadingField(field);
 
         try {
-
-            setStationLoading(true);
-
-
             const response =
-                await searchStation(search);
+                await searchStation(
+                    search
+                );
 
+            // -------------------------------------------------
+            // CHECK AGAIN AFTER API RESPONSE
+            // -------------------------------------------------
+            //
+            // The user may have typed another character while
+            // the API request was running.
+            // -------------------------------------------------
 
-            const results =
-                response?.data?.data || [];
-
-
-            if (
+            const latestRequestId =
                 field ===
                 "boardingStation"
-            ) {
-
-                setBoardingSuggestions(
-                    results
-                );
-
-            }
-
+                    ? boardingSearchId.current
+                    : destinationSearchId.current;
 
             if (
-                field ===
-                "destinationStation"
+                requestId !==
+                latestRequestId
             ) {
-
-                setDestinationSuggestions(
-                    results
-                );
-
+                return;
             }
 
-        } catch (searchError) {
+            const backendResults =
+                Array.isArray(
+                    response?.data?.data
+                )
+                    ? response.data.data
+                    : [];
 
+            const normalizedResults =
+                backendResults
+                    .map(
+                        normalizeStation
+                    )
+                    .filter(Boolean);
+
+            // -------------------------------------------------
+            // SHOW ONLY CURRENT SEARCH RESULTS
+            // -------------------------------------------------
+
+            setSuggestionsForField(
+                field,
+                normalizedResults
+            );
+
+        } catch (searchError) {
             console.error(
                 "STATION SEARCH ERROR =",
                 searchError
             );
 
+            // -------------------------------------------------
+            // Only clear if this is still the latest request.
+            // -------------------------------------------------
 
-            if (
+            const latestRequestId =
                 field ===
                 "boardingStation"
-            ) {
-
-                setBoardingSuggestions([]);
-
-            }
-
+                    ? boardingSearchId.current
+                    : destinationSearchId.current;
 
             if (
-                field ===
-                "destinationStation"
+                requestId ===
+                latestRequestId
             ) {
-
-                setDestinationSuggestions([]);
-
+                setSuggestionsForField(
+                    field,
+                    []
+                );
             }
 
         } finally {
+            const latestRequestId =
+                field ===
+                "boardingStation"
+                    ? boardingSearchId.current
+                    : destinationSearchId.current;
 
-            setStationLoading(false);
-
+            if (
+                requestId ===
+                latestRequestId
+            ) {
+                setStationLoadingField(
+                    null
+                );
+            }
         }
     };
 
-
     // =========================================================
-    // DEBOUNCED BOARDING STATION SEARCH
+    // BOARDING STATION SEARCH
     // =========================================================
 
     useEffect(() => {
-
         const value =
             formData.boardingStation;
 
+        // -----------------------------------------------------
+        // Every new value invalidates the previous request.
+        // -----------------------------------------------------
+
+        boardingSearchId.current += 1;
+
+        const requestId =
+            boardingSearchId.current;
+
+        // -----------------------------------------------------
+        // EMPTY
+        // -----------------------------------------------------
 
         if (!value.trim()) {
-
             setBoardingSuggestions([]);
+
+            if (
+                activeStationField ===
+                "boardingStation"
+            ) {
+                setStationLoadingField(
+                    null
+                );
+            }
 
             return;
         }
 
+        // -----------------------------------------------------
+        // DEBOUNCE
+        // -----------------------------------------------------
 
         const timer =
             setTimeout(() => {
-
                 searchStations(
                     "boardingStation",
-                    value
+                    value,
+                    requestId
                 );
-
             }, 350);
-
 
         return () => {
             clearTimeout(timer);
         };
 
     }, [
-        formData.boardingStation
+        formData.boardingStation,
     ]);
 
-
     // =========================================================
-    // DEBOUNCED DESTINATION STATION SEARCH
+    // DESTINATION STATION SEARCH
     // =========================================================
 
     useEffect(() => {
-
         const value =
             formData.destinationStation;
 
+        // -----------------------------------------------------
+        // Every new value invalidates previous request.
+        // -----------------------------------------------------
+
+        destinationSearchId.current += 1;
+
+        const requestId =
+            destinationSearchId.current;
+
+        // -----------------------------------------------------
+        // EMPTY
+        // -----------------------------------------------------
 
         if (!value.trim()) {
-
             setDestinationSuggestions([]);
+
+            if (
+                activeStationField ===
+                "destinationStation"
+            ) {
+                setStationLoadingField(
+                    null
+                );
+            }
 
             return;
         }
 
+        // -----------------------------------------------------
+        // DEBOUNCE
+        // -----------------------------------------------------
 
         const timer =
             setTimeout(() => {
-
                 searchStations(
                     "destinationStation",
-                    value
+                    value,
+                    requestId
                 );
-
             }, 350);
-
 
         return () => {
             clearTimeout(timer);
         };
 
     }, [
-        formData.destinationStation
+        formData.destinationStation,
     ]);
-
 
     // =========================================================
     // SELECT STATION
@@ -344,98 +537,107 @@ export default function AddJourney() {
         field,
         station
     ) => {
+        const normalized =
+            normalizeStation(
+                station
+            );
+
+        if (!normalized) {
+            return;
+        }
+
+        // -----------------------------------------------------
+        // Update selected station code
+        // -----------------------------------------------------
 
         setFormData((prev) => ({
             ...prev,
-            [field]: station.code,
+            [field]:
+                normalized.code,
         }));
 
+        // -----------------------------------------------------
+        // Clear dropdown
+        // -----------------------------------------------------
 
         if (
             field ===
             "boardingStation"
         ) {
-
             setBoardingSuggestions([]);
 
+            boardingSearchId.current += 1;
         }
-
 
         if (
             field ===
             "destinationStation"
         ) {
-
             setDestinationSuggestions([]);
 
+            destinationSearchId.current += 1;
         }
 
+        setStationLoadingField(null);
 
         setActiveStationField(null);
 
         setError("");
     };
 
-
     // =========================================================
     // CLOSE AUTOCOMPLETE
     // =========================================================
 
     const closeStationSuggestions = () => {
-
-        // Small delay allows click on suggestion
-        // before dropdown disappears.
+        // Small delay allows clicking a suggestion
+        // before the dropdown disappears.
 
         setTimeout(() => {
-
-            setActiveStationField(null);
-
+            setActiveStationField(
+                null
+            );
         }, 150);
-
     };
-
 
     // =========================================================
     // SUBMIT
     // =========================================================
 
     const handleSubmit = async (e) => {
-
         e.preventDefault();
-
 
         setError("");
 
-
         const trainNumber =
             formData.trainNumber.trim();
-
 
         const source =
             formData.boardingStation
                 .trim()
                 .toUpperCase();
 
-
         const destination =
             formData.destinationStation
                 .trim()
                 .toUpperCase();
 
-
         const journeyDate =
             formData.journeyDate;
-
 
         // =====================================================
         // VALIDATION
         // =====================================================
 
-
+        // -----------------------------------------------------
         // Train number
+        // -----------------------------------------------------
 
-        if (!/^\d{4,6}$/.test(trainNumber)) {
-
+        if (
+            !/^\d{4,6}$/.test(
+                trainNumber
+            )
+        ) {
             setError(
                 "Please enter a valid train number (4–6 digits)."
             );
@@ -443,17 +645,18 @@ export default function AddJourney() {
             return;
         }
 
-
+        // -----------------------------------------------------
         // Station code
+        // -----------------------------------------------------
 
         const stationCodeRegex =
             /^[A-Z0-9]{2,5}$/;
 
-
         if (
-            !stationCodeRegex.test(source)
+            !stationCodeRegex.test(
+                source
+            )
         ) {
-
             setError(
                 "Please select a valid source railway station from the suggestions."
             );
@@ -461,11 +664,11 @@ export default function AddJourney() {
             return;
         }
 
-
         if (
-            !stationCodeRegex.test(destination)
+            !stationCodeRegex.test(
+                destination
+            )
         ) {
-
             setError(
                 "Please select a valid destination railway station from the suggestions."
             );
@@ -473,13 +676,14 @@ export default function AddJourney() {
             return;
         }
 
-
+        // -----------------------------------------------------
         // Same station
+        // -----------------------------------------------------
 
         if (
-            source === destination
+            source ===
+            destination
         ) {
-
             setError(
                 "Source and destination cannot be the same."
             );
@@ -487,11 +691,11 @@ export default function AddJourney() {
             return;
         }
 
-
+        // -----------------------------------------------------
         // Journey date
+        // -----------------------------------------------------
 
         if (!journeyDate) {
-
             setError(
                 "Please select a journey date."
             );
@@ -499,13 +703,15 @@ export default function AddJourney() {
             return;
         }
 
-
-        // Past date
+        // -----------------------------------------------------
+        // Today is allowed.
+        // Only past dates are rejected.
+        // -----------------------------------------------------
 
         if (
-            journeyDate < today
+            journeyDate <
+            today
         ) {
-
             setError(
                 "Journey date cannot be in the past."
             );
@@ -513,13 +719,11 @@ export default function AddJourney() {
             return;
         }
 
-
         // =====================================================
         // PAYLOAD
         // =====================================================
 
         const payload = {
-
             trainNumber,
 
             journeyDate,
@@ -531,14 +735,12 @@ export default function AddJourney() {
                 destination,
 
             allowedClasses: [
-
                 {
                     class:
                         formData.preferredClass,
 
                     enabled: true,
                 },
-
             ],
 
             allowMixedClass:
@@ -548,6 +750,9 @@ export default function AddJourney() {
                 "SINGLE_TICKET",
         };
 
+        // =====================================================
+        // DEBUG
+        // =====================================================
 
         console.log(
             "========================================"
@@ -563,21 +768,17 @@ export default function AddJourney() {
 
         console.log(payload);
 
-
         // =====================================================
         // CREATE JOURNEY
         // =====================================================
 
         try {
-
             setLoading(true);
-
 
             const response =
                 await createJourney(
                     payload
                 );
-
 
             console.log(
                 "========================================"
@@ -593,13 +794,11 @@ export default function AddJourney() {
 
             console.log(response);
 
-
             navigate(
                 "/dashboard"
             );
 
         } catch (error) {
-
             console.error(
                 "========================================"
             );
@@ -614,24 +813,23 @@ export default function AddJourney() {
 
             console.error(error);
 
-
             const backendData =
                 error?.response?.data;
 
-
+            // -------------------------------------------------
             // Validation errors
+            // -------------------------------------------------
 
             if (
                 backendData?.errors &&
                 Array.isArray(
                     backendData.errors
                 ) &&
-                backendData.errors.length > 0
+                backendData.errors
+                    .length > 0
             ) {
-
                 const firstError =
                     backendData.errors[0];
-
 
                 setError(
                     firstError.message ||
@@ -641,13 +839,13 @@ export default function AddJourney() {
                 return;
             }
 
-
-            // Normal backend message
+            // -------------------------------------------------
+            // Backend message
+            // -------------------------------------------------
 
             if (
                 backendData?.message
             ) {
-
                 setError(
                     backendData.message
                 );
@@ -655,29 +853,25 @@ export default function AddJourney() {
                 return;
             }
 
-
+            // -------------------------------------------------
             // Generic error
+            // -------------------------------------------------
 
             setError(
                 "Unable to save journey. Please try again."
             );
 
         } finally {
-
             setLoading(false);
-
         }
     };
-
 
     // =========================================================
     // RENDER
     // =========================================================
 
     return (
-
         <div className="addJourneyPage">
-
 
             {/* =================================================
                 BACK BUTTON
@@ -698,18 +892,15 @@ export default function AddJourney() {
 
             <div className="addJourneyLayout">
 
-
                 {/* =================================================
                     LEFT INFORMATION PANEL
                 ================================================= */}
 
                 <div className="journeyInfo">
 
-
                     <div className="infoBadge">
                         ERJA JOURNEY MONITOR
                     </div>
-
 
                     <h1>
                         Add New
@@ -718,20 +909,15 @@ export default function AddJourney() {
                         </span>
                     </h1>
 
-
                     <p className="infoDescription">
-
                         Tell ERJA about your railway
                         journey and we'll monitor
                         availability, analyze vacant
                         berths and find possible
                         booking strategies.
-
                     </p>
 
-
                     <div className="journeySteps">
-
 
                         {/* STEP 1 */}
 
@@ -742,7 +928,6 @@ export default function AddJourney() {
                             </div>
 
                             <div>
-
                                 <strong>
                                     Enter Journey
                                 </strong>
@@ -751,7 +936,6 @@ export default function AddJourney() {
                                     Provide your train
                                     and route details.
                                 </span>
-
                             </div>
 
                         </div>
@@ -766,7 +950,6 @@ export default function AddJourney() {
                             </div>
 
                             <div>
-
                                 <strong>
                                     Monitor Availability
                                 </strong>
@@ -775,7 +958,6 @@ export default function AddJourney() {
                                     ERJA tracks available
                                     seats.
                                 </span>
-
                             </div>
 
                         </div>
@@ -790,7 +972,6 @@ export default function AddJourney() {
                             </div>
 
                             <div>
-
                                 <strong>
                                     Analyze & Optimize
                                 </strong>
@@ -799,7 +980,6 @@ export default function AddJourney() {
                                     Find practical booking
                                     possibilities.
                                 </span>
-
                             </div>
 
                         </div>
@@ -814,7 +994,6 @@ export default function AddJourney() {
                             </div>
 
                             <div>
-
                                 <strong>
                                     Get Recommendation
                                 </strong>
@@ -823,11 +1002,9 @@ export default function AddJourney() {
                                     Receive the best
                                     available strategy.
                                 </span>
-
                             </div>
 
                         </div>
-
 
                     </div>
 
@@ -840,9 +1017,7 @@ export default function AddJourney() {
 
                 <div className="journeyCard">
 
-
                     <div className="cardHeader">
-
 
                         <div>
 
@@ -850,11 +1025,9 @@ export default function AddJourney() {
                                 JOURNEY REQUEST
                             </span>
 
-
                             <h2>
                                 Journey Details
                             </h2>
-
 
                             <p>
                                 Enter the details you want
@@ -863,11 +1036,9 @@ export default function AddJourney() {
 
                         </div>
 
-
                         <div className="cardTrainIcon">
                             🚆
                         </div>
-
 
                     </div>
 
@@ -877,13 +1048,9 @@ export default function AddJourney() {
                     ================================================= */}
 
                     {error && (
-
                         <div className="formError">
-
                             ⚠️ {error}
-
                         </div>
-
                     )}
 
 
@@ -892,7 +1059,6 @@ export default function AddJourney() {
                             handleSubmit
                         }
                     >
-
 
                         {/* =================================================
                             TRAIN NUMBER
@@ -904,13 +1070,11 @@ export default function AddJourney() {
                                 Train Number
                             </label>
 
-
                             <div className="inputWrapper">
 
                                 <span>
                                     🚆
                                 </span>
-
 
                                 <input
                                     id="trainNumber"
@@ -922,14 +1086,13 @@ export default function AddJourney() {
                                     onChange={
                                         handleChange
                                     }
-                                    placeholder="12746"
+                                    placeholder="Enter train number"
                                     inputMode="numeric"
                                     maxLength="6"
                                     required
                                 />
 
                             </div>
-
 
                             <small>
                                 Enter the Indian Railways train number.
@@ -948,13 +1111,11 @@ export default function AddJourney() {
                                 Journey Date
                             </label>
 
-
                             <div className="inputWrapper">
 
                                 <span>
                                     📅
                                 </span>
-
 
                                 <input
                                     id="journeyDate"
@@ -972,7 +1133,6 @@ export default function AddJourney() {
 
                             </div>
 
-
                             <small>
                                 Select the date of your journey.
                             </small>
@@ -986,28 +1146,23 @@ export default function AddJourney() {
 
                         <div className="routeRow">
 
-
                             {/* =================================================
-                                BOARDING STATION
+                                SOURCE
                             ================================================= */}
 
                             <div className="formGroup">
-
 
                                 <label htmlFor="boardingStation">
                                     Source
                                 </label>
 
-
                                 <div className="autocompleteWrapper">
-
 
                                     <div className="inputWrapper">
 
                                         <span>
                                             📍
                                         </span>
-
 
                                         <input
                                             id="boardingStation"
@@ -1027,21 +1182,19 @@ export default function AddJourney() {
                                             onBlur={
                                                 closeStationSuggestions
                                             }
-                                            placeholder="SC or Secunderabad"
+                                            placeholder="Enter source station"
                                             maxLength="60"
                                             autoComplete="off"
                                             required
                                         />
 
-
-                                        {stationLoading &&
+                                        {stationLoadingField ===
+                                            "boardingStation" &&
                                             activeStationField ===
                                                 "boardingStation" && (
-
                                                 <span className="stationSearchSpinner">
                                                     ⟳
                                                 </span>
-
                                             )}
 
                                     </div>
@@ -1053,7 +1206,6 @@ export default function AddJourney() {
                                             0 && (
 
                                         <div className="autocompleteDropdown">
-
 
                                             {boardingSuggestions.map(
                                                 (
@@ -1087,7 +1239,6 @@ export default function AddJourney() {
                                                             }
                                                         </strong>
 
-
                                                         <span>
                                                             {
                                                                 station.name
@@ -1100,11 +1251,9 @@ export default function AddJourney() {
                                             )}
 
                                         </div>
-
                                     )}
 
                                 </div>
-
 
                                 <small>
                                     Type station name or code.
@@ -1123,26 +1272,22 @@ export default function AddJourney() {
 
 
                             {/* =================================================
-                                DESTINATION STATION
+                                DESTINATION
                             ================================================= */}
 
                             <div className="formGroup">
-
 
                                 <label htmlFor="destinationStation">
                                     Destination
                                 </label>
 
-
                                 <div className="autocompleteWrapper">
-
 
                                     <div className="inputWrapper">
 
                                         <span>
                                             📍
                                         </span>
-
 
                                         <input
                                             id="destinationStation"
@@ -1162,21 +1307,19 @@ export default function AddJourney() {
                                             onBlur={
                                                 closeStationSuggestions
                                             }
-                                            placeholder="BZA or Vijayawada"
+                                            placeholder="Enter destination station"
                                             maxLength="60"
                                             autoComplete="off"
                                             required
                                         />
 
-
-                                        {stationLoading &&
+                                        {stationLoadingField ===
+                                            "destinationStation" &&
                                             activeStationField ===
                                                 "destinationStation" && (
-
                                                 <span className="stationSearchSpinner">
                                                     ⟳
                                                 </span>
-
                                             )}
 
                                     </div>
@@ -1188,7 +1331,6 @@ export default function AddJourney() {
                                             0 && (
 
                                         <div className="autocompleteDropdown">
-
 
                                             {destinationSuggestions.map(
                                                 (
@@ -1222,7 +1364,6 @@ export default function AddJourney() {
                                                             }
                                                         </strong>
 
-
                                                         <span>
                                                             {
                                                                 station.name
@@ -1235,18 +1376,15 @@ export default function AddJourney() {
                                             )}
 
                                         </div>
-
                                     )}
 
                                 </div>
-
 
                                 <small>
                                     Type station name or code.
                                 </small>
 
                             </div>
-
 
                         </div>
 
@@ -1257,18 +1395,15 @@ export default function AddJourney() {
 
                         <div className="formGroup">
 
-
                             <label htmlFor="preferredClass">
                                 Preferred Class
                             </label>
-
 
                             <div className="inputWrapper">
 
                                 <span>
                                     🛏️
                                 </span>
-
 
                                 <select
                                     id="preferredClass"
@@ -1322,7 +1457,6 @@ export default function AddJourney() {
                             }
                         >
 
-
                             <input
                                 type="checkbox"
                                 name="allowMixedClass"
@@ -1334,7 +1468,6 @@ export default function AddJourney() {
                                 }
                             />
 
-
                             <div className="customCheckbox">
 
                                 {formData.allowMixedClass &&
@@ -1342,13 +1475,11 @@ export default function AddJourney() {
 
                             </div>
 
-
                             <div className="mixedClassText">
 
                                 <strong>
                                     Allow Mixed Class
                                 </strong>
-
 
                                 <span>
                                     Allow ERJA to recommend
@@ -1357,7 +1488,6 @@ export default function AddJourney() {
                                 </span>
 
                             </div>
-
 
                         </label>
 
@@ -1373,23 +1503,17 @@ export default function AddJourney() {
                         >
 
                             {loading ? (
-
                                 <>
                                     <span className="spinner" />
-
                                     Saving Journey...
                                 </>
-
                             ) : (
-
                                 <>
                                     Start Monitoring →
                                 </>
-
                             )}
 
                         </button>
-
 
                     </form>
 
@@ -1404,7 +1528,6 @@ export default function AddJourney() {
                         stored and used only for monitoring.
 
                     </div>
-
 
                 </div>
 

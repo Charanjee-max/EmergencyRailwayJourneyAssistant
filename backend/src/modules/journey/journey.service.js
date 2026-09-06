@@ -2,9 +2,8 @@ const Journey = require("./journey.model");
 const Chart = require("../chart/chart.model");
 
 const {
-    getStopsBetweenService,
-} = require("../train/train.service");
-
+    getTrainScheduleService,
+} = require("../../services/ntes.service");
 
 // =========================================================
 // Create Journey
@@ -48,6 +47,7 @@ const createJourney = async (
         !boardingStation ||
         !destinationStation
     ) {
+
         const error = new Error(
             "Train number, source station and destination station are required."
         );
@@ -59,20 +59,7 @@ const createJourney = async (
 
 
     // =====================================================
-    // VALIDATE TRAIN ROUTE
-    // =====================================================
-    //
-    // This uses the timetable already stored in TrainStop.
-    //
-    // It checks:
-    //
-    // 1. Train timetable exists
-    // 2. Source station exists
-    // 3. Destination station exists
-    // 4. Source occurs before destination
-    //
-    // IMPORTANT:
-    // Do this BEFORE Journey.create().
+    // VALIDATE TRAIN ROUTE USING NTES
     // =====================================================
 
     console.log(
@@ -80,7 +67,7 @@ const createJourney = async (
     );
 
     console.log(
-        "🚆 VALIDATING JOURNEY ROUTE"
+        "🚆 VALIDATING JOURNEY ROUTE WITH NTES"
     );
 
     console.log(
@@ -103,28 +90,95 @@ const createJourney = async (
     );
 
 
-    let routeValidation;
+    let trainSchedule;
 
     try {
 
-        routeValidation =
-            await getStopsBetweenService({
+        /*
+         * NTES expects the train's start date
+         * in DD-MMM-YYYY format.
+         *
+         * Example:
+         * 06-Sep-2026
+         */
+
+        const journeyDate =
+            new Date(
+                journeyData.journeyDate
+            );
+
+        if (
+            Number.isNaN(
+                journeyDate.getTime()
+            )
+        ) {
+
+            const dateError = new Error(
+                "Invalid journey date."
+            );
+
+            dateError.statusCode = 400;
+
+            throw dateError;
+        }
+
+
+        const day =
+            String(
+                journeyDate.getDate()
+            ).padStart(2, "0");
+
+        const monthNames = [
+            "Jan",
+            "Feb",
+            "Mar",
+            "Apr",
+            "May",
+            "Jun",
+            "Jul",
+            "Aug",
+            "Sep",
+            "Oct",
+            "Nov",
+            "Dec",
+        ];
+
+        const month =
+            monthNames[
+                journeyDate.getMonth()
+            ];
+
+        const year =
+            journeyDate.getFullYear();
+
+        const trainStartDate =
+            `${day}-${month}-${year}`;
+
+
+        console.log(
+            "Journey Date:",
+            trainStartDate
+        );
+
+
+        trainSchedule =
+            await getTrainScheduleService(
                 trainNumber,
-                from: boardingStation,
-                to: destinationStation,
-            });
+                trainStartDate
+            );
 
     } catch (error) {
 
         console.error(
-            "❌ TRAIN ROUTE VALIDATION ERROR:",
+            "❌ NTES TRAIN SCHEDULE ERROR:",
             error.message
         );
+
 
         const routeError =
             new Error(
                 error.message ||
-                `Unable to validate route for train ${trainNumber}.`
+                `Unable to retrieve timetable for train ${trainNumber}.`
             );
 
         routeError.statusCode = 400;
@@ -134,21 +188,78 @@ const createJourney = async (
 
 
     // =====================================================
-    // ROUTE IS INVALID
+    // CHECK TIMETABLE
     // =====================================================
 
     if (
-        !routeValidation ||
-        routeValidation.found !== true
+        !trainSchedule ||
+        !Array.isArray(
+            trainSchedule.stops
+        ) ||
+        trainSchedule.stops.length === 0
+    ) {
+
+        const error = new Error(
+            `No timetable found for train ${trainNumber}.`
+        );
+
+        error.statusCode = 400;
+
+        throw error;
+    }
+
+
+    const stops =
+        trainSchedule.stops;
+
+
+    // =====================================================
+    // FIND SOURCE STATION
+    // =====================================================
+
+    const sourceIndex =
+        stops.findIndex(
+            (stop) =>
+                String(
+                    stop.code || ""
+                )
+                    .trim()
+                    .toUpperCase() ===
+                boardingStation
+        );
+
+
+    // =====================================================
+    // FIND DESTINATION STATION
+    // =====================================================
+
+    const destinationIndex =
+        stops.findIndex(
+            (stop) =>
+                String(
+                    stop.code || ""
+                )
+                    .trim()
+                    .toUpperCase() ===
+                destinationStation
+        );
+
+
+    // =====================================================
+    // SOURCE NOT FOUND
+    // =====================================================
+
+    if (
+        sourceIndex === -1
     ) {
 
         console.log(
-            "❌ JOURNEY ROUTE INVALID"
+            "❌ SOURCE STATION NOT FOUND"
         );
 
         console.log(
-            routeValidation?.message ||
-            "Selected source and destination are not valid for this train."
+            "Source:",
+            boardingStation
         );
 
         console.log(
@@ -157,8 +268,7 @@ const createJourney = async (
 
 
         const error = new Error(
-            routeValidation?.message ||
-            `Train ${trainNumber} does not operate from ${boardingStation} to ${destinationStation}.`
+            `Departure station ${boardingStation} is not on train ${trainNumber}.`
         );
 
         error.statusCode = 400;
@@ -168,11 +278,97 @@ const createJourney = async (
 
 
     // =====================================================
+    // DESTINATION NOT FOUND
+    // =====================================================
+
+    if (
+        destinationIndex === -1
+    ) {
+
+        console.log(
+            "❌ DESTINATION STATION NOT FOUND"
+        );
+
+        console.log(
+            "Destination:",
+            destinationStation
+        );
+
+        console.log(
+            "========================================\n"
+        );
+
+
+        const error = new Error(
+            `Destination station ${destinationStation} is not on train ${trainNumber}.`
+        );
+
+        error.statusCode = 400;
+
+        throw error;
+    }
+
+
+    // =====================================================
+    // CHECK ROUTE ORDER
+    // =====================================================
+
+    if (
+        sourceIndex >= destinationIndex
+    ) {
+
+        console.log(
+            "❌ INVALID ROUTE ORDER"
+        );
+
+        console.log(
+            `Source index: ${sourceIndex}`
+        );
+
+        console.log(
+            `Destination index: ${destinationIndex}`
+        );
+
+        console.log(
+            "========================================\n"
+        );
+
+
+        const error = new Error(
+            `${boardingStation} does not occur before ${destinationStation} in train ${trainNumber}'s timetable.`
+        );
+
+        error.statusCode = 400;
+
+        throw error;
+    }
+
+
+    // =====================================================
+    // GET STOPS BETWEEN SOURCE AND DESTINATION
+    // =====================================================
+
+    const journeyStops =
+        stops.slice(
+            sourceIndex,
+            destinationIndex + 1
+        );
+
+
+    // =====================================================
     // ROUTE VALID
     // =====================================================
 
     console.log(
+        "\n========================================"
+    );
+
+    console.log(
         "✅ JOURNEY ROUTE VALIDATED"
+    );
+
+    console.log(
+        "========================================"
     );
 
     console.log(
@@ -188,7 +384,21 @@ const createJourney = async (
     );
 
     console.log(
-        `Stops in journey: ${routeValidation.count}`
+        `Stops in journey: ${journeyStops.length}`
+    );
+
+    console.log(
+        "Route:"
+    );
+
+    journeyStops.forEach(
+        (stop) => {
+
+            console.log(
+                `  ${stop.no}. ${stop.code} - ${stop.station}`
+            );
+
+        }
     );
 
     console.log(
@@ -324,6 +534,7 @@ const getUserJourneys =
 
                     }
                 )
+
             );
 
 

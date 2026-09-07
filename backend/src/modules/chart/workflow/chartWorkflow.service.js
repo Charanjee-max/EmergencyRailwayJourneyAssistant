@@ -911,13 +911,33 @@ class ChartWorkflowService {
 
             try {
 
-                chart =
-                    await chartService
-                        .fetchAndCacheChart(
-                            journey.trainNumber,
-                            journeyDate,
-                            journey.boardingStation
-                        );
+                chart = await chartService.fetchAndCacheChart(
+  journey.trainNumber,
+  journeyDate,
+  journey.boardingStation,
+  {
+    journeyId: journey._id,
+
+    firstChartTime:
+      chartTiming?.firstChartTime || null,
+
+    finalChartTime:
+      chartTiming?.finalChartTime || null,
+
+    boardingStationName:
+      databaseRoute.find(
+        (stop) =>
+          String(stop.code).trim().toUpperCase() ===
+          String(journey.boardingStation).trim().toUpperCase()
+      )?.station || "",
+
+    finalChartStationCode:
+      null,
+
+    finalChartStationName:
+      "",
+  }
+);
 
             } catch (error) {
 

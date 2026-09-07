@@ -63,25 +63,15 @@ class ChartService {
       // REAL IRCTC CHART STATUS
       // =====================================================
       //
-      // IRCTC provides chart status through:
-      //
-      // chartStatusResponseDto.chartOneFlag
-      // chartStatusResponseDto.chartTwoFlag
-      //
-      // Observed values:
+      // Observed IRCTC values:
       //
       // 0 = not prepared
       // 1 = prepared
       // 3 = prepared / active chart state
+      // 4 = chart state where Chart Two may be active
       //
-      // Example from IRCTC:
-      //
-      // chartOneFlag: 3
-      // chartTwoFlag: 0
-      // chartOneDate: "2026-09-07 14:33:25"
-      //
-      // Therefore flag 3 must also be treated
-      // as a prepared chart.
+      // We determine the final prepared state from either
+      // chart flag being in a prepared state.
       // =====================================================
 
       const chartStatus =
@@ -246,9 +236,21 @@ class ChartService {
     journeyDate,
     boardingStation,
     classCode,
-    chartType = 2
+    chartType = 1
   ) {
     try {
+      // =====================================================
+      // IMPORTANT
+      // =====================================================
+      //
+      // The real IRCTC website request captured from DevTools
+      // uses:
+      //
+      // chartType: 1
+      //
+      // Therefore ERJA uses 1 by default.
+      // =====================================================
+
       const payload = {
         trainNo: trainNumber,
 

@@ -582,7 +582,7 @@ class ChartWorkflowService {
 
                         enabledClass.class,
 
-                        2
+                        1
                     );
 
             } catch (error) {

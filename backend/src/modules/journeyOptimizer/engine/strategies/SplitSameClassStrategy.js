@@ -4,7 +4,7 @@ const scoreEngine =
 const {
     normalizeCode,
     getStationOrder,
-    edgeCoversSegment
+    edgeCoversSegment,
 } = require("../reservationCoverage");
 
 class SplitSameClassStrategy {
@@ -14,19 +14,29 @@ class SplitSameClassStrategy {
         const solutions = [];
 
         const source =
-            normalizeCode(journey.source);
+            normalizeCode(
+                journey.source
+            );
 
         const destination =
-            normalizeCode(journey.destination);
+            normalizeCode(
+                journey.destination
+            );
 
         const preferredClasses =
             journey.preferredClasses || [];
 
         const sourceOrder =
-            getStationOrder(graph, source);
+            getStationOrder(
+                graph,
+                source
+            );
 
         const destinationOrder =
-            getStationOrder(graph, destination);
+            getStationOrder(
+                graph,
+                destination
+            );
 
         console.log(
             "\n========== SPLIT SAME CLASS =========="
@@ -39,39 +49,65 @@ class SplitSameClassStrategy {
             return [];
         }
 
-        for (const travelClass of preferredClasses) {
+        if (
+            sourceOrder >= destinationOrder
+        ) {
+            return [];
+        }
+
+        for (
+            const travelClass
+            of preferredClasses
+        ) {
 
             const normalizedClass =
-                normalizeCode(travelClass);
+                normalizeCode(
+                    travelClass
+                );
 
             /*
-             * Split station must be strictly between
-             * source and destination.
+             * Split station must be strictly
+             * between source and destination.
              */
             const splitStations =
                 (graph.nodes || []).filter(
                     (node) => {
 
                         const order =
-                            Number(node.order);
+                            Number(
+                                node.order
+                            );
 
                         return (
+                            Number.isFinite(order) &&
                             order > sourceOrder &&
                             order < destinationOrder
                         );
                     }
                 );
 
-            for (const split of splitStations) {
+            for (
+                const split
+                of splitStations
+            ) {
 
                 const splitCode =
-                    normalizeCode(split.code);
+                    normalizeCode(
+                        split.code
+                    );
+
+                // =================================================
+                // FIRST LEG
+                // =================================================
 
                 const firstLegs =
                     graph.edges.filter(
                         (edge) =>
-                            normalizeCode(edge.class) ===
-                                normalizedClass &&
+                            normalizeCode(
+                                edge.class
+                            ) ===
+                            normalizedClass &&
+
                             edgeCoversSegment(
                                 graph,
                                 edge,
@@ -80,11 +116,18 @@ class SplitSameClassStrategy {
                             )
                     );
 
+                // =================================================
+                // SECOND LEG
+                // =================================================
+
                 const secondLegs =
                     graph.edges.filter(
                         (edge) =>
-                            normalizeCode(edge.class) ===
-                                normalizedClass &&
+                            normalizeCode(
+                                edge.class
+                            ) ===
+                            normalizedClass &&
+
                             edgeCoversSegment(
                                 graph,
                                 edge,
@@ -100,103 +143,317 @@ class SplitSameClassStrategy {
                     continue;
                 }
 
-                const first =
-                    firstLegs.sort(
+                /*
+                 * Prefer edges with the largest
+                 * availability.
+                 */
+                const sortedFirstLegs =
+                    [...firstLegs].sort(
                         (a, b) =>
                             (b.totalAvailable || 0) -
                             (a.totalAvailable || 0)
-                    )[0];
+                    );
 
-                const second =
-                    secondLegs.sort(
+                const sortedSecondLegs =
+                    [...secondLegs].sort(
                         (a, b) =>
                             (b.totalAvailable || 0) -
                             (a.totalAvailable || 0)
-                    )[0];
+                    );
 
-                const firstOpportunity =
-                    (first.opportunities || [])
-                        .find(
-                            (opportunity) =>
-                                opportunity.berths &&
-                                opportunity.berths.length
-                        );
+                let selectedPair = null;
 
-                const secondOpportunity =
-                    (second.opportunities || [])
-                        .find(
-                            (opportunity) =>
-                                opportunity.berths &&
-                                opportunity.berths.length
-                        );
+                // =================================================
+                // FIND TWO VALID OPPORTUNITIES
+                // =================================================
 
-                if (
-                    !firstOpportunity ||
-                    !secondOpportunity
+                for (
+                    const first
+                    of sortedFirstLegs
                 ) {
+
+                    const firstOpportunities =
+                        (first.opportunities || [])
+                            .filter(
+                                (opportunity) =>
+                                    opportunity.berths &&
+                                    opportunity.berths.length
+                            );
+
+                    if (
+                        !firstOpportunities.length
+                    ) {
+                        continue;
+                    }
+
+                    for (
+                        const second
+                        of sortedSecondLegs
+                    ) {
+
+                        const secondOpportunities =
+                            (second.opportunities || [])
+                                .filter(
+                                    (opportunity) =>
+                                        opportunity.berths &&
+                                        opportunity.berths.length
+                                );
+
+                        if (
+                            !secondOpportunities.length
+                        ) {
+                            continue;
+                        }
+
+                        /*
+                         * We first try to find DIFFERENT
+                         * berth identities.
+                         *
+                         * This prevents a recommendation
+                         * such as:
+                         *
+                         * SC  -> CHZ   B1/38
+                         * CHZ -> BDCR  B1/38
+                         *
+                         * from being treated as two
+                         * independent tickets.
+                         */
+                        let foundDifferentBerths =
+                            null;
+
+                        for (
+                            const firstOpportunity
+                            of firstOpportunities
+                        ) {
+
+                            for (
+                                const secondOpportunity
+                                of secondOpportunities
+                            ) {
+
+                                const firstBerth =
+                                    firstOpportunity
+                                        .berths[0];
+
+                                const secondBerth =
+                                    secondOpportunity
+                                        .berths[0];
+
+                                const firstIdentity =
+                                    this.getBerthIdentity(
+                                        firstOpportunity,
+                                        firstBerth
+                                    );
+
+                                const secondIdentity =
+                                    this.getBerthIdentity(
+                                        secondOpportunity,
+                                        secondBerth
+                                    );
+
+                                if (
+                                    firstIdentity !==
+                                    secondIdentity
+                                ) {
+
+                                    foundDifferentBerths = {
+
+                                        first,
+
+                                        second,
+
+                                        firstOpportunity,
+
+                                        secondOpportunity,
+
+                                        firstBerth,
+
+                                        secondBerth,
+                                    };
+
+                                    break;
+                                }
+                            }
+
+                            if (
+                                foundDifferentBerths
+                            ) {
+                                break;
+                            }
+                        }
+
+                        if (
+                            foundDifferentBerths
+                        ) {
+
+                            selectedPair =
+                                foundDifferentBerths;
+
+                            break;
+                        }
+                    }
+
+                    if (
+                        selectedPair
+                    ) {
+                        break;
+                    }
+                }
+
+                /*
+                 * If we could not find two distinct
+                 * berth identities, DO NOT create a
+                 * split recommendation.
+                 */
+                if (
+                    !selectedPair
+                ) {
+
+                    console.log(
+                        `⚠️ No valid distinct-berth same-class split found at ${splitCode}.`
+                    );
+
                     continue;
                 }
 
+                const {
+                    first,
+                    second,
+                    firstOpportunity,
+                    secondOpportunity,
+                    firstBerth,
+                    secondBerth,
+                } =
+                    selectedPair;
+
+                // =================================================
+                // BUILD TICKETS
+                // =================================================
+
                 const tickets = [
+
                     {
-                        from: source,
-                        to: splitCode,
-                        class: normalizedClass,
+                        from:
+                            source,
+
+                        to:
+                            splitCode,
+
+                        class:
+                            normalizedClass,
+
                         coach:
                             firstOpportunity.coach,
+
                         berth:
-                            firstOpportunity.berths[0]
+                            firstBerth,
                     },
+
                     {
-                        from: splitCode,
-                        to: destination,
-                        class: normalizedClass,
+                        from:
+                            splitCode,
+
+                        to:
+                            destination,
+
+                        class:
+                            normalizedClass,
+
                         coach:
                             secondOpportunity.coach,
+
                         berth:
-                            secondOpportunity.berths[0]
-                    }
+                            secondBerth,
+                    },
                 ];
+
+                // =================================================
+                // EXTRA SAFETY
+                // =================================================
+
+                const firstIdentity =
+                    this.getBerthIdentity(
+                        firstOpportunity,
+                        firstBerth
+                    );
+
+                const secondIdentity =
+                    this.getBerthIdentity(
+                        secondOpportunity,
+                        secondBerth
+                    );
+
+                if (
+                    firstIdentity ===
+                    secondIdentity
+                ) {
+
+                    console.log(
+                        "⚠️ Same berth identity detected. Split recommendation rejected."
+                    );
+
+                    continue;
+                }
 
                 const sameCoach =
                     firstOpportunity.coach ===
                     secondOpportunity.coach;
 
+                // =================================================
+                // SCORE
+                // =================================================
+
+                const score =
+                    scoreEngine.calculate({
+
+                        strategy:
+                            "SPLIT_SAME_CLASS",
+
+                        tickets,
+
+                        sameCoach,
+
+                        sameClass:
+                            true,
+                    });
+
+                // =================================================
+                // SOLUTION
+                // =================================================
+
                 const solution = {
 
-                    success: true,
+                    success:
+                        true,
 
                     strategy:
                         "SPLIT_SAME_CLASS",
 
-                    score:
-                        scoreEngine.calculate({
-                            strategy:
-                                "SPLIT_SAME_CLASS",
-                            tickets,
-                            sameCoach,
-                            sameClass: true
-                        }),
+                    score,
 
                     tickets,
 
                     reason:
                         sameCoach
-                            ? `Same-class split at ${splitCode}; both tickets use the same coach.`
-                            : `Same-class split at ${splitCode}.`
+                            ? `Same-class split at ${splitCode}; two distinct berths in the same coach.`
+                            : `Same-class split at ${splitCode}; two distinct available berths.`,
 
                 };
 
-                solutions.push(solution);
+                solutions.push(
+                    solution
+                );
 
                 /*
-                 * We only need the best same-class
-                 * split strategy.
+                 * We only need the best
+                 * same-class split strategy.
                  */
                 break;
             }
 
-            if (solutions.length) {
+            if (
+                solutions.length
+            ) {
                 break;
             }
         }
@@ -207,6 +464,37 @@ class SplitSameClassStrategy {
         );
 
         return solutions;
+    }
+
+    // =====================================================
+    // BERTH IDENTITY
+    // =====================================================
+
+    getBerthIdentity(
+        opportunity,
+        berth
+    ) {
+
+        const coach =
+            String(
+                opportunity?.coach ||
+                ""
+            )
+                .trim()
+                .toUpperCase();
+
+        const berthNumber =
+            String(
+                berth ??
+                ""
+            )
+                .trim()
+                .toUpperCase();
+
+        return [
+            coach,
+            berthNumber,
+        ].join("|");
     }
 }
 

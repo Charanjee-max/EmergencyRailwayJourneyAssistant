@@ -42,8 +42,7 @@ class ChartWorkflowService {
 
         const stops =
             await TrainStop.find({
-                trainNumber:
-                    normalizedTrainNumber,
+                trainNumber: normalizedTrainNumber,
             })
                 .lean();
 
@@ -258,12 +257,178 @@ class ChartWorkflowService {
     }
 
     // =====================================================
+    // ROUTE ORDER HELPER
+    // =====================================================
+
+    getRouteOrder(route, stationCode) {
+
+        const normalizedCode =
+            String(
+                stationCode || ""
+            )
+                .trim()
+                .toUpperCase();
+
+        const station =
+            route.find(
+                (item) =>
+                    String(
+                        item.code || ""
+                    )
+                        .trim()
+                        .toUpperCase() ===
+                    normalizedCode
+            );
+
+        if (!station) {
+            return null;
+        }
+
+        return Number.isFinite(
+            Number(station.routeOrder)
+        )
+            ? Number(station.routeOrder)
+            : null;
+    }
+
+    // =====================================================
+    // DOES VACANCY COVER COMPLETE JOURNEY?
+    // =====================================================
+
+    vacancyCoversJourney(
+        vacancy,
+        route,
+        source,
+        destination
+    ) {
+
+        const sourceOrder =
+            this.getRouteOrder(
+                route,
+                source
+            );
+
+        const destinationOrder =
+            this.getRouteOrder(
+                route,
+                destination
+            );
+
+        const vacancyFromOrder =
+            this.getRouteOrder(
+                route,
+                vacancy.from
+            );
+
+        const vacancyToOrder =
+            this.getRouteOrder(
+                route,
+                vacancy.to
+            );
+
+        if (
+            sourceOrder === null ||
+            destinationOrder === null ||
+            vacancyFromOrder === null ||
+            vacancyToOrder === null
+        ) {
+            return false;
+        }
+
+        return (
+            vacancyFromOrder <= sourceOrder &&
+            vacancyToOrder >= destinationOrder
+        );
+    }
+
+    // =====================================================
+    // COUNT JOURNEY-COVERING VACANCIES
+    // =====================================================
+
+    countJourneyCoveringVacancies(
+        vacancies,
+        route,
+        journey,
+        classCode
+    ) {
+
+        const source =
+            String(
+                journey.boardingStation || ""
+            )
+                .trim()
+                .toUpperCase();
+
+        const destination =
+            String(
+                journey.destinationStation || ""
+            )
+                .trim()
+                .toUpperCase();
+
+        const covering =
+            vacancies.filter(
+                (vacancy) =>
+                    String(
+                        vacancy.class || ""
+                    )
+                        .trim()
+                        .toUpperCase() ===
+                    classCode &&
+                    this.vacancyCoversJourney(
+                        vacancy,
+                        route,
+                        source,
+                        destination
+                    )
+            );
+
+        /*
+         * Count unique berth identities.
+         *
+         * The same berth may appear more than once
+         * in IRCTC's response for different intervals.
+         */
+        const uniqueBerths =
+            new Set();
+
+        for (const vacancy of covering) {
+
+            const berthIdentity =
+                [
+                    classCode,
+                    String(
+                        vacancy.coach || ""
+                    )
+                        .trim()
+                        .toUpperCase(),
+
+                    String(
+                        vacancy.berth ??
+                        vacancy.berthNumber ??
+                        vacancy.berthCode ??
+                        ""
+                    )
+                        .trim()
+                        .toUpperCase(),
+                ].join("|");
+
+            uniqueBerths.add(
+                berthIdentity
+            );
+        }
+
+        return uniqueBerths.size;
+    }
+
+    // =====================================================
     // FETCH VACANCIES FOR ALL CLASSES
     // =====================================================
 
     async fetchAllClassVacancies(
         journey,
-        journeyDate
+        journeyDate,
+        databaseRoute
     ) {
 
         const allVacantBerths = [];
@@ -325,23 +490,58 @@ class ChartWorkflowService {
                     ...normalizedVacancies
                 );
 
+                // -----------------------------------------
+                // TOTAL RECORDS
+                // -----------------------------------------
+
+                const totalVacancies =
+                    normalizedVacancies.length;
+
+                // -----------------------------------------
+                // JOURNEY COVERING RECORDS
+                // -----------------------------------------
+
+                const journeyCoveringVacancies =
+                    this.countJourneyCoveringVacancies(
+                        normalizedVacancies,
+                        databaseRoute,
+                        journey,
+                        classCode
+                    );
+
+                const status =
+    totalVacancies > 0
+        ? "AVAILABLE"
+        : "ERROR";
+
                 vacancySummary.push({
 
                     class:
                         classCode,
 
+                    /*
+                     * Kept as `count` for backward
+                     * compatibility with existing UI/code.
+                     */
                     count:
-                        normalizedVacancies.length,
+                        totalVacancies,
 
-                    status:
-                        "AVAILABLE",
+                    totalVacancies,
+
+                    journeyCoveringVacancies,
+
+                    status,
 
                     error:
                         "",
                 });
 
                 console.log(
-                    `✅ ${classCode}: ${normalizedVacancies.length} vacant berths`
+                    `✅ ${classCode}: ${totalVacancies} total vacancy records`
+                );
+
+                console.log(
+                    `   🎯 ${classCode}: ${journeyCoveringVacancies} berths cover ${journey.boardingStation} → ${journey.destinationStation}`
                 );
 
             } catch (error) {
@@ -357,6 +557,12 @@ class ChartWorkflowService {
                         classCode,
 
                     count:
+                        0,
+
+                    totalVacancies:
+                        0,
+
+                    journeyCoveringVacancies:
                         0,
 
                     status:
@@ -780,15 +986,14 @@ class ChartWorkflowService {
             // =================================================
 
             const {
-
                 vacancies,
-
                 vacancySummary,
 
             } =
                 await this.fetchAllClassVacancies(
                     journey,
-                    journeyDate
+                    journeyDate,
+                    databaseRoute
                 );
 
             // =================================================
@@ -802,11 +1007,6 @@ class ChartWorkflowService {
                 console.log(
                     "\nℹ️ IRCTC returned no usable vacant berths."
                 );
-
-                /*
-                 * Keep a recommendation so the
-                 * user understands what happened.
-                 */
 
                 return await this.runOptimizer(
                     journey,

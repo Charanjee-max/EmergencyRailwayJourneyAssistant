@@ -1,74 +1,158 @@
+const {
+    normalizeCode,
+    edgeCoversJourney
+} = require("../reservationCoverage");
+
 class DirectSeatStrategy {
+
     execute(graph, journey) {
 
         const solutions = [];
 
-        const source = journey.source;
-        const destination = journey.destination;
-        const preferredClasses = journey.preferredClasses || [];
+        const source =
+            normalizeCode(journey.source);
 
-        console.log("\n========== DIRECT SEAT STRATEGY ==========");
+        const destination =
+            normalizeCode(journey.destination);
+
+        const preferredClasses =
+            journey.preferredClasses || [];
+
+        console.log(
+            "\n========== DIRECT SEAT STRATEGY =========="
+        );
+
         console.log("Source:", source);
         console.log("Destination:", destination);
-        console.log("Preferred Classes:", preferredClasses);
+        console.log(
+            "Preferred Classes:",
+            preferredClasses
+        );
 
         for (const travelClass of preferredClasses) {
 
-            console.log("\nChecking Class:", travelClass);
+            const normalizedClass =
+                normalizeCode(travelClass);
 
-            const directEdges = graph.edges.filter(edge =>
-                edge.from === source &&
-                edge.to === destination &&
-                edge.class === travelClass
+            const coveringEdges =
+                graph.edges.filter((edge) =>
+                    normalizeCode(edge.class) ===
+                        normalizedClass &&
+                    edgeCoversJourney(
+                        graph,
+                        edge,
+                        source,
+                        destination
+                    )
+                );
+
+            if (!coveringEdges.length) {
+                console.log(
+                    `❌ No ${normalizedClass} direct coverage`
+                );
+                continue;
+            }
+
+            /*
+             * Find the edge with the largest availability.
+             */
+            coveringEdges.sort(
+                (a, b) =>
+                    (b.totalAvailable || 0) -
+                    (a.totalAvailable || 0)
             );
 
-            console.log("Direct Edges:");
-            console.dir(directEdges, { depth: null });
+            const bestEdge =
+                coveringEdges[0];
 
-            directEdges.forEach(edge => {
+            let bestOpportunity = null;
 
-                edge.opportunities.forEach(opportunity => {
+            for (
+                const opportunity
+                of bestEdge.opportunities || []
+            ) {
 
-                    opportunity.berths.forEach(berth => {
+                if (
+                    !opportunity.berths ||
+                    !opportunity.berths.length
+                ) {
+                    continue;
+                }
 
-                        console.log("✅ Direct Seat Found");
+                if (
+                    !bestOpportunity ||
+                    opportunity.berths.length >
+                        bestOpportunity.berths.length
+                ) {
+                    bestOpportunity =
+                        opportunity;
+                }
+            }
 
-                        solutions.push({
+            if (!bestOpportunity) {
+                continue;
+            }
 
-                            success: true,
+            const bestBerth =
+                bestOpportunity.berths[0];
 
-                            strategy: "DIRECT_SEAT",
+            const solution = {
 
-                            score: 100,
+                success: true,
 
-                            tickets: [
-                                {
-                                    from: edge.from,
-                                    to: edge.to,
-                                    class: edge.class,
-                                    coach: opportunity.coach,
-                                    berth
-                                }
-                            ],
+                strategy: "DIRECT_SEAT",
 
-                            reason: "Direct seat available."
+                score: 100,
 
-                        });
+                tickets: [
+                    {
+                        from: source,
+                        to: destination,
+                        class: normalizedClass,
+                        coach:
+                            bestOpportunity.coach,
+                        berth: bestBerth
+                    }
+                ],
 
-                    });
+                reason:
+                    `${bestEdge.totalAvailable} vacant ` +
+                    `${normalizedClass} berths cover ` +
+                    `${source} → ${destination}. ` +
+                    `Best available option: ` +
+                    `${bestOpportunity.coach}/${bestBerth}.`
 
-                });
+            };
 
-            });
+            console.log(
+                "✅ Direct journey coverage found"
+            );
 
+            console.dir(
+                solution,
+                { depth: null }
+            );
+
+            solutions.push(solution);
+
+            /*
+             * Only one DIRECT_SEAT recommendation.
+             */
+            break;
         }
 
-        console.log("\n================================");
-        console.log("DIRECT SEAT SOLUTIONS:", solutions.length);
-        console.log("================================");
+        console.log(
+            "\nDIRECT SEAT RECOMMENDATIONS:",
+            solutions.length
+        );
+
+        console.log(
+            "================================\n"
+        );
 
         return solutions;
     }
 }
 
-module.exports = new DirectSeatStrategy();
+module.exports =
+    new DirectSeatStrategy();

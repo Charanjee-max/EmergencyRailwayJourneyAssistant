@@ -1,130 +1,168 @@
-const Recommendation = require("./recommendation.model");
-const Journey = require("../journey/journey.model");
+const Recommendation =
+    require("./recommendation.model");
 
-const recommendationFormatter = require(
-  "./formatter/recommendationFormatter"
-);
+const Journey =
+    require("../journey/journey.model");
 
+const recommendationFormatter =
+    require(
+        "./formatter/recommendationFormatter"
+    );
+
+// =========================================================
+// RECOMMENDATION SERVICE
+// =========================================================
 
 class RecommendationService {
 
+    // =====================================================
+    // SAVE RECOMMENDATIONS
+    // =====================================================
 
-  // =========================================
-  // SAVE RECOMMENDATIONS
-  // =========================================
+    async saveRecommendations(
+        journeyId,
+        recommendations = []
+    ) {
 
-  async saveRecommendations(
-    journeyId,
-    recommendations = []
-  ) {
+        // -------------------------------------------------
+        // Remove old recommendations
+        // -------------------------------------------------
 
-    // Remove previous recommendations
-    await Recommendation.deleteMany({
-      journey: journeyId,
-    });
+        await Recommendation.deleteMany({
 
+            journey:
+                journeyId,
+        });
 
-    // Nothing to save
-    if (!recommendations.length) {
-      return [];
+        // -------------------------------------------------
+        // Nothing to save
+        // -------------------------------------------------
+
+        if (
+            !Array.isArray(
+                recommendations
+            ) ||
+            recommendations.length === 0
+        ) {
+
+            return [];
+        }
+
+        // -------------------------------------------------
+        // Prepare MongoDB documents
+        // -------------------------------------------------
+
+        const documents =
+            recommendations.map(
+                (rec) => ({
+
+                    journey:
+                        journeyId,
+
+                    strategy:
+                        rec.strategy,
+
+                    score:
+                        rec.score,
+
+                    reason:
+                        rec.reason || "",
+
+                    tickets:
+                        Array.isArray(
+                            rec.tickets
+                        )
+                            ? rec.tickets
+                            : [],
+
+                    vacancySummary:
+                        Array.isArray(
+                            rec.vacancySummary
+                        )
+                            ? rec.vacancySummary
+                            : [],
+                })
+            );
+
+        // -------------------------------------------------
+        // Save
+        // -------------------------------------------------
+
+        return await Recommendation
+            .insertMany(
+                documents
+            );
     }
 
+    // =====================================================
+    // GET RECOMMENDATIONS
+    // =====================================================
 
-    // Prepare documents
-    const documents =
-      recommendations.map((rec) => ({
+    async getRecommendations(
+        journeyId,
+        userId
+    ) {
 
-        journey: journeyId,
+        // -------------------------------------------------
+        // Verify ownership
+        // -------------------------------------------------
 
-        strategy: rec.strategy,
+        const journey =
+            await Journey.findOne({
 
-        score: rec.score,
+                _id:
+                    journeyId,
 
-        reason: rec.reason,
+                userId:
+                    userId,
+            });
 
-        tickets: rec.tickets,
+        if (!journey) {
 
-      }));
+            const error =
+                new Error(
+                    "Journey not found or access denied."
+                );
 
+            error.statusCode =
+                404;
 
-    // Save recommendations
-    return await Recommendation.insertMany(
-      documents
-    );
-  }
+            throw error;
+        }
 
+        // -------------------------------------------------
+        // Get active recommendations
+        // -------------------------------------------------
 
+        const recommendations =
+            await Recommendation.find({
 
-  // =========================================
-  // GET RECOMMENDATIONS
-  // =========================================
+                journey:
+                    journeyId,
 
-  async getRecommendations(
-    journeyId,
-    userId
-  ) {
+                status:
+                    "ACTIVE",
 
+            }).sort({
 
-    // ========================================
-    // Verify Journey Ownership
-    // ========================================
+                score:
+                    -1,
+            });
 
-    const journey =
-      await Journey.findOne({
+        // -------------------------------------------------
+        // Format
+        // -------------------------------------------------
 
-        _id: journeyId,
-
-        userId: userId,
-
-      });
-
-
-    if (!journey) {
-
-      const error = new Error(
-        "Journey not found or access denied."
-      );
-
-      error.statusCode = 404;
-
-      throw error;
+        return recommendationFormatter
+            .format(
+                recommendations
+            );
     }
-
-
-
-    // ========================================
-    // Get Active Recommendations
-    // ========================================
-
-    const recommendations =
-      await Recommendation.find({
-
-        journey: journeyId,
-
-        status: "ACTIVE",
-
-      }).sort({
-
-        score: -1,
-
-      });
-
-
-
-    // ========================================
-    // Format Response
-    // ========================================
-
-    return recommendationFormatter.format(
-      recommendations
-    );
-  }
 }
 
-
-// =========================================
-// Export
-// =========================================
+// =========================================================
+// EXPORT
+// =========================================================
 
 module.exports =
-  new RecommendationService();
+    new RecommendationService();

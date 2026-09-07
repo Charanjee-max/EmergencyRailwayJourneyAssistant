@@ -1,4 +1,11 @@
-const scoreEngine = require("../../scoring/ScoreEngine");
+const scoreEngine =
+    require("../../scoring/ScoreEngine");
+
+const {
+    normalizeCode,
+    getStationOrder,
+    edgeCoversSegment
+} = require("../reservationCoverage");
 
 class SplitMixedClassStrategy {
 
@@ -6,195 +13,245 @@ class SplitMixedClassStrategy {
 
         const solutions = [];
 
-        const source = journey.source;
-        const destination = journey.destination;
-        const preferredClasses = journey.preferredClasses || [];
-
-        console.log("\n========== SPLIT MIXED CLASS ==========");
-        console.log("Source:", source);
-        console.log("Destination:", destination);
-        console.log("Preferred Classes:", preferredClasses);
-        console.log("Allow Mixed Class:", journey.allowMixedClass);
-
-        // Mixed class is only allowed when explicitly enabled.
         if (!journey.allowMixedClass) {
-            console.log("⛔ Mixed class disabled by user.");
-            return solutions;
+            console.log(
+                "⛔ Mixed class disabled."
+            );
+
+            return [];
         }
 
-        /*
-         * IMPORTANT:
-         *
-         * preferredClasses contains the user's preferred class,
-         * but when mixed class is enabled, the second class can be
-         * another class available in the graph.
-         *
-         * Example:
-         *
-         * preferredClasses = ["3A"]
-         *
-         * Graph:
-         * BDCR -> KRA = 3A
-         * KRA  -> SC  = SL
-         *
-         * We must therefore check:
-         *
-         * 3A -> SL
-         */
+        const source =
+            normalizeCode(journey.source);
+
+        const destination =
+            normalizeCode(journey.destination);
+
+        const preferredClasses =
+            journey.preferredClasses || [];
+
+        const sourceOrder =
+            getStationOrder(graph, source);
+
+        const destinationOrder =
+            getStationOrder(
+                graph,
+                destination
+            );
+
+        if (
+            sourceOrder === null ||
+            destinationOrder === null
+        ) {
+            return [];
+        }
 
         const availableClasses = [
             ...new Set(
                 graph.edges
-                    .map(edge => edge.class)
+                    .map(
+                        (edge) =>
+                            normalizeCode(
+                                edge.class
+                            )
+                    )
                     .filter(Boolean)
             )
         ];
 
         console.log(
-            "Available Classes in Graph:",
+            "\n========== SPLIT MIXED CLASS =========="
+        );
+
+        console.log(
+            "Available Classes:",
             availableClasses
         );
 
-        /*
-         * First leg must respect the user's preferred class.
-         * Second leg may use another available class.
-         */
-        for (const firstClass of preferredClasses) {
+        for (
+            const firstClass
+            of preferredClasses
+        ) {
 
-            const secondClasses = availableClasses.filter(
-                secondClass => secondClass !== firstClass
-            );
+            const normalizedFirstClass =
+                normalizeCode(firstClass);
 
-            for (const secondClass of secondClasses) {
-
-                console.log(
-                    `Checking ${firstClass} -> ${secondClass}`
+            const secondClasses =
+                availableClasses.filter(
+                    (className) =>
+                        className !==
+                        normalizedFirstClass
                 );
 
-                /*
-                 * First leg:
-                 * Source -> intermediate station
-                 */
-                const firstLegs = graph.edges.filter(edge =>
-                    edge.from === source &&
-                    edge.class === firstClass
-                );
+            for (
+                const secondClass
+                of secondClasses
+            ) {
 
-                console.log("First Legs:");
-                console.dir(firstLegs, { depth: null });
+                const splitStations =
+                    (graph.nodes || []).filter(
+                        (node) => {
 
-                firstLegs.forEach(first => {
+                            const order =
+                                Number(node.order);
 
-                    /*
-                     * Second leg:
-                     * Intermediate station -> destination
-                     */
-                    const secondLegs = graph.edges.filter(edge =>
-                        edge.from === first.to &&
-                        edge.to === destination &&
-                        edge.class === secondClass
+                            return (
+                                order >
+                                    sourceOrder &&
+                                order <
+                                    destinationOrder
+                            );
+                        }
                     );
 
-                    console.log("Second Legs:");
-                    console.dir(secondLegs, { depth: null });
+                for (
+                    const split
+                    of splitStations
+                ) {
 
-                    secondLegs.forEach(second => {
+                    const splitCode =
+                        normalizeCode(
+                            split.code
+                        );
 
-                        if (!first.opportunities) {
-                            return;
+                    const firstLegs =
+                        graph.edges.filter(
+                            (edge) =>
+                                normalizeCode(
+                                    edge.class
+                                ) ===
+                                    normalizedFirstClass &&
+                                edgeCoversSegment(
+                                    graph,
+                                    edge,
+                                    source,
+                                    splitCode
+                                )
+                        );
+
+                    const secondLegs =
+                        graph.edges.filter(
+                            (edge) =>
+                                normalizeCode(
+                                    edge.class
+                                ) ===
+                                    secondClass &&
+                                edgeCoversSegment(
+                                    graph,
+                                    edge,
+                                    splitCode,
+                                    destination
+                                )
+                        );
+
+                    if (
+                        !firstLegs.length ||
+                        !secondLegs.length
+                    ) {
+                        continue;
+                    }
+
+                    firstLegs.sort(
+                        (a, b) =>
+                            (b.totalAvailable || 0) -
+                            (a.totalAvailable || 0)
+                    );
+
+                    secondLegs.sort(
+                        (a, b) =>
+                            (b.totalAvailable || 0) -
+                            (a.totalAvailable || 0)
+                    );
+
+                    const first =
+                        firstLegs[0];
+
+                    const second =
+                        secondLegs[0];
+
+                    const firstOpportunity =
+                        (first.opportunities || [])
+                            .find(
+                                (opportunity) =>
+                                    opportunity.berths &&
+                                    opportunity.berths.length
+                            );
+
+                    const secondOpportunity =
+                        (second.opportunities || [])
+                            .find(
+                                (opportunity) =>
+                                    opportunity.berths &&
+                                    opportunity.berths.length
+                            );
+
+                    if (
+                        !firstOpportunity ||
+                        !secondOpportunity
+                    ) {
+                        continue;
+                    }
+
+                    const tickets = [
+                        {
+                            from: source,
+                            to: splitCode,
+                            class:
+                                normalizedFirstClass,
+                            coach:
+                                firstOpportunity.coach,
+                            berth:
+                                firstOpportunity.berths[0]
+                        },
+                        {
+                            from: splitCode,
+                            to: destination,
+                            class: secondClass,
+                            coach:
+                                secondOpportunity.coach,
+                            berth:
+                                secondOpportunity.berths[0]
                         }
+                    ];
 
-                        if (!second.opportunities) {
-                            return;
-                        }
+                    const sameCoach =
+                        firstOpportunity.coach ===
+                        secondOpportunity.coach;
 
-                        first.opportunities.forEach(firstCoach => {
+                    solutions.push({
 
-                            if (!firstCoach.berths) {
-                                return;
-                            }
+                        success: true,
 
-                            second.opportunities.forEach(secondCoach => {
+                        strategy:
+                            "SPLIT_MIXED_CLASS",
 
-                                if (!secondCoach.berths) {
-                                    return;
-                                }
+                        score:
+                            scoreEngine.calculate({
+                                strategy:
+                                    "SPLIT_MIXED_CLASS",
+                                tickets,
+                                sameCoach,
+                                sameClass: false
+                            }),
 
-                                firstCoach.berths.forEach(firstBerth => {
+                        tickets,
 
-                                    secondCoach.berths.forEach(secondBerth => {
-
-                                        const tickets = [
-                                            {
-                                                from: first.from,
-                                                to: first.to,
-                                                class: first.class,
-                                                coach: firstCoach.coach,
-                                                berth: firstBerth
-                                            },
-                                            {
-                                                from: second.from,
-                                                to: second.to,
-                                                class: second.class,
-                                                coach: secondCoach.coach,
-                                                berth: secondBerth
-                                            }
-                                        ];
-
-                                        const sameCoach =
-                                            firstCoach.coach ===
-                                            secondCoach.coach;
-
-                                        console.log(
-                                            "✅ Mixed Strategy Found"
-                                        );
-
-                                        console.dir(
-                                            tickets,
-                                            { depth: null }
-                                        );
-
-                                        solutions.push({
-
-                                            success: true,
-
-                                            strategy:
-                                                "SPLIT_MIXED_CLASS",
-
-                                            score:
-                                                scoreEngine.calculate({
-                                                    strategy:
-                                                        "SPLIT_MIXED_CLASS",
-                                                    tickets,
-                                                    sameCoach,
-                                                    sameClass: false
-                                                }),
-
-                                            tickets,
-
-                                            reason: sameCoach
-                                                ? "Split reservation using different classes in the same coach."
-                                                : "Split reservation using different travel classes."
-                                        });
-
-                                    });
-
-                                });
-
-                            });
-
-                        });
+                        reason:
+                            `Mixed-class split at ${splitCode}: ` +
+                            `${normalizedFirstClass} → ${secondClass}.`
 
                     });
 
-                });
-
+                    /*
+                     * Only one best mixed strategy.
+                     */
+                    return solutions;
+                }
             }
-
         }
 
         console.log(
-            "\nTOTAL MIXED CLASS SOLUTIONS:",
+            "TOTAL MIXED CLASS SOLUTIONS:",
             solutions.length
         );
 
@@ -202,4 +259,5 @@ class SplitMixedClassStrategy {
     }
 }
 
-module.exports = new SplitMixedClassStrategy();
+module.exports =
+    new SplitMixedClassStrategy();

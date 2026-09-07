@@ -1,4 +1,11 @@
-const scoreEngine = require("../../scoring/ScoreEngine");
+const scoreEngine =
+    require("../../scoring/ScoreEngine");
+
+const {
+    normalizeCode,
+    getStationOrder,
+    edgeCoversSegment
+} = require("../reservationCoverage");
 
 class SplitSameClassStrategy {
 
@@ -6,117 +13,202 @@ class SplitSameClassStrategy {
 
         const solutions = [];
 
-        const source = journey.source;
-        const destination = journey.destination;
-        const preferredClasses = journey.preferredClasses || [];
+        const source =
+            normalizeCode(journey.source);
 
-        console.log("\n========== SPLIT SAME CLASS ==========");
-        console.log("Source:", source);
-        console.log("Destination:", destination);
-        console.log("Preferred Classes:", preferredClasses);
+        const destination =
+            normalizeCode(journey.destination);
+
+        const preferredClasses =
+            journey.preferredClasses || [];
+
+        const sourceOrder =
+            getStationOrder(graph, source);
+
+        const destinationOrder =
+            getStationOrder(graph, destination);
+
+        console.log(
+            "\n========== SPLIT SAME CLASS =========="
+        );
+
+        if (
+            sourceOrder === null ||
+            destinationOrder === null
+        ) {
+            return [];
+        }
 
         for (const travelClass of preferredClasses) {
 
-            console.log(`\nChecking Class: ${travelClass}`);
+            const normalizedClass =
+                normalizeCode(travelClass);
 
-            // First ticket
-            const firstLegs = graph.edges.filter(edge =>
-                edge.from === source &&
-                edge.class === travelClass
-            );
+            /*
+             * Split station must be strictly between
+             * source and destination.
+             */
+            const splitStations =
+                (graph.nodes || []).filter(
+                    (node) => {
 
-            console.log("First Legs:");
-            console.dir(firstLegs, { depth: null });
+                        const order =
+                            Number(node.order);
 
-            firstLegs.forEach(first => {
-
-                // Second ticket
-                const secondLegs = graph.edges.filter(edge =>
-                    edge.from === first.to &&
-                    edge.to === destination &&
-                    edge.class === travelClass
+                        return (
+                            order > sourceOrder &&
+                            order < destinationOrder
+                        );
+                    }
                 );
 
-                console.log("Second Legs:");
-                console.dir(secondLegs, { depth: null });
+            for (const split of splitStations) {
 
-                secondLegs.forEach(second => {
+                const splitCode =
+                    normalizeCode(split.code);
 
-                    first.opportunities.forEach(firstCoach => {
+                const firstLegs =
+                    graph.edges.filter(
+                        (edge) =>
+                            normalizeCode(edge.class) ===
+                                normalizedClass &&
+                            edgeCoversSegment(
+                                graph,
+                                edge,
+                                source,
+                                splitCode
+                            )
+                    );
 
-                        second.opportunities.forEach(secondCoach => {
+                const secondLegs =
+                    graph.edges.filter(
+                        (edge) =>
+                            normalizeCode(edge.class) ===
+                                normalizedClass &&
+                            edgeCoversSegment(
+                                graph,
+                                edge,
+                                splitCode,
+                                destination
+                            )
+                    );
 
-                            firstCoach.berths.forEach(firstBerth => {
+                if (
+                    !firstLegs.length ||
+                    !secondLegs.length
+                ) {
+                    continue;
+                }
 
-                                secondCoach.berths.forEach(secondBerth => {
+                const first =
+                    firstLegs.sort(
+                        (a, b) =>
+                            (b.totalAvailable || 0) -
+                            (a.totalAvailable || 0)
+                    )[0];
 
-                                    const sameCoach =
-                                        firstCoach.coach === secondCoach.coach;
+                const second =
+                    secondLegs.sort(
+                        (a, b) =>
+                            (b.totalAvailable || 0) -
+                            (a.totalAvailable || 0)
+                    )[0];
 
-                                    console.log("✅ Strategy Found");
-                                    console.log({
-                                        first: `${first.from} -> ${first.to}`,
-                                        second: `${second.from} -> ${second.to}`,
-                                        firstCoach: firstCoach.coach,
-                                        secondCoach: secondCoach.coach
-                                    });
+                const firstOpportunity =
+                    (first.opportunities || [])
+                        .find(
+                            (opportunity) =>
+                                opportunity.berths &&
+                                opportunity.berths.length
+                        );
 
-                                    const tickets = [
-                                        {
-                                            from: first.from,
-                                            to: first.to,
-                                            class: first.class,
-                                            coach: firstCoach.coach,
-                                            berth: firstBerth
-                                        },
-                                        {
-                                            from: second.from,
-                                            to: second.to,
-                                            class: second.class,
-                                            coach: secondCoach.coach,
-                                            berth: secondBerth
-                                        }
-                                    ];
+                const secondOpportunity =
+                    (second.opportunities || [])
+                        .find(
+                            (opportunity) =>
+                                opportunity.berths &&
+                                opportunity.berths.length
+                        );
 
-                                    solutions.push({
-                                        success: true,
-                                        strategy: "SPLIT_SAME_CLASS",
+                if (
+                    !firstOpportunity ||
+                    !secondOpportunity
+                ) {
+                    continue;
+                }
 
-                                        score: scoreEngine.calculate({
-                                            strategy: "SPLIT_SAME_CLASS",
-                                            tickets,
-                                            sameCoach,
-                                            sameClass: true
-                                        }),
+                const tickets = [
+                    {
+                        from: source,
+                        to: splitCode,
+                        class: normalizedClass,
+                        coach:
+                            firstOpportunity.coach,
+                        berth:
+                            firstOpportunity.berths[0]
+                    },
+                    {
+                        from: splitCode,
+                        to: destination,
+                        class: normalizedClass,
+                        coach:
+                            secondOpportunity.coach,
+                        berth:
+                            secondOpportunity.berths[0]
+                    }
+                ];
 
-                                        tickets,
+                const sameCoach =
+                    firstOpportunity.coach ===
+                    secondOpportunity.coach;
 
-                                        reason: sameCoach
-                                            ? "Same-class split reservation (same coach)."
-                                            : "Same-class split reservation."
-                                    });
+                const solution = {
 
-                                });
+                    success: true,
 
-                            });
+                    strategy:
+                        "SPLIT_SAME_CLASS",
 
-                        });
+                    score:
+                        scoreEngine.calculate({
+                            strategy:
+                                "SPLIT_SAME_CLASS",
+                            tickets,
+                            sameCoach,
+                            sameClass: true
+                        }),
 
-                    });
+                    tickets,
 
-                });
+                    reason:
+                        sameCoach
+                            ? `Same-class split at ${splitCode}; both tickets use the same coach.`
+                            : `Same-class split at ${splitCode}.`
 
-            });
+                };
 
+                solutions.push(solution);
+
+                /*
+                 * We only need the best same-class
+                 * split strategy.
+                 */
+                break;
+            }
+
+            if (solutions.length) {
+                break;
+            }
         }
 
-        console.log("\n================================");
-        console.log("TOTAL SOLUTIONS:", solutions.length);
-        console.log("================================\n");
+        console.log(
+            "TOTAL SAME-CLASS SOLUTIONS:",
+            solutions.length
+        );
 
         return solutions;
     }
-
 }
 
-module.exports = new SplitSameClassStrategy();
+module.exports =
+    new SplitSameClassStrategy();

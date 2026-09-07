@@ -1,23 +1,53 @@
+// =========================================================
+// RECOMMENDATION GENERATOR
+// =========================================================
+
 class RecommendationGenerator {
 
-    generate(strategies = []) {
+    generate(
+        strategies = [],
+        metadata = {}
+    ) {
 
-        return strategies.map((strategy, index) => ({
+        const vacancySummary =
+            Array.isArray(
+                metadata.vacancySummary
+            )
+                ? metadata.vacancySummary
+                : [];
 
-            rank: index + 1,
+        return strategies.map(
+            (strategy, index) => ({
 
-            strategy: strategy.strategy,
+                rank:
+                    index + 1,
 
-            score: strategy.score,
+                strategy:
+                    strategy.strategy,
 
-            tickets: strategy.tickets,
+                score:
+                    strategy.score,
 
-            reason: strategy.reason
+                tickets:
+                    Array.isArray(
+                        strategy.tickets
+                    )
+                        ? strategy.tickets
+                        : [],
 
-        }));
+                reason:
+                    strategy.reason || "",
 
+                vacancySummary:
+                    vacancySummary,
+            })
+        );
     }
-
 }
 
-module.exports = new RecommendationGenerator();
+// =========================================================
+// EXPORT
+// =========================================================
+
+module.exports =
+    new RecommendationGenerator();

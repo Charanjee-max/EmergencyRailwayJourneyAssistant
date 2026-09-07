@@ -29,7 +29,7 @@ class ChartWorkflowService {
             await TrainStop.find({
                 trainNumber: normalizedTrainNumber
             })
-            .lean();
+                .lean();
 
         if (!stops.length) {
 
@@ -41,17 +41,13 @@ class ChartWorkflowService {
         }
 
         // ---------------------------------------------------------
-        // IMPORTANT:
+        // Convert timetable "no" into numeric route order.
         //
-        // The "no" field contains values such as:
-        //
-        // 1
-        // 1.1
-        // 1.2
-        // 2
-        // ...
-        //
-        // We convert it to a numeric route order.
+        // Examples:
+        // "1"   -> 1
+        // "1.1" -> 1.1
+        // "1.2" -> 1.2
+        // "33"  -> 33
         // ---------------------------------------------------------
 
         const orderedStops =
@@ -77,21 +73,17 @@ class ChartWorkflowService {
         // ---------------------------------------------------------
         // Convert database timetable records into the format
         // expected by ReservationGraphBuilder.
-        //
-        // ReservationGraphBuilder accepts:
-        //
-        // station.code
-        // station.name
         // ---------------------------------------------------------
 
         const route =
             orderedStops.map((stop) => ({
+
                 code:
                     String(
                         stop.code || ""
                     )
-                    .trim()
-                    .toUpperCase(),
+                        .trim()
+                        .toUpperCase(),
 
                 name:
                     stop.station || "",
@@ -100,8 +92,8 @@ class ChartWorkflowService {
                     String(
                         stop.code || ""
                     )
-                    .trim()
-                    .toUpperCase(),
+                        .trim()
+                        .toUpperCase(),
 
                 stationName:
                     stop.station || "",
@@ -374,7 +366,6 @@ class ChartWorkflowService {
                     mockChartData,
 
                     vacantBerths
-
                 );
             }
 
@@ -515,16 +506,29 @@ class ChartWorkflowService {
                 );
 
                 console.log(
-                    "Journey Optimizer will NOT run."
+                    "🧠 Running Journey Optimizer for WAIT_FOR_CHART recommendation."
                 );
 
 
-                await this.clearRecommendations(
-                    journey._id
+                // -------------------------------------------------
+                // IMPORTANT
+                //
+                // Do NOT clear recommendations here.
+                //
+                // The optimizer must run so that
+                // WaitChartStrategy can create:
+                //
+                // WAIT_FOR_CHART
+                //
+                // We intentionally pass an empty vacancy
+                // array because the chart is not prepared yet.
+                // -------------------------------------------------
+
+                return await this.runOptimizer(
+                    journey,
+                    chart,
+                    []
                 );
-
-
-                return null;
             }
 
 
@@ -669,7 +673,6 @@ class ChartWorkflowService {
                 chart,
 
                 vacantBerths
-
             );
 
         } catch (error) {
@@ -774,23 +777,168 @@ class ChartWorkflowService {
                 databaseRoute.length
             );
 
+
             routeStations =
                 databaseRoute;
 
         } else {
+
+            // -------------------------------------------------
+            // IMPORTANT:
+            //
+            // chartData.cdd contains TRAIN COACH COMPOSITION.
+            //
+            // Example:
+            // A1, B1, B2, S1, S2...
+            //
+            // It is NOT the station timetable.
+            //
+            // Therefore NEVER use cdd as routeStations.
+            // -------------------------------------------------
 
             console.log(
                 "\n⚠️ MONGODB TIMETABLE NOT AVAILABLE"
             );
 
             console.log(
-                "Falling back to IRCTC chart route."
+                `⚠️ No station timetable available for train ${journey.trainNumber}.`
             );
 
-            routeStations =
-                chartData?.cdd || [];
+            console.log(
+                "❌ IRCTC coach composition will NOT be used as timetable."
+            );
+
+            console.log(
+                "❌ Journey Optimizer will NOT run without a valid station route."
+            );
+
+            await this.clearRecommendations(
+                journey._id
+            );
+
+            return null;
         }
 
+
+        // =====================================================
+        // SAFETY VALIDATION
+        // =====================================================
+
+        const validRoute =
+            Array.isArray(routeStations) &&
+            routeStations.length > 0 &&
+            routeStations.every(
+                (station) =>
+                    station &&
+                    typeof station.code === "string" &&
+                    station.code.trim().length > 0
+            );
+
+
+        if (!validRoute) {
+
+            console.log(
+                "\n❌ INVALID TRAIN TIMETABLE"
+            );
+
+            console.log(
+                "Optimizer requires real station codes."
+            );
+
+            await this.clearRecommendations(
+                journey._id
+            );
+
+            return null;
+        }
+
+
+        // =====================================================
+        // VERIFY JOURNEY SOURCE + DESTINATION
+        // =====================================================
+
+        const sourceCode =
+            String(
+                journey.boardingStation || ""
+            )
+                .trim()
+                .toUpperCase();
+
+        const destinationCode =
+            String(
+                journey.destinationStation || ""
+            )
+                .trim()
+                .toUpperCase();
+
+
+        const sourceIndex =
+            routeStations.findIndex(
+                (station) =>
+                    String(
+                        station.code
+                    )
+                        .trim()
+                        .toUpperCase() === sourceCode
+            );
+
+
+        const destinationIndex =
+            routeStations.findIndex(
+                (station) =>
+                    String(
+                        station.code
+                    )
+                        .trim()
+                        .toUpperCase() === destinationCode
+            );
+
+
+        if (sourceIndex === -1) {
+
+            console.log(
+                `❌ Source station ${sourceCode} is not on train ${journey.trainNumber}.`
+            );
+
+            await this.clearRecommendations(
+                journey._id
+            );
+
+            return null;
+        }
+
+
+        if (destinationIndex === -1) {
+
+            console.log(
+                `❌ Destination station ${destinationCode} is not on train ${journey.trainNumber}.`
+            );
+
+            await this.clearRecommendations(
+                journey._id
+            );
+
+            return null;
+        }
+
+
+        if (sourceIndex >= destinationIndex) {
+
+            console.log(
+                `❌ Invalid route: ${sourceCode} does not occur before ${destinationCode}.`
+            );
+
+            await this.clearRecommendations(
+                journey._id
+            );
+
+            return null;
+        }
+
+
+        // =====================================================
+        // LOG VALID ROUTE
+        // =====================================================
 
         console.log(
             "\n========== OPTIMIZER ROUTE =========="
@@ -801,21 +949,38 @@ class ChartWorkflowService {
             routeStations.length
         );
 
+        console.log(
+            "Journey source:",
+            sourceCode
+        );
 
-        if (routeStations.length > 0) {
+        console.log(
+            "Journey destination:",
+            destinationCode
+        );
 
-            console.log(
-                "Route start:",
-                routeStations[0]
-            );
+        console.log(
+            "Source route position:",
+            sourceIndex + 1
+        );
 
-            console.log(
-                "Route end:",
-                routeStations[
-                    routeStations.length - 1
-                ]
-            );
-        }
+        console.log(
+            "Destination route position:",
+            destinationIndex + 1
+        );
+
+
+        console.log(
+            "Route start:",
+            routeStations[0]
+        );
+
+        console.log(
+            "Route end:",
+            routeStations[
+                routeStations.length - 1
+            ]
+        );
 
 
         // =====================================================

@@ -2,6 +2,14 @@ const axios = require("axios");
 const TrainStop = require("./trainStop.model");
 
 // ============================================================
+// NTES timetable service
+// ============================================================
+
+const {
+  syncNtesTrainStopsService,
+} = require("./ntes.service");
+
+// ============================================================
 // Search Train Details
 // ============================================================
 
@@ -137,7 +145,8 @@ const getTrainStopsService = async (query) => {
     throw new Error("Train number is required.");
   }
 
-  const normalizedTrainNumber = String(trainNumber).trim();
+  const normalizedTrainNumber =
+    String(trainNumber).trim();
 
   const stops = await TrainStop.find({
     trainNumber: normalizedTrainNumber,
@@ -156,13 +165,18 @@ const checkTrainStopService = async (query) => {
   const { trainNumber, stationCode } = query;
 
   if (!trainNumber || !stationCode) {
-    throw new Error("trainNumber and stationCode are required.");
+    throw new Error(
+      "trainNumber and stationCode are required."
+    );
   }
 
-  const normalizedTrainNumber = String(trainNumber).trim();
-  const normalizedStationCode = String(stationCode)
-    .trim()
-    .toUpperCase();
+  const normalizedTrainNumber =
+    String(trainNumber).trim();
+
+  const normalizedStationCode =
+    String(stationCode)
+      .trim()
+      .toUpperCase();
 
   const stop = await TrainStop.findOne({
     trainNumber: normalizedTrainNumber,
@@ -179,24 +193,100 @@ const checkTrainStopService = async (query) => {
 
 // ============================================================
 // Get Stops Between Two Stations
+//
+// IMPORTANT:
+// If the timetable is not already present in MongoDB,
+// automatically fetch it from NTES and save it first.
 // ============================================================
 
 const getStopsBetweenService = async (query) => {
-  const { trainNumber, from, to } = query;
+  const {
+    trainNumber,
+    from,
+    to,
+    trainStartDate,
+  } = query;
+
+  // ----------------------------------------------------------
+  // Validate required input
+  // ----------------------------------------------------------
 
   if (!trainNumber || !from || !to) {
-    throw new Error("trainNumber, from and to are required.");
+    throw new Error(
+      "trainNumber, from and to are required."
+    );
   }
 
-  const normalizedTrainNumber = String(trainNumber).trim();
+  // ----------------------------------------------------------
+  // Normalize values
+  // ----------------------------------------------------------
 
-  const fromCode = String(from).trim().toUpperCase();
+  const normalizedTrainNumber =
+    String(trainNumber).trim();
 
-  const toCode = String(to).trim().toUpperCase();
+  const fromCode =
+    String(from).trim().toUpperCase();
 
-  const stops = await TrainStop.find({
+  const toCode =
+    String(to).trim().toUpperCase();
+
+  // ----------------------------------------------------------
+  // First try MongoDB
+  // ----------------------------------------------------------
+
+  let stops = await TrainStop.find({
     trainNumber: normalizedTrainNumber,
-  }).lean();
+  })
+    .sort({ no: 1 })
+    .lean();
+
+  // ----------------------------------------------------------
+  // If timetable is missing, automatically fetch from NTES
+  // ----------------------------------------------------------
+
+  if (!stops.length) {
+    console.log(
+      `⚠️ No timetable found for ${normalizedTrainNumber}.`
+    );
+
+    console.log(
+      `🚆 Fetching timetable automatically from NTES...`
+    );
+
+    try {
+      await syncNtesTrainStopsService(
+        normalizedTrainNumber,
+        trainStartDate || new Date()
+      );
+
+      // ------------------------------------------------------
+      // Read the newly saved timetable
+      // ------------------------------------------------------
+
+      stops = await TrainStop.find({
+        trainNumber: normalizedTrainNumber,
+      })
+        .sort({ no: 1 })
+        .lean();
+
+      console.log(
+        `✅ NTES timetable loaded into MongoDB for ${normalizedTrainNumber}`
+      );
+    } catch (error) {
+      console.error(
+        "❌ NTES TIMETABLE FETCH FAILED:",
+        error.message
+      );
+
+      throw new Error(
+        `No timetable found for train ${normalizedTrainNumber}, and NTES timetable could not be loaded.`
+      );
+    }
+  }
+
+  // ----------------------------------------------------------
+  // Safety check
+  // ----------------------------------------------------------
 
   if (!stops.length) {
     throw new Error(
@@ -205,7 +295,7 @@ const getStopsBetweenService = async (query) => {
   }
 
   // ----------------------------------------------------------
-  // Convert timetable "no" into a numeric route order.
+  // Convert timetable "no" into numeric route order
   //
   // Examples:
   // "1"   -> 1
@@ -219,26 +309,38 @@ const getStopsBetweenService = async (query) => {
       ...stop,
       routeOrder: Number.parseFloat(stop.no),
     }))
-    .filter((stop) => Number.isFinite(stop.routeOrder))
-    .sort((a, b) => a.routeOrder - b.routeOrder);
+    .filter(
+      (stop) =>
+        Number.isFinite(stop.routeOrder)
+    )
+    .sort(
+      (a, b) =>
+        a.routeOrder - b.routeOrder
+    );
 
   // ----------------------------------------------------------
   // Find departure station
   // ----------------------------------------------------------
 
-  const fromIndex = orderedStops.findIndex(
-    (stop) =>
-      String(stop.code).trim().toUpperCase() === fromCode
-  );
+  const fromIndex =
+    orderedStops.findIndex(
+      (stop) =>
+        String(stop.code)
+          .trim()
+          .toUpperCase() === fromCode
+    );
 
   // ----------------------------------------------------------
   // Find destination station
   // ----------------------------------------------------------
 
-  const toIndex = orderedStops.findIndex(
-    (stop) =>
-      String(stop.code).trim().toUpperCase() === toCode
-  );
+  const toIndex =
+    orderedStops.findIndex(
+      (stop) =>
+        String(stop.code)
+          .trim()
+          .toUpperCase() === toCode
+    );
 
   // ----------------------------------------------------------
   // Departure station not found
@@ -250,7 +352,8 @@ const getStopsBetweenService = async (query) => {
       from: fromCode,
       to: toCode,
       found: false,
-      message: `Departure station ${fromCode} is not on this train.`,
+      message:
+        `Departure station ${fromCode} is not on this train.`,
       count: 0,
       stops: [],
     };
@@ -266,7 +369,8 @@ const getStopsBetweenService = async (query) => {
       from: fromCode,
       to: toCode,
       found: false,
-      message: `Destination station ${toCode} is not on this train.`,
+      message:
+        `Destination station ${toCode} is not on this train.`,
       count: 0,
       stops: [],
     };
@@ -274,6 +378,11 @@ const getStopsBetweenService = async (query) => {
 
   // ----------------------------------------------------------
   // Wrong direction
+  //
+  // Example:
+  // 12745:
+  // SC -> MUGR     VALID
+  // MUGR -> SC     INVALID
   // ----------------------------------------------------------
 
   if (fromIndex >= toIndex) {
@@ -282,21 +391,31 @@ const getStopsBetweenService = async (query) => {
       from: fromCode,
       to: toCode,
       found: false,
-      message: `${fromCode} does not occur before ${toCode} in the timetable.`,
+      message:
+        `${fromCode} does not occur before ${toCode} in the timetable.`,
       count: 0,
       stops: [],
     };
   }
 
   // ----------------------------------------------------------
-  // Extract the complete section
-  // including departure and destination stations.
+  // Extract complete journey section
+  //
+  // Includes:
+  // - departure station
+  // - intermediate stations
+  // - destination station
   // ----------------------------------------------------------
 
-  const betweenStops = orderedStops.slice(
-    fromIndex,
-    toIndex + 1
-  );
+  const betweenStops =
+    orderedStops.slice(
+      fromIndex,
+      toIndex + 1
+    );
+
+  // ----------------------------------------------------------
+  // Successful route
+  // ----------------------------------------------------------
 
   return {
     trainNumber: normalizedTrainNumber,

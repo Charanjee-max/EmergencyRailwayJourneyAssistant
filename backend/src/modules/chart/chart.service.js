@@ -68,11 +68,20 @@ class ChartService {
       // chartStatusResponseDto.chartOneFlag
       // chartStatusResponseDto.chartTwoFlag
       //
+      // Observed values:
+      //
       // 0 = not prepared
       // 1 = prepared
+      // 3 = prepared / active chart state
       //
-      // We do NOT use only !data.error because an API response
-      // can contain data while the chart is still not prepared.
+      // Example from IRCTC:
+      //
+      // chartOneFlag: 3
+      // chartTwoFlag: 0
+      // chartOneDate: "2026-09-07 14:33:25"
+      //
+      // Therefore flag 3 must also be treated
+      // as a prepared chart.
       // =====================================================
 
       const chartStatus =
@@ -84,9 +93,17 @@ class ChartService {
       const chartTwoFlag =
         Number(chartStatus.chartTwoFlag || 0);
 
-      const chartPrepared =
+      const chartOnePrepared =
         chartOneFlag === 1 ||
-        chartTwoFlag === 1;
+        chartOneFlag === 3;
+
+      const chartTwoPrepared =
+        chartTwoFlag === 1 ||
+        chartTwoFlag === 3;
+
+      const chartPrepared =
+        chartOnePrepared ||
+        chartTwoPrepared;
 
       console.log(
         "\n============= REAL CHART STATUS ============="
@@ -103,8 +120,28 @@ class ChartService {
       );
 
       console.log(
+        "Chart One Prepared:",
+        chartOnePrepared
+      );
+
+      console.log(
+        "Chart Two Prepared:",
+        chartTwoPrepared
+      );
+
+      console.log(
         "Chart Prepared:",
         chartPrepared
+      );
+
+      console.log(
+        "Chart One Date:",
+        data.chartOneDate || null
+      );
+
+      console.log(
+        "Chart Two Date:",
+        data.chartTwoDate || null
       );
 
       // =====================================================
@@ -167,7 +204,6 @@ class ChartService {
       return chart;
 
     } catch (err) {
-
       console.log(
         "\n========================================"
       );
@@ -186,7 +222,6 @@ class ChartService {
       );
 
       if (err.response) {
-
         console.log(
           "Status:",
           err.response.status
@@ -213,9 +248,7 @@ class ChartService {
     classCode,
     chartType = 2
   ) {
-
     try {
-
       const payload = {
         trainNo: trainNumber,
 
@@ -249,8 +282,10 @@ class ChartService {
       );
 
       console.log(
-        payload
+        "Vacant Berth Payload:"
       );
+
+      console.log(payload);
 
       const response =
         await axios.post(
@@ -283,7 +318,6 @@ class ChartService {
       return response.data;
 
     } catch (err) {
-
       console.log(
         "\n========================================"
       );
@@ -302,7 +336,6 @@ class ChartService {
       );
 
       if (err.response) {
-
         console.log(
           "Status:",
           err.response.status

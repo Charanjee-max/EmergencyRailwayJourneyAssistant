@@ -2,8 +2,9 @@ const Journey = require("./journey.model");
 const Chart = require("../chart/chart.model");
 
 const {
-    getTrainScheduleService,
-} = require("../../services/ntes.service");
+    getStopsBetweenService,
+} = require("../train/train.service");
+
 
 // =========================================================
 // Create Journey
@@ -48,9 +49,10 @@ const createJourney = async (
         !destinationStation
     ) {
 
-        const error = new Error(
-            "Train number, source station and destination station are required."
-        );
+        const error =
+            new Error(
+                "Train number, source station and destination station are required."
+            );
 
         error.statusCode = 400;
 
@@ -59,7 +61,48 @@ const createJourney = async (
 
 
     // =====================================================
-    // VALIDATE TRAIN ROUTE USING NTES
+    // SAME STATION CHECK
+    // =====================================================
+
+    if (
+        boardingStation ===
+        destinationStation
+    ) {
+
+        const error =
+            new Error(
+                "Source and destination cannot be the same."
+            );
+
+        error.statusCode = 400;
+
+        throw error;
+    }
+
+
+    // =====================================================
+    // VALIDATE TRAIN ROUTE
+    // =====================================================
+    //
+    // This calls getStopsBetweenService().
+    //
+    // getStopsBetweenService() will:
+    //
+    // 1. Check MongoDB for the train timetable
+    //
+    // 2. If timetable does not exist:
+    //      Automatically fetch timetable from NTES
+    //
+    // 3. Save NTES timetable into MongoDB
+    //
+    // 4. Check source station
+    //
+    // 5. Check destination station
+    //
+    // 6. Check source comes before destination
+    //
+    // IMPORTANT:
+    // This happens BEFORE Journey.create().
     // =====================================================
 
     console.log(
@@ -67,7 +110,7 @@ const createJourney = async (
     );
 
     console.log(
-        "🚆 VALIDATING JOURNEY ROUTE WITH NTES"
+        "🚆 VALIDATING JOURNEY ROUTE"
     );
 
     console.log(
@@ -89,88 +132,40 @@ const createJourney = async (
         destinationStation
     );
 
+    console.log(
+        "Journey Date:",
+        journeyData.journeyDate
+    );
 
-    let trainSchedule;
+
+    let routeValidation;
+
 
     try {
 
-        /*
-         * NTES expects the train's start date
-         * in DD-MMM-YYYY format.
-         *
-         * Example:
-         * 06-Sep-2026
-         */
+        routeValidation =
+            await getStopsBetweenService({
 
-        const journeyDate =
-            new Date(
-                journeyData.journeyDate
-            );
-
-        if (
-            Number.isNaN(
-                journeyDate.getTime()
-            )
-        ) {
-
-            const dateError = new Error(
-                "Invalid journey date."
-            );
-
-            dateError.statusCode = 400;
-
-            throw dateError;
-        }
-
-
-        const day =
-            String(
-                journeyDate.getDate()
-            ).padStart(2, "0");
-
-        const monthNames = [
-            "Jan",
-            "Feb",
-            "Mar",
-            "Apr",
-            "May",
-            "Jun",
-            "Jul",
-            "Aug",
-            "Sep",
-            "Oct",
-            "Nov",
-            "Dec",
-        ];
-
-        const month =
-            monthNames[
-                journeyDate.getMonth()
-            ];
-
-        const year =
-            journeyDate.getFullYear();
-
-        const trainStartDate =
-            `${day}-${month}-${year}`;
-
-
-        console.log(
-            "Journey Date:",
-            trainStartDate
-        );
-
-
-        trainSchedule =
-            await getTrainScheduleService(
                 trainNumber,
-                trainStartDate
-            );
+
+                from:
+                    boardingStation,
+
+                to:
+                    destinationStation,
+
+                // IMPORTANT:
+                // Used when NTES timetable needs
+                // to be fetched automatically.
+                trainStartDate:
+                    journeyData.journeyDate,
+
+            });
 
     } catch (error) {
 
         console.error(
-            "❌ NTES TRAIN SCHEDULE ERROR:",
+            "❌ TRAIN ROUTE VALIDATION ERROR:",
             error.message
         );
 
@@ -178,8 +173,9 @@ const createJourney = async (
         const routeError =
             new Error(
                 error.message ||
-                `Unable to retrieve timetable for train ${trainNumber}.`
+                `Unable to validate route for train ${trainNumber}.`
             );
+
 
         routeError.statusCode = 400;
 
@@ -188,78 +184,21 @@ const createJourney = async (
 
 
     // =====================================================
-    // CHECK TIMETABLE
+    // ROUTE IS INVALID
     // =====================================================
 
     if (
-        !trainSchedule ||
-        !Array.isArray(
-            trainSchedule.stops
-        ) ||
-        trainSchedule.stops.length === 0
-    ) {
-
-        const error = new Error(
-            `No timetable found for train ${trainNumber}.`
-        );
-
-        error.statusCode = 400;
-
-        throw error;
-    }
-
-
-    const stops =
-        trainSchedule.stops;
-
-
-    // =====================================================
-    // FIND SOURCE STATION
-    // =====================================================
-
-    const sourceIndex =
-        stops.findIndex(
-            (stop) =>
-                String(
-                    stop.code || ""
-                )
-                    .trim()
-                    .toUpperCase() ===
-                boardingStation
-        );
-
-
-    // =====================================================
-    // FIND DESTINATION STATION
-    // =====================================================
-
-    const destinationIndex =
-        stops.findIndex(
-            (stop) =>
-                String(
-                    stop.code || ""
-                )
-                    .trim()
-                    .toUpperCase() ===
-                destinationStation
-        );
-
-
-    // =====================================================
-    // SOURCE NOT FOUND
-    // =====================================================
-
-    if (
-        sourceIndex === -1
+        !routeValidation ||
+        routeValidation.found !== true
     ) {
 
         console.log(
-            "❌ SOURCE STATION NOT FOUND"
+            "❌ JOURNEY ROUTE INVALID"
         );
 
         console.log(
-            "Source:",
-            boardingStation
+            routeValidation?.message ||
+            "Selected source and destination are not valid for this train."
         );
 
         console.log(
@@ -267,92 +206,17 @@ const createJourney = async (
         );
 
 
-        const error = new Error(
-            `Departure station ${boardingStation} is not on train ${trainNumber}.`
-        );
+        const error =
+            new Error(
+                routeValidation?.message ||
+                `Train ${trainNumber} does not operate from ${boardingStation} to ${destinationStation}.`
+            );
+
 
         error.statusCode = 400;
 
         throw error;
     }
-
-
-    // =====================================================
-    // DESTINATION NOT FOUND
-    // =====================================================
-
-    if (
-        destinationIndex === -1
-    ) {
-
-        console.log(
-            "❌ DESTINATION STATION NOT FOUND"
-        );
-
-        console.log(
-            "Destination:",
-            destinationStation
-        );
-
-        console.log(
-            "========================================\n"
-        );
-
-
-        const error = new Error(
-            `Destination station ${destinationStation} is not on train ${trainNumber}.`
-        );
-
-        error.statusCode = 400;
-
-        throw error;
-    }
-
-
-    // =====================================================
-    // CHECK ROUTE ORDER
-    // =====================================================
-
-    if (
-        sourceIndex >= destinationIndex
-    ) {
-
-        console.log(
-            "❌ INVALID ROUTE ORDER"
-        );
-
-        console.log(
-            `Source index: ${sourceIndex}`
-        );
-
-        console.log(
-            `Destination index: ${destinationIndex}`
-        );
-
-        console.log(
-            "========================================\n"
-        );
-
-
-        const error = new Error(
-            `${boardingStation} does not occur before ${destinationStation} in train ${trainNumber}'s timetable.`
-        );
-
-        error.statusCode = 400;
-
-        throw error;
-    }
-
-
-    // =====================================================
-    // GET STOPS BETWEEN SOURCE AND DESTINATION
-    // =====================================================
-
-    const journeyStops =
-        stops.slice(
-            sourceIndex,
-            destinationIndex + 1
-        );
 
 
     // =====================================================
@@ -360,15 +224,7 @@ const createJourney = async (
     // =====================================================
 
     console.log(
-        "\n========================================"
-    );
-
-    console.log(
         "✅ JOURNEY ROUTE VALIDATED"
-    );
-
-    console.log(
-        "========================================"
     );
 
     console.log(
@@ -384,21 +240,7 @@ const createJourney = async (
     );
 
     console.log(
-        `Stops in journey: ${journeyStops.length}`
-    );
-
-    console.log(
-        "Route:"
-    );
-
-    journeyStops.forEach(
-        (stop) => {
-
-            console.log(
-                `  ${stop.no}. ${stop.code} - ${stop.station}`
-            );
-
-        }
+        `Stops in journey: ${routeValidation.count}`
     );
 
     console.log(
@@ -408,6 +250,11 @@ const createJourney = async (
 
     // =====================================================
     // CREATE JOURNEY
+    // =====================================================
+    //
+    // This is reached ONLY if routeValidation.found === true.
+    //
+    // Therefore an invalid route cannot be saved.
     // =====================================================
 
     const journey =
@@ -494,41 +341,48 @@ const getUserJourneys =
 
                             ...journey,
 
-                            chart: chart
-                                ? {
+                            chart:
+                                chart
+                                    ? {
 
-                                    prepared:
-                                        chart.chartPrepared === true,
+                                        prepared:
+                                            chart.chartPrepared === true,
 
-                                    chartPrepared:
-                                        chart.chartPrepared === true,
+                                        chartPrepared:
+                                            chart.chartPrepared === true,
 
-                                    chartOneDate:
-                                        chart.chartOneDate ||
-                                        null,
+                                        chartOneDate:
+                                            chart.chartOneDate ||
+                                            null,
 
-                                    chartTwoDate:
-                                        chart.chartTwoDate ||
-                                        null,
+                                        chartTwoDate:
+                                            chart.chartTwoDate ||
+                                            null,
 
-                                    fetchedAt:
-                                        chart.fetchedAt ||
-                                        null,
+                                        fetchedAt:
+                                            chart.fetchedAt ||
+                                            null,
 
-                                }
-                                : {
+                                    }
 
-                                    prepared: false,
+                                    : {
 
-                                    chartPrepared: false,
+                                        prepared:
+                                            false,
 
-                                    chartOneDate: null,
+                                        chartPrepared:
+                                            false,
 
-                                    chartTwoDate: null,
+                                        chartOneDate:
+                                            null,
 
-                                    fetchedAt: null,
+                                        chartTwoDate:
+                                            null,
 
-                                },
+                                        fetchedAt:
+                                            null,
+
+                                    },
 
                         };
 
@@ -555,7 +409,8 @@ const getJourneyById =
         const journey =
             await Journey.findOne({
 
-                _id: journeyId,
+                _id:
+                    journeyId,
 
                 userId,
 
@@ -567,7 +422,6 @@ const getJourneyById =
             throw new Error(
                 "Journey request not found."
             );
-
         }
 
 

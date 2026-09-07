@@ -1,5 +1,9 @@
 const chartService = require("../chart.service");
 
+const {
+    calculateChartTiming,
+} = require("../chartTiming.service");
+
 const journeyOptimizer =
     require("../../journeyOptimizer/journeyOptimizer.service");
 
@@ -10,8 +14,11 @@ const TrainStop =
     require("../../train/trainStop.model");
 
 // Mock modules are kept only for explicit testing.
-const mockChart = require("../mock/mockChart");
-const mockVacancies = require("../mock/mockVacancies");
+const mockChart =
+    require("../mock/mockChart");
+
+const mockVacancies =
+    require("../mock/mockVacancies");
 
 
 class ChartWorkflowService {
@@ -70,6 +77,7 @@ class ChartWorkflowService {
                         b.routeOrder
                 );
 
+
         // ---------------------------------------------------------
         // Convert database timetable records into the format
         // expected by ReservationGraphBuilder.
@@ -120,9 +128,11 @@ class ChartWorkflowService {
                     stop.routeOrder
             }));
 
+
         console.log(
             `✅ Database timetable loaded: ${route.length} stops`
         );
+
 
         if (route.length > 0) {
 
@@ -138,6 +148,7 @@ class ChartWorkflowService {
                 route[route.length - 1].name
             );
         }
+
 
         return route;
     }
@@ -156,6 +167,7 @@ class ChartWorkflowService {
                     journeyId,
                     []
                 );
+
 
             console.log(
                 "🧹 Old recommendations cleared."
@@ -346,6 +358,7 @@ class ChartWorkflowService {
                     "\n========== MOCK VACANCIES =========="
                 );
 
+
                 console.dir(
                     vacantBerths,
                     {
@@ -360,11 +373,8 @@ class ChartWorkflowService {
 
 
                 return await this.runOptimizer(
-
                     journey,
-
                     mockChartData,
-
                     vacantBerths
                 );
             }
@@ -379,6 +389,263 @@ class ChartWorkflowService {
                     .toISOString()
                     .split("T")[0];
 
+
+            console.log(
+                "\n========================================"
+            );
+
+            console.log(
+                "🚆 REAL IRCTC CHART WORKFLOW"
+            );
+
+            console.log(
+                "========================================"
+            );
+
+
+            // =====================================================
+            // GET DATABASE TIMETABLE
+            // =====================================================
+
+            let databaseRoute = [];
+
+            try {
+
+                databaseRoute =
+                    await this.getDatabaseRoute(
+                        journey.trainNumber
+                    );
+
+            } catch (error) {
+
+                console.log(
+                    "⚠️ Could not load database timetable:",
+                    error.message
+                );
+            }
+
+
+            // =====================================================
+            // CHART PREPARATION TIME CHECK
+            //
+            // December 2025 Railway Board rule.
+            //
+            // IMPORTANT:
+            // We do NOT use RailWise as an HTTP dependency.
+            //
+            // The rule is implemented locally in
+            // chartTiming.service.js.
+            //
+            // IRCTC remains the final authority.
+            // =====================================================
+
+            let chartTiming = null;
+
+
+            if (databaseRoute.length > 0) {
+
+                const originStop =
+                    databaseRoute[0];
+
+
+                const originDeparture =
+                    originStop.departure;
+
+
+                console.log(
+                    "\n========== CHART TIMING CHECK =========="
+                );
+
+
+                console.log(
+                    "Train:",
+                    journey.trainNumber
+                );
+
+
+                console.log(
+                    "Origin Station:",
+                    originStop.code
+                );
+
+
+                console.log(
+                    "Origin Name:",
+                    originStop.name
+                );
+
+
+                console.log(
+                    "Origin Departure:",
+                    originDeparture || "NOT AVAILABLE"
+                );
+
+
+                // -------------------------------------------------
+                // Only calculate when timetable contains a valid
+                // departure time.
+                // -------------------------------------------------
+
+                if (originDeparture) {
+
+                    try {
+
+                        chartTiming =
+                            calculateChartTiming({
+
+                                journeyDate,
+
+                                originDeparture
+                            });
+
+
+                        console.log(
+                            "Expected First Chart:",
+                            chartTiming.firstChartTime
+                        );
+
+
+                        console.log(
+                            "Expected Final Chart:",
+                            chartTiming.finalChartTime
+                        );
+
+
+                        console.log(
+                            "Should Check IRCTC:",
+                            chartTiming.shouldCheckChart
+                        );
+
+
+                    } catch (timingError) {
+
+                        console.log(
+                            "⚠️ Chart timing calculation failed:",
+                            timingError.message
+                        );
+
+
+                        console.log(
+                            "⚠️ Falling back to actual IRCTC chart-status check."
+                        );
+
+
+                        chartTiming = null;
+                    }
+
+                } else {
+
+                    console.log(
+                        "⚠️ Origin departure time unavailable."
+                    );
+
+                    console.log(
+                        "⚠️ Falling back to actual IRCTC chart-status check."
+                    );
+                }
+            }
+
+
+            // =====================================================
+            // BEFORE EXPECTED CHART TIME
+            //
+            // DO NOT CALL IRCTC YET.
+            // =====================================================
+
+            if (
+                chartTiming &&
+                !chartTiming.shouldCheckChart
+            ) {
+
+                console.log(
+                    "\n========================================"
+                );
+
+                console.log(
+                    "⏳ TOO EARLY FOR CHART CHECK"
+                );
+
+                console.log(
+                    "========================================"
+                );
+
+
+                console.log(
+                    "Train:",
+                    journey.trainNumber
+                );
+
+
+                console.log(
+                    "Journey Date:",
+                    journeyDate
+                );
+
+
+                console.log(
+                    "Expected First Chart:",
+                    chartTiming.firstChartTime
+                );
+
+
+                console.log(
+                    "No IRCTC chart API call will be made yet."
+                );
+
+
+                console.log(
+                    "No vacant berth API call will be made."
+                );
+
+
+                console.log(
+                    "🧠 Running Journey Optimizer for WAIT_FOR_CHART recommendation."
+                );
+
+
+                // -------------------------------------------------
+                // We deliberately pass an empty vacancy array.
+                //
+                // This allows WaitChartStrategy to generate:
+                //
+                // WAIT_FOR_CHART
+                // -------------------------------------------------
+
+                const waitChartData = {
+
+                    chartPrepared: false,
+
+                    chartOneTime:
+                        chartTiming.firstChartTime,
+
+                    chartTwoTime:
+                        chartTiming.finalChartTime,
+
+                    firstChartTime:
+                        chartTiming.firstChartTime,
+
+                    finalChartTime:
+                        chartTiming.finalChartTime,
+
+                    reason:
+                        "BEFORE_EXPECTED_CHART_TIME"
+                };
+
+
+                return await this.runOptimizer(
+                    journey,
+                    waitChartData,
+                    []
+                );
+            }
+
+
+            // =====================================================
+            // IRCTC CHART API
+            //
+            // We reached the expected chart window.
+            // Now IRCTC becomes the final authority.
+            // =====================================================
 
             console.log(
                 "\n========================================"
@@ -404,11 +671,8 @@ class ChartWorkflowService {
 
                 chart =
                     await chartService.fetchAndCacheChart(
-
                         journey.trainNumber,
-
                         journeyDate,
-
                         journey.boardingStation
                     );
 
@@ -425,6 +689,7 @@ class ChartWorkflowService {
                 console.log(
                     "========================================"
                 );
+
 
                 console.log(
                     "Error:",
@@ -469,6 +734,7 @@ class ChartWorkflowService {
                 "\n============= REAL CHART STATUS ============="
             );
 
+
             console.log(
                 "Chart Prepared:",
                 chart.chartPrepared
@@ -493,17 +759,26 @@ class ChartWorkflowService {
                     "========================================"
                 );
 
+
                 console.log(
-                    "Chart is not ready yet."
+                    "Expected chart window has been reached,"
                 );
+
+
+                console.log(
+                    "but IRCTC says the chart is still not prepared."
+                );
+
 
                 console.log(
                     "No vacancy API call will be made."
                 );
 
+
                 console.log(
                     "No mock vacancies will be generated."
                 );
+
 
                 console.log(
                     "🧠 Running Journey Optimizer for WAIT_FOR_CHART recommendation."
@@ -515,13 +790,9 @@ class ChartWorkflowService {
                 //
                 // Do NOT clear recommendations here.
                 //
-                // The optimizer must run so that
-                // WaitChartStrategy can create:
+                // The optimizer can create:
                 //
                 // WAIT_FOR_CHART
-                //
-                // We intentionally pass an empty vacancy
-                // array because the chart is not prepared yet.
                 // -------------------------------------------------
 
                 return await this.runOptimizer(
@@ -571,6 +842,16 @@ class ChartWorkflowService {
                 );
 
 
+                // -------------------------------------------------
+                // IMPORTANT:
+                //
+                // chartType MUST be 1.
+                //
+                // The captured IRCTC request uses:
+                //
+                // chartType: 1
+                // -------------------------------------------------
+
                 vacancyResponse =
                     await chartService.fetchVacantBerth(
 
@@ -584,6 +865,7 @@ class ChartWorkflowService {
 
                         1
                     );
+
 
             } catch (error) {
 
@@ -599,13 +881,16 @@ class ChartWorkflowService {
                     "========================================"
                 );
 
+
                 console.log(
                     "Error:",
                     error.message
                 );
 
 
+                // -------------------------------------------------
                 // Do NOT fallback to mock vacancy data.
+                // -------------------------------------------------
 
                 await this.clearRecommendations(
                     journey._id
@@ -648,6 +933,7 @@ class ChartWorkflowService {
                     "\nℹ️ IRCTC returned no vacant berths."
                 );
 
+
                 console.log(
                     "Journey Optimizer will NOT run."
                 );
@@ -667,13 +953,11 @@ class ChartWorkflowService {
             // =====================================================
 
             return await this.runOptimizer(
-
                 journey,
-
                 chart,
-
                 vacantBerths
             );
+
 
         } catch (error) {
 
@@ -688,6 +972,7 @@ class ChartWorkflowService {
             console.log(
                 "========================================"
             );
+
 
             console.log(
                 "Error:",
@@ -767,10 +1052,12 @@ class ChartWorkflowService {
                 "\n🚆 USING MONGODB TRAIN TIMETABLE"
             );
 
+
             console.log(
                 "Train:",
                 journey.trainNumber
             );
+
 
             console.log(
                 "Stops:",
@@ -800,21 +1087,26 @@ class ChartWorkflowService {
                 "\n⚠️ MONGODB TIMETABLE NOT AVAILABLE"
             );
 
+
             console.log(
                 `⚠️ No station timetable available for train ${journey.trainNumber}.`
             );
+
 
             console.log(
                 "❌ IRCTC coach composition will NOT be used as timetable."
             );
 
+
             console.log(
                 "❌ Journey Optimizer will NOT run without a valid station route."
             );
 
+
             await this.clearRecommendations(
                 journey._id
             );
+
 
             return null;
         }
@@ -841,13 +1133,16 @@ class ChartWorkflowService {
                 "\n❌ INVALID TRAIN TIMETABLE"
             );
 
+
             console.log(
                 "Optimizer requires real station codes."
             );
 
+
             await this.clearRecommendations(
                 journey._id
             );
+
 
             return null;
         }
@@ -863,6 +1158,7 @@ class ChartWorkflowService {
             )
                 .trim()
                 .toUpperCase();
+
 
         const destinationCode =
             String(
@@ -900,9 +1196,11 @@ class ChartWorkflowService {
                 `❌ Source station ${sourceCode} is not on train ${journey.trainNumber}.`
             );
 
+
             await this.clearRecommendations(
                 journey._id
             );
+
 
             return null;
         }
@@ -914,9 +1212,11 @@ class ChartWorkflowService {
                 `❌ Destination station ${destinationCode} is not on train ${journey.trainNumber}.`
             );
 
+
             await this.clearRecommendations(
                 journey._id
             );
+
 
             return null;
         }
@@ -928,9 +1228,11 @@ class ChartWorkflowService {
                 `❌ Invalid route: ${sourceCode} does not occur before ${destinationCode}.`
             );
 
+
             await this.clearRecommendations(
                 journey._id
             );
+
 
             return null;
         }
@@ -944,25 +1246,30 @@ class ChartWorkflowService {
             "\n========== OPTIMIZER ROUTE =========="
         );
 
+
         console.log(
             "Route station count:",
             routeStations.length
         );
+
 
         console.log(
             "Journey source:",
             sourceCode
         );
 
+
         console.log(
             "Journey destination:",
             destinationCode
         );
 
+
         console.log(
             "Source route position:",
             sourceIndex + 1
         );
+
 
         console.log(
             "Destination route position:",
@@ -974,6 +1281,7 @@ class ChartWorkflowService {
             "Route start:",
             routeStations[0]
         );
+
 
         console.log(
             "Route end:",
@@ -993,7 +1301,6 @@ class ChartWorkflowService {
                 journey,
 
                 route: {
-
                     stations:
                         routeStations
                 },
@@ -1014,6 +1321,7 @@ class ChartWorkflowService {
         console.log(
             "\n✅ Journey Optimizer Completed"
         );
+
 
         console.log(
             "Recommendations Generated:",

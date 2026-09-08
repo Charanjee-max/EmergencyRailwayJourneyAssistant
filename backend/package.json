@@ -30,7 +30,8 @@
     "jsonwebtoken": "^9.0.2",
     "mongoose": "^8.18.1",
     "node-cron": "^4.6.0",
-    "nodemailer": "^9.0.5"
+    "nodemailer": "^9.0.5",
+    "railkit": "^5.0.2"
   },
   "devDependencies": {
     "nodemon": "^3.1.10"

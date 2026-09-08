@@ -10,6 +10,7 @@ const recommendationRoutes = require("./modules/recommendation/recommendation.ro
 const profileRoutes = require("./modules/profile/profile.routes");
 const settingsRoutes = require("./modules/settings/settings.routes");
 const notificationRoutes = require("./modules/notification/notification.routes");
+const pnrRoutes = require("./modules/pnr/pnr.routes");
 
 // Station
 const stationRoutes = require("./modules/station/station.routes");
@@ -114,6 +115,9 @@ app.use(
   "/api/notifications",
   notificationRoutes
 );
+
+// Pnr
+app.use("/api/pnr", pnrRoutes);
 
 
 // ==========================================

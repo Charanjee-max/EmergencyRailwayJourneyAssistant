@@ -3,14 +3,14 @@ const {
   monitorPendingJourneys,
 } = require("../services/monitor.service");
 
-// Run every 5 minutes
+// Run every 2 minutes
 const startJourneyMonitoringJob = () => {
   console.log("========================================");
   console.log("🚆 Journey Monitoring Job Started");
-  console.log("Runs every 5 minutes");
+  console.log("Runs every 2 minutes");
   console.log("========================================");
 
-  cron.schedule("*/5 * * * *", async () => {
+  cron.schedule("*/2 * * * *", async () => {
     console.log(
       "\n⏰ Running Journey Monitoring Job..."
     );

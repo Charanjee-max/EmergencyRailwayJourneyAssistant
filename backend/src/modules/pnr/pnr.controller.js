@@ -6,25 +6,33 @@ const {
 } = require("./pnr.service");
 
 const checkPNR = async (req, res) => {
-  try {
-    const result = await checkPNRService(
-      req.body.pnr,
-      req.user.id
-    );
+    try {
+        const result = await checkPNRService(
+            req.body.pnr,
+            req.user.id,
+            req.body.journeyId || null
+        );
 
-    return res.status(200).json({
-      success: true,
-      message: "PNR status fetched and saved successfully.",
-      data: result,
-    });
-  } catch (error) {
-    console.error("❌ PNR CHECK ERROR:", error.message);
+        return res.status(200).json({
+            success: true,
+            message: "PNR status fetched and saved successfully.",
+            data: result,
+        });
+    } catch (error) {
+        console.error(
+            "❌ PNR CHECK ERROR:",
+            error.message
+        );
 
-    return res.status(error.statusCode || 500).json({
-      success: false,
-      message: error.message || "Unable to fetch PNR status.",
-    });
-  }
+        return res.status(
+            error.statusCode || 500
+        ).json({
+            success: false,
+            message:
+                error.message ||
+                "Unable to fetch PNR status.",
+        });
+    }
 };
 
 const getAllPNRs = async (req, res) => {

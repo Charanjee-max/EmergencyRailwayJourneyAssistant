@@ -1,24 +1,21 @@
 const express =
   require("express");
 
-
 const authenticate =
   require("../../middleware/auth.middleware");
-
 
 const {
   create,
   getAll,
+  getHistory,
   getById,
   runWorkflow,
   remove,
 } =
   require("./journey.controller");
 
-
 const router =
   express.Router();
-
 
 // =========================================================
 // CREATE JOURNEY
@@ -30,9 +27,8 @@ router.post(
   create
 );
 
-
 // =========================================================
-// GET ALL JOURNEYS
+// GET ACTIVE JOURNEYS
 // =========================================================
 
 router.get(
@@ -41,6 +37,16 @@ router.get(
   getAll
 );
 
+// =========================================================
+// GET JOURNEY HISTORY
+// IMPORTANT: MUST COME BEFORE /:id
+// =========================================================
+
+router.get(
+  "/history",
+  authenticate,
+  getHistory
+);
 
 // =========================================================
 // MANUAL WORKFLOW
@@ -52,7 +58,6 @@ router.post(
   runWorkflow
 );
 
-
 // =========================================================
 // DELETE JOURNEY
 // =========================================================
@@ -63,7 +68,6 @@ router.delete(
   remove
 );
 
-
 // =========================================================
 // GET JOURNEY BY ID
 // =========================================================
@@ -73,11 +77,6 @@ router.get(
   authenticate,
   getById
 );
-
-
-// =========================================================
-// EXPORT
-// =========================================================
 
 module.exports =
   router;

@@ -1,4 +1,5 @@
-const chartService = require("../chart.service");
+const chartService =
+    require("../chart.service");
 
 const {
     calculateChartTiming,
@@ -13,40 +14,65 @@ const recommendationService =
 const TrainStop =
     require("../../train/trainStop.model");
 
-// =========================================================
-// CONFIGURATION
-// =========================================================
-
-const RESERVATION_CLASSES = [
-    "1A",
-    "2A",
-    "3A",
-    "3E",
-    "SL",
-];
 
 // =========================================================
-// CHART WORKFLOW SERVICE
+// NTES TIMETABLE SYNC
 // =========================================================
+
+let syncNtesTrainStopsService = null;
+
+try {
+
+    ({
+        syncNtesTrainStopsService,
+    } = require("../../train/ntes.service"));
+
+} catch (error) {
+
+    console.log(
+        "⚠️ NTES timetable sync service is not available."
+    );
+}
+
+
+// =========================================================
+// MOCK MODULES
+// =========================================================
+
+const mockChart =
+    require("../mock/mockChart");
+
+const mockVacancies =
+    require("../mock/mockVacancies");
+
 
 class ChartWorkflowService {
 
-    // =====================================================
-    // GET DATABASE TRAIN ROUTE
-    // =====================================================
 
-    async getDatabaseRoute(trainNumber) {
+    // =========================================================
+    // GET DATABASE TRAIN ROUTE
+    // =========================================================
+
+    async getDatabaseRoute(
+        trainNumber
+    ) {
 
         const normalizedTrainNumber =
-            String(trainNumber).trim();
+            String(trainNumber)
+                .trim();
+
 
         const stops =
             await TrainStop.find({
-                trainNumber: normalizedTrainNumber,
+                trainNumber:
+                    normalizedTrainNumber,
             })
                 .lean();
 
-        if (!stops.length) {
+
+        if (
+            !stops.length
+        ) {
 
             console.log(
                 `⚠️ No timetable found in trainStops for train ${normalizedTrainNumber}.`
@@ -55,16 +81,24 @@ class ChartWorkflowService {
             return [];
         }
 
+
+        // =====================================================
+        // CONVERT ROUTE ORDER
+        // =====================================================
+
         const orderedStops =
             stops
-                .map((stop) => ({
-                    ...stop,
+                .map(
+                    (stop) => ({
 
-                    routeOrder:
-                        Number.parseFloat(
-                            stop.no
-                        ),
-                }))
+                        ...stop,
+
+                        routeOrder:
+                            Number.parseFloat(
+                                stop.no
+                            ),
+                    })
+                )
                 .filter(
                     (stop) =>
                         Number.isFinite(
@@ -77,56 +111,77 @@ class ChartWorkflowService {
                         b.routeOrder
                 );
 
+
+        // =====================================================
+        // CONVERT TO ERJA ROUTE FORMAT
+        // =====================================================
+
         const route =
-            orderedStops.map((stop) => ({
+            orderedStops.map(
+                (stop) => ({
 
-                code:
-                    String(
-                        stop.code || ""
-                    )
-                        .trim()
-                        .toUpperCase(),
+                    code:
+                        String(
+                            stop.code ||
+                            ""
+                        )
+                            .trim()
+                            .toUpperCase(),
 
-                name:
-                    stop.station || "",
+                    name:
+                        stop.station ||
+                        "",
 
-                stationCode:
-                    String(
-                        stop.code || ""
-                    )
-                        .trim()
-                        .toUpperCase(),
+                    stationCode:
+                        String(
+                            stop.code ||
+                            ""
+                        )
+                            .trim()
+                            .toUpperCase(),
 
-                stationName:
-                    stop.station || "",
+                    stationName:
+                        stop.station ||
+                        "",
 
-                arrival:
-                    stop.arrival || "",
+                    arrival:
+                        stop.arrival ||
+                        "",
 
-                departure:
-                    stop.departure || "",
+                    departure:
+                        stop.departure ||
+                        "",
 
-                halt:
-                    stop.halt || "",
+                    halt:
+                        stop.halt ||
+                        "",
 
-                platform:
-                    stop.pf || "",
+                    platform:
+                        stop.pf ||
+                        "",
 
-                day:
-                    stop.day || "",
+                    day:
+                        stop.day ||
+                        "",
 
-                distanceKm:
-                    stop.km || "",
+                    distanceKm:
+                        stop.km ||
+                        "",
 
-                routeOrder:
-                    stop.routeOrder,
-            }));
+                    routeOrder:
+                        stop.routeOrder,
+                })
+            );
+
 
         console.log(
             `✅ Database timetable loaded: ${route.length} stops`
         );
 
-        if (route.length > 0) {
+
+        if (
+            route.length > 0
+        ) {
 
             console.log(
                 "First stop:",
@@ -134,21 +189,152 @@ class ChartWorkflowService {
                 route[0].name
             );
 
+
             console.log(
                 "Last stop:",
-                route[route.length - 1].code,
-                route[route.length - 1].name
+                route[
+                    route.length - 1
+                ].code,
+                route[
+                    route.length - 1
+                ].name
             );
         }
+
 
         return route;
     }
 
-    // =====================================================
-    // CLEAR RECOMMENDATIONS
-    // =====================================================
 
-    async clearRecommendations(journeyId) {
+    // =========================================================
+    // LOAD ROUTE WITH NTES FALLBACK
+    // =========================================================
+
+    async loadTrainRoute(
+        trainNumber,
+        journeyDate
+    ) {
+
+        let route =
+            await this.getDatabaseRoute(
+                trainNumber
+            );
+
+
+        // =====================================================
+        // DATABASE ROUTE EXISTS
+        // =====================================================
+
+        if (
+            route.length > 0
+        ) {
+
+            return route;
+        }
+
+
+        // =====================================================
+        // NTES SERVICE NOT AVAILABLE
+        // =====================================================
+
+        if (
+            typeof syncNtesTrainStopsService !==
+            "function"
+        ) {
+
+            console.log(
+                "⚠️ NTES sync service unavailable."
+            );
+
+            return [];
+        }
+
+
+        // =====================================================
+        // NTES FALLBACK
+        // =====================================================
+
+        console.log(
+            "\n========================================"
+        );
+
+        console.log(
+            "🚆 NTES TIMETABLE FALLBACK"
+        );
+
+        console.log(
+            "========================================"
+        );
+
+
+        console.log(
+            `Train: ${trainNumber}`
+        );
+
+
+        try {
+
+            await syncNtesTrainStopsService(
+                String(trainNumber)
+                    .trim(),
+
+                journeyDate
+            );
+
+
+            console.log(
+                "✅ NTES timetable sync completed."
+            );
+
+        } catch (
+            error
+        ) {
+
+            console.log(
+                "❌ NTES timetable sync failed:"
+            );
+
+
+            console.log(
+                error.message
+            );
+
+
+            return [];
+        }
+
+
+        // =====================================================
+        // LOAD AGAIN FROM DATABASE
+        // =====================================================
+
+        route =
+            await this.getDatabaseRoute(
+                trainNumber
+            );
+
+
+        if (
+            route.length === 0
+        ) {
+
+            console.log(
+                `❌ Timetable still unavailable for train ${trainNumber}.`
+            );
+        }
+
+
+        return route;
+    }
+
+
+    // =========================================================
+    // CLEAR RECOMMENDATIONS
+    // =========================================================
+
+    async clearRecommendations(
+        journeyId
+    ) {
 
         try {
 
@@ -158,457 +344,30 @@ class ChartWorkflowService {
                     []
                 );
 
+
             console.log(
                 "🧹 Old recommendations cleared."
             );
 
-        } catch (error) {
+        } catch (
+            clearError
+        ) {
 
             console.log(
                 "⚠️ Could not clear old recommendations:",
-                error.message
+                clearError.message
             );
         }
     }
 
-    // =====================================================
-    // NORMALIZE VACANCY
-    // =====================================================
 
-    normalizeVacancy(
-        vacancy,
-        classCode
-    ) {
-
-        if (!vacancy) {
-            return null;
-        }
-
-        const from =
-            String(
-                vacancy.from ||
-                vacancy.fromStation ||
-                vacancy.fromStn ||
-                ""
-            )
-                .trim()
-                .toUpperCase();
-
-        const to =
-            String(
-                vacancy.to ||
-                vacancy.toStation ||
-                vacancy.toStn ||
-                ""
-            )
-                .trim()
-                .toUpperCase();
-
-        const travelClass =
-            String(
-                vacancy.class ||
-                vacancy.cls ||
-                classCode ||
-                ""
-            )
-                .trim()
-                .toUpperCase();
-
-        const coach =
-            vacancy.coach ||
-            vacancy.coachName ||
-            null;
-
-        const berth =
-            vacancy.berth ??
-            vacancy.berthNumber ??
-            vacancy.berthCode ??
-            null;
-
-        if (
-            !from ||
-            !to ||
-            !travelClass ||
-            !coach
-        ) {
-
-            return null;
-        }
-
-        return {
-
-            ...vacancy,
-
-            from,
-
-            to,
-
-            class:
-                travelClass,
-
-            coach,
-
-            berth,
-
-            berthCode:
-                vacancy.berthCode ||
-                null,
-        };
-    }
-
-    // =====================================================
-    // ROUTE ORDER HELPER
-    // =====================================================
-
-    getRouteOrder(route, stationCode) {
-
-        const normalizedCode =
-            String(
-                stationCode || ""
-            )
-                .trim()
-                .toUpperCase();
-
-        const station =
-            route.find(
-                (item) =>
-                    String(
-                        item.code || ""
-                    )
-                        .trim()
-                        .toUpperCase() ===
-                    normalizedCode
-            );
-
-        if (!station) {
-            return null;
-        }
-
-        return Number.isFinite(
-            Number(station.routeOrder)
-        )
-            ? Number(station.routeOrder)
-            : null;
-    }
-
-    // =====================================================
-    // DOES VACANCY COVER COMPLETE JOURNEY?
-    // =====================================================
-
-    vacancyCoversJourney(
-        vacancy,
-        route,
-        source,
-        destination
-    ) {
-
-        const sourceOrder =
-            this.getRouteOrder(
-                route,
-                source
-            );
-
-        const destinationOrder =
-            this.getRouteOrder(
-                route,
-                destination
-            );
-
-        const vacancyFromOrder =
-            this.getRouteOrder(
-                route,
-                vacancy.from
-            );
-
-        const vacancyToOrder =
-            this.getRouteOrder(
-                route,
-                vacancy.to
-            );
-
-        if (
-            sourceOrder === null ||
-            destinationOrder === null ||
-            vacancyFromOrder === null ||
-            vacancyToOrder === null
-        ) {
-            return false;
-        }
-
-        return (
-            vacancyFromOrder <= sourceOrder &&
-            vacancyToOrder >= destinationOrder
-        );
-    }
-
-    // =====================================================
-    // COUNT JOURNEY-COVERING VACANCIES
-    // =====================================================
-
-    countJourneyCoveringVacancies(
-        vacancies,
-        route,
-        journey,
-        classCode
-    ) {
-
-        const source =
-            String(
-                journey.boardingStation || ""
-            )
-                .trim()
-                .toUpperCase();
-
-        const destination =
-            String(
-                journey.destinationStation || ""
-            )
-                .trim()
-                .toUpperCase();
-
-        const covering =
-            vacancies.filter(
-                (vacancy) =>
-                    String(
-                        vacancy.class || ""
-                    )
-                        .trim()
-                        .toUpperCase() ===
-                    classCode &&
-                    this.vacancyCoversJourney(
-                        vacancy,
-                        route,
-                        source,
-                        destination
-                    )
-            );
-
-        /*
-         * Count unique berth identities.
-         *
-         * The same berth may appear more than once
-         * in IRCTC's response for different intervals.
-         */
-        const uniqueBerths =
-            new Set();
-
-        for (const vacancy of covering) {
-
-            const berthIdentity =
-                [
-                    classCode,
-                    String(
-                        vacancy.coach || ""
-                    )
-                        .trim()
-                        .toUpperCase(),
-
-                    String(
-                        vacancy.berth ??
-                        vacancy.berthNumber ??
-                        vacancy.berthCode ??
-                        ""
-                    )
-                        .trim()
-                        .toUpperCase(),
-                ].join("|");
-
-            uniqueBerths.add(
-                berthIdentity
-            );
-        }
-
-        return uniqueBerths.size;
-    }
-
-    // =====================================================
-    // FETCH VACANCIES FOR ALL CLASSES
-    // =====================================================
-
-    async fetchAllClassVacancies(
-        journey,
-        journeyDate,
-        databaseRoute
-    ) {
-
-        const allVacantBerths = [];
-
-        const vacancySummary = [];
-
-        console.log(
-            "\n========================================"
-        );
-
-        console.log(
-            "🚆 IRCTC VACANCY CHECK - ALL CLASSES"
-        );
-
-        console.log(
-            "========================================"
-        );
-
-        for (
-            const classCode
-            of RESERVATION_CLASSES
-        ) {
-
-            try {
-
-                console.log(
-                    `\n🔎 Checking IRCTC class: ${classCode}`
-                );
-
-                const response =
-                    await chartService
-                        .fetchVacantBerth(
-                            journey.trainNumber,
-                            journeyDate,
-                            journey.boardingStation,
-                            classCode,
-                            1
-                        );
-
-                const rawVacancies =
-                    Array.isArray(
-                        response?.vbd
-                    )
-                        ? response.vbd
-                        : [];
-
-                const normalizedVacancies =
-                    rawVacancies
-                        .map(
-                            (vacancy) =>
-                                this.normalizeVacancy(
-                                    vacancy,
-                                    classCode
-                                )
-                        )
-                        .filter(Boolean);
-
-                allVacantBerths.push(
-                    ...normalizedVacancies
-                );
-
-                // -----------------------------------------
-                // TOTAL RECORDS
-                // -----------------------------------------
-
-                const totalVacancies =
-                    normalizedVacancies.length;
-
-                // -----------------------------------------
-                // JOURNEY COVERING RECORDS
-                // -----------------------------------------
-
-                const journeyCoveringVacancies =
-                    this.countJourneyCoveringVacancies(
-                        normalizedVacancies,
-                        databaseRoute,
-                        journey,
-                        classCode
-                    );
-
-                const status =
-    totalVacancies > 0
-        ? "AVAILABLE"
-        : "ERROR";
-
-                vacancySummary.push({
-
-                    class:
-                        classCode,
-
-                    /*
-                     * Kept as `count` for backward
-                     * compatibility with existing UI/code.
-                     */
-                    count:
-                        totalVacancies,
-
-                    totalVacancies,
-
-                    journeyCoveringVacancies,
-
-                    status,
-
-                    error:
-                        "",
-                });
-
-                console.log(
-                    `✅ ${classCode}: ${totalVacancies} total vacancy records`
-                );
-
-                console.log(
-                    `   🎯 ${classCode}: ${journeyCoveringVacancies} berths cover ${journey.boardingStation} → ${journey.destinationStation}`
-                );
-
-            } catch (error) {
-
-                console.log(
-                    `⚠️ ${classCode} vacancy request failed:`,
-                    error.message
-                );
-
-                vacancySummary.push({
-
-                    class:
-                        classCode,
-
-                    count:
-                        0,
-
-                    totalVacancies:
-                        0,
-
-                    journeyCoveringVacancies:
-                        0,
-
-                    status:
-                        "ERROR",
-
-                    error:
-                        error.message,
-                });
-            }
-        }
-
-        console.log(
-            "\n========================================"
-        );
-
-        console.log(
-            "📊 IRCTC VACANCY SUMMARY"
-        );
-
-        console.log(
-            "========================================"
-        );
-
-        console.table(
-            vacancySummary
-        );
-
-        console.log(
-            "Total usable vacancy records:",
-            allVacantBerths.length
-        );
-
-        return {
-
-            vacancies:
-                allVacantBerths,
-
-            vacancySummary,
-        };
-    }
-
-    // =====================================================
+    // =========================================================
     // PROCESS JOURNEY
-    // =====================================================
+    // =========================================================
 
-    async processJourney(journey) {
+    async processJourney(
+        journey
+    ) {
 
         try {
 
@@ -624,56 +383,50 @@ class ChartWorkflowService {
                 "========================================"
             );
 
+
             console.log(
                 "Journey ID:",
                 journey._id
             );
+
 
             console.log(
                 "Train Number:",
                 journey.trainNumber
             );
 
+
             console.log(
                 "Journey Date:",
                 journey.journeyDate
             );
+
 
             console.log(
                 "Source:",
                 journey.boardingStation
             );
 
+
             console.log(
                 "Destination:",
                 journey.destinationStation
             );
 
+
             // =================================================
-            // ENABLED CLASSES
+            // ENABLED CLASS
             // =================================================
 
-            const enabledClasses =
-                Array.isArray(
-                    journey.allowedClasses
-                )
-                    ? journey.allowedClasses
-                        .filter(
-                            (cls) =>
-                                cls.enabled
-                        )
-                        .map(
-                            (cls) =>
-                                String(
-                                    cls.class
-                                )
-                                    .trim()
-                                    .toUpperCase()
-                        )
-                    : [];
+            const enabledClass =
+                journey.allowedClasses?.find(
+                    (cls) =>
+                        cls.enabled
+                );
+
 
             if (
-                enabledClasses.length === 0
+                !enabledClass
             ) {
 
                 console.log(
@@ -683,10 +436,12 @@ class ChartWorkflowService {
                 return null;
             }
 
+
             console.log(
-                "Preferred Classes:",
-                enabledClasses
+                "Preferred Class:",
+                enabledClass.class
             );
+
 
             // =================================================
             // MOCK MODE
@@ -696,29 +451,102 @@ class ChartWorkflowService {
                 process.env.USE_MOCK_CHART ===
                 "true";
 
-            if (useMockData) {
+
+            if (
+                useMockData
+            ) {
 
                 console.log(
-                    "\n🧪 MOCK MODE ENABLED"
+                    "\n🧪 EXPLICIT MOCK MODE"
                 );
+
 
                 console.log(
-                    "⚠️ Real IRCTC data will not be used."
+                    "⚠️ Real IRCTC chart data will NOT be used."
                 );
 
-                return await this.runOptimizer(
-                    journey,
-                    {
-                        chartPrepared:
-                            true,
-                    },
-                    [],
-                    []
+            } else {
+
+                console.log(
+                    "\n🚆 REAL IRCTC MODE"
                 );
             }
 
+
             // =================================================
-            // JOURNEY DATE
+            // MOCK WORKFLOW
+            // =================================================
+
+            if (
+                useMockData
+            ) {
+
+                const mockChartData = {
+
+                    chartPrepared:
+                        true,
+
+                    cdd:
+                        mockChart.cdd ||
+                        [],
+
+                    chartOneTime:
+                        null,
+
+                    chartTwoTime:
+                        null,
+
+                    coaches:
+                        mockChart.cdd ||
+                        [],
+                };
+
+
+                const vacantBerths =
+                    mockVacancies.generateVacancies({
+                        source:
+                            journey.boardingStation,
+
+                        destination:
+                            journey.destinationStation,
+
+                        travelClass:
+                            enabledClass.class,
+
+                        allowMixedClass:
+                            journey.allowMixedClass ||
+                            false,
+                    });
+
+
+                console.log(
+                    "\n========== MOCK VACANCIES =========="
+                );
+
+
+                console.dir(
+                    vacantBerths,
+                    {
+                        depth: null,
+                    }
+                );
+
+
+                console.log(
+                    "\n⚠️ Mock vacancies are TEST DATA only."
+                );
+
+
+                return await this.runOptimizer(
+                    journey,
+                    mockChartData,
+                    vacantBerths
+                );
+            }
+
+
+            // =================================================
+            // REAL WORKFLOW
             // =================================================
 
             const journeyDate =
@@ -728,94 +556,123 @@ class ChartWorkflowService {
                     .toISOString()
                     .split("T")[0];
 
+
+            console.log(
+                "\n========================================"
+            );
+
+            console.log(
+                "🚆 REAL IRCTC CHART WORKFLOW"
+            );
+
+            console.log(
+                "========================================"
+            );
+
+
             // =================================================
-            // DATABASE ROUTE
+            // LOAD TRAIN TIMETABLE
             // =================================================
 
-            const databaseRoute =
-                await this.getDatabaseRoute(
-                    journey.trainNumber
-                );
+            let databaseRoute = [];
 
-            if (
-                !Array.isArray(
-                    databaseRoute
-                ) ||
-                databaseRoute.length === 0
+
+            try {
+
+                databaseRoute =
+                    await this.loadTrainRoute(
+                        journey.trainNumber,
+                        journeyDate
+                    );
+
+            } catch (
+                error
             ) {
 
                 console.log(
-                    "❌ Train timetable unavailable."
+                    "⚠️ Could not load timetable:",
+                    error.message
                 );
+            }
+
+
+            // =================================================
+            // NO TIMETABLE
+            // =================================================
+
+            if (
+                databaseRoute.length ===
+                0
+            ) {
+
+                console.log(
+                    "\n❌ TRAIN TIMETABLE UNAVAILABLE"
+                );
+
+
+                console.log(
+                    `Train ${journey.trainNumber} cannot be analyzed until a valid timetable is available.`
+                );
+
 
                 await this.clearRecommendations(
                     journey._id
                 );
 
-                return null;
-            }
-
-            // =================================================
-            // VALIDATE USER ROUTE
-            // =================================================
-
-            const sourceCode =
-                String(
-                    journey.boardingStation ||
-                    ""
-                )
-                    .trim()
-                    .toUpperCase();
-
-            const destinationCode =
-                String(
-                    journey.destinationStation ||
-                    ""
-                )
-                    .trim()
-                    .toUpperCase();
-
-            const sourceIndex =
-                databaseRoute.findIndex(
-                    (station) =>
-                        station.code ===
-                        sourceCode
-                );
-
-            const destinationIndex =
-                databaseRoute.findIndex(
-                    (station) =>
-                        station.code ===
-                        destinationCode
-                );
-
-            if (
-                sourceIndex === -1 ||
-                destinationIndex === -1 ||
-                sourceIndex >= destinationIndex
-            ) {
-
-                console.log(
-                    `❌ Invalid route ${sourceCode} → ${destinationCode}`
-                );
-
-                await this.clearRecommendations(
-                    journey._id
-                );
 
                 return null;
             }
 
+
             // =================================================
-            // CHART TIMING
+            // CHART PREPARATION TIME
             // =================================================
+
+            let chartTiming =
+                null;
+
+
+            const originStop =
+                databaseRoute[0];
+
 
             const originDeparture =
-                databaseRoute[0]?.departure;
+                originStop.departure;
 
-            let chartTiming = null;
 
-            if (originDeparture) {
+            console.log(
+                "\n========== CHART TIMING CHECK =========="
+            );
+
+
+            console.log(
+                "Train:",
+                journey.trainNumber
+            );
+
+
+            console.log(
+                "Origin Station:",
+                originStop.code
+            );
+
+
+            console.log(
+                "Origin Name:",
+                originStop.name
+            );
+
+
+            console.log(
+                "Origin Departure:",
+                originDeparture ||
+                "NOT AVAILABLE"
+            );
+
+
+            if (
+                originDeparture
+            ) {
 
                 try {
 
@@ -827,35 +684,55 @@ class ChartWorkflowService {
                             originDeparture,
                         });
 
-                    console.log(
-                        "\n========== CHART TIMING =========="
-                    );
 
                     console.log(
                         "Expected First Chart:",
                         chartTiming.firstChartTime
                     );
 
+
                     console.log(
                         "Expected Final Chart:",
                         chartTiming.finalChartTime
                     );
 
+
                     console.log(
-                        "Should Check:",
+                        "Should Check IRCTC:",
                         chartTiming.shouldCheckChart
                     );
 
-                } catch (error) {
+                } catch (
+                    timingError
+                ) {
 
                     console.log(
-                        "⚠️ Chart timing failed:",
-                        error.message
+                        "⚠️ Chart timing calculation failed:",
+                        timingError.message
                     );
 
-                    chartTiming = null;
+
+                    console.log(
+                        "⚠️ Falling back to actual IRCTC chart-status check."
+                    );
+
+
+                    chartTiming =
+                        null;
                 }
+
+            } else {
+
+                console.log(
+                    "⚠️ Origin departure time unavailable."
+                );
+
+
+                console.log(
+                    "⚠️ Falling back to actual IRCTC chart-status check."
+                );
             }
+
 
             // =================================================
             // BEFORE EXPECTED CHART
@@ -867,8 +744,35 @@ class ChartWorkflowService {
             ) {
 
                 console.log(
-                    "\n⏳ TOO EARLY FOR CHART CHECK"
+                    "\n========================================"
                 );
+
+
+                console.log(
+                    "⏳ TOO EARLY FOR CHART CHECK"
+                );
+
+
+                console.log(
+                    "========================================"
+                );
+
+
+                console.log(
+                    "Expected First Chart:",
+                    chartTiming.firstChartTime
+                );
+
+
+                console.log(
+                    "No IRCTC chart API call will be made yet."
+                );
+
+
+                console.log(
+                    "No vacant berth API call will be made."
+                );
+
 
                 const waitChartData = {
 
@@ -891,150 +795,342 @@ class ChartWorkflowService {
                         "BEFORE_EXPECTED_CHART_TIME",
                 };
 
+
                 return await this.runOptimizer(
                     journey,
                     waitChartData,
-                    [],
                     []
                 );
             }
 
+
             // =================================================
-            // FETCH IRCTC CHART
+            // CALL IRCTC CHART API
             // =================================================
 
             console.log(
-                "\n🚆 Calling IRCTC Train Composition API"
+                "\n========================================"
             );
+
+
+            console.log(
+                "🚆 Calling IRCTC Train Composition API"
+            );
+
+
+            console.log(
+                "========================================"
+            );
+
 
             let chart;
 
+
             try {
 
-                chart = await chartService.fetchAndCacheChart(
-  journey.trainNumber,
-  journeyDate,
-  journey.boardingStation,
-  {
-    journeyId: journey._id,
+                chart =
+                    await chartService
+                        .fetchAndCacheChart(
+                            journey.trainNumber,
 
-    firstChartTime:
-      chartTiming?.firstChartTime || null,
+                            journeyDate,
 
-    finalChartTime:
-      chartTiming?.finalChartTime || null,
+                            journey.boardingStation
+                        );
 
-    boardingStationName:
-      databaseRoute.find(
-        (stop) =>
-          String(stop.code).trim().toUpperCase() ===
-          String(journey.boardingStation).trim().toUpperCase()
-      )?.station || "",
-
-    finalChartStationCode:
-      null,
-
-    finalChartStationName:
-      "",
-  }
-);
-
-            } catch (error) {
+            } catch (
+                error
+            ) {
 
                 console.log(
-                    "❌ IRCTC chart request failed:",
+                    "\n========================================"
+                );
+
+
+                console.log(
+                    "⚠️ IRCTC CHART REQUEST FAILED"
+                );
+
+
+                console.log(
+                    "========================================"
+                );
+
+
+                console.log(
+                    "Error:",
                     error.message
                 );
 
+
                 await this.clearRecommendations(
                     journey._id
                 );
 
+
                 return null;
             }
 
-            if (!chart) {
+
+            // =================================================
+            // EMPTY RESPONSE
+            // =================================================
+
+            if (
+                !chart
+            ) {
 
                 console.log(
-                    "❌ Empty IRCTC chart response."
+                    "⚠️ Empty IRCTC chart response."
                 );
+
 
                 await this.clearRecommendations(
                     journey._id
                 );
 
+
                 return null;
             }
+
+
+            // =================================================
+            // REAL CHART STATUS
+            // =================================================
 
             console.log(
                 "\n============= REAL CHART STATUS ============="
             );
+
 
             console.log(
                 "Chart Prepared:",
                 chart.chartPrepared
             );
 
+
+            console.log(
+                "Chart One Date:",
+                chart.chartOneDate ||
+                null
+            );
+
+
+            console.log(
+                "Chart Two Date:",
+                chart.chartTwoDate ||
+                null
+            );
+
+
             // =================================================
             // CHART NOT PREPARED
             // =================================================
 
-            if (!chart.chartPrepared) {
+            if (
+                !chart.chartPrepared
+            ) {
 
                 console.log(
-                    "🟡 IRCTC chart is not prepared."
+                    "\n========================================"
                 );
+
+
+                console.log(
+                    "🟡 IRCTC CHART NOT PREPARED"
+                );
+
+
+                console.log(
+                    "========================================"
+                );
+
+
+                console.log(
+                    "Expected chart window has been reached."
+                );
+
+
+                console.log(
+                    "But IRCTC says the chart is still not prepared."
+                );
+
+
+                console.log(
+                    "No vacancy API call will be made."
+                );
+
+
+                const waitChartData = {
+
+                    ...chart,
+
+                    chartPrepared:
+                        false,
+
+                    firstChartTime:
+                        chartTiming?.firstChartTime ||
+                        null,
+
+                    finalChartTime:
+                        chartTiming?.finalChartTime ||
+                        null,
+
+                    reason:
+                        "IRCTC_CHART_NOT_PREPARED",
+                };
+
 
                 return await this.runOptimizer(
                     journey,
-                    chart,
-                    [],
+                    waitChartData,
                     []
                 );
             }
+
 
             // =================================================
             // CHART PREPARED
             // =================================================
 
             console.log(
-                "\n🟢 REAL IRCTC CHART PREPARED"
+                "\n========================================"
             );
 
+
+            console.log(
+                "🟢 REAL IRCTC CHART PREPARED"
+            );
+
+
+            console.log(
+                "========================================"
+            );
+
+
             // =================================================
-            // FETCH ALL CLASS VACANCIES
+            // FETCH REAL VACANT BERTHS
             // =================================================
 
-            const {
-                vacancies,
-                vacancySummary,
+            let vacancyResponse;
 
-            } =
-                await this.fetchAllClassVacancies(
-                    journey,
-                    journeyDate,
-                    databaseRoute
+
+            try {
+
+                console.log(
+                    "\n========================================"
                 );
 
-            // =================================================
-            // NO USABLE VACANCIES
-            // =================================================
 
-            if (
-                vacancies.length === 0
+                console.log(
+                    "🚆 Calling IRCTC Vacant Berth API"
+                );
+
+
+                console.log(
+                    "========================================"
+                );
+
+
+                vacancyResponse =
+                    await chartService
+                        .fetchVacantBerth(
+
+                            journey.trainNumber,
+
+                            journeyDate,
+
+                            journey.boardingStation,
+
+                            enabledClass.class,
+
+                            1
+                        );
+
+            } catch (
+                error
             ) {
 
                 console.log(
-                    "\nℹ️ IRCTC returned no usable vacant berths."
+                    "\n========================================"
                 );
 
-                return await this.runOptimizer(
-                    journey,
-                    chart,
-                    [],
-                    vacancySummary
+
+                console.log(
+                    "⚠️ IRCTC VACANCY REQUEST FAILED"
                 );
+
+
+                console.log(
+                    "========================================"
+                );
+
+
+                console.log(
+                    "Error:",
+                    error.message
+                );
+
+
+                await this.clearRecommendations(
+                    journey._id
+                );
+
+
+                return null;
             }
+
+
+            // =================================================
+            // EXTRACT VACANCIES
+            // =================================================
+
+            const vacantBerths =
+                vacancyResponse?.vbd ||
+                [];
+
+
+            console.log(
+                "\n✅ REAL VACANT BERTHS RECEIVED:",
+                vacantBerths.length
+            );
+
+
+            console.dir(
+                vacantBerths,
+                {
+                    depth: null,
+                }
+            );
+
+
+            // =================================================
+            // NO VACANCIES
+            // =================================================
+
+            if (
+                vacantBerths.length ===
+                0
+            ) {
+
+                console.log(
+                    "\nℹ️ IRCTC returned no vacant berths."
+                );
+
+
+                console.log(
+                    "Journey Optimizer will NOT run."
+                );
+
+
+                await this.clearRecommendations(
+                    journey._id
+                );
+
+
+                return null;
+            }
+
 
             // =================================================
             // RUN OPTIMIZER
@@ -1043,91 +1139,165 @@ class ChartWorkflowService {
             return await this.runOptimizer(
                 journey,
                 chart,
-                vacancies,
-                vacancySummary
+                vacantBerths
             );
 
-        } catch (error) {
+        } catch (
+            error
+        ) {
 
             console.log(
                 "\n========================================"
             );
 
+
             console.log(
                 "❌ CHART WORKFLOW FAILED"
             );
 
+
             console.log(
                 "========================================"
             );
+
 
             console.log(
                 "Error:",
                 error.message
             );
 
-            if (error.stack) {
+
+            if (
+                error.stack
+            ) {
+
                 console.log(
                     error.stack
                 );
             }
 
+
             throw error;
         }
     }
 
-    // =====================================================
-    // RUN JOURNEY OPTIMIZER
-    // =====================================================
+
+    // =========================================================
+    // JOURNEY OPTIMIZER
+    // =========================================================
 
     async runOptimizer(
         journey,
         chartData,
-        vacantBerths,
-        vacancySummary = []
+        vacantBerths
     ) {
 
         console.log(
             "\n========================================"
         );
 
+
         console.log(
             "🧠 RUNNING JOURNEY OPTIMIZER"
         );
+
 
         console.log(
             "========================================"
         );
 
-        const databaseRoute =
-            await this.getDatabaseRoute(
-                journey.trainNumber
+
+        // =====================================================
+        // GET DATABASE ROUTE
+        // =====================================================
+
+        let databaseRoute =
+            await this.loadTrainRoute(
+                journey.trainNumber,
+                journey.journeyDate
             );
 
+
+        // =====================================================
+        // ROUTE REQUIRED
+        // =====================================================
+
         if (
-            !Array.isArray(
-                databaseRoute
-            ) ||
-            databaseRoute.length === 0
+            databaseRoute.length ===
+            0
         ) {
 
             console.log(
-                "❌ No database timetable available."
+                "\n❌ NO VALID TRAIN TIMETABLE"
             );
+
+
+            console.log(
+                "Optimizer requires a real station route."
+            );
+
 
             await this.clearRecommendations(
                 journey._id
             );
 
+
             return null;
         }
 
-        // =================================================
-        // ROUTE SAFETY
-        // =================================================
 
-        const routeStations =
-            databaseRoute;
+        // =====================================================
+        // VALIDATE ROUTE
+        // =====================================================
+
+        const validRoute =
+            Array.isArray(
+                databaseRoute
+            ) &&
+
+            databaseRoute.length >
+                0 &&
+
+            databaseRoute.every(
+                (station) =>
+                    station &&
+
+                    typeof station.code ===
+                        "string" &&
+
+                    station.code
+                        .trim()
+                        .length >
+                        0
+            );
+
+
+        if (
+            !validRoute
+        ) {
+
+            console.log(
+                "\n❌ INVALID TRAIN TIMETABLE"
+            );
+
+
+            console.log(
+                "Optimizer requires real station codes."
+            );
+
+
+            await this.clearRecommendations(
+                journey._id
+            );
+
+
+            return null;
+        }
+
+
+        // =====================================================
+        // SOURCE
+        // =====================================================
 
         const sourceCode =
             String(
@@ -1137,6 +1307,11 @@ class ChartWorkflowService {
                 .trim()
                 .toUpperCase();
 
+
+        // =====================================================
+        // DESTINATION
+        // =====================================================
+
         const destinationCode =
             String(
                 journey.destinationStation ||
@@ -1145,74 +1320,164 @@ class ChartWorkflowService {
                 .trim()
                 .toUpperCase();
 
+
+        // =====================================================
+        // FIND SOURCE
+        // =====================================================
+
         const sourceIndex =
-            routeStations.findIndex(
+            databaseRoute.findIndex(
                 (station) =>
-                    station.code ===
+                    String(
+                        station.code
+                    )
+                        .trim()
+                        .toUpperCase() ===
                     sourceCode
             );
 
+
+        // =====================================================
+        // FIND DESTINATION
+        // =====================================================
+
         const destinationIndex =
-            routeStations.findIndex(
+            databaseRoute.findIndex(
                 (station) =>
-                    station.code ===
+                    String(
+                        station.code
+                    )
+                        .trim()
+                        .toUpperCase() ===
                     destinationCode
             );
 
+
+        // =====================================================
+        // SOURCE NOT FOUND
+        // =====================================================
+
         if (
-            sourceIndex === -1 ||
-            destinationIndex === -1 ||
-            sourceIndex >= destinationIndex
+            sourceIndex ===
+            -1
         ) {
 
             console.log(
-                `❌ Invalid route ${sourceCode} → ${destinationCode}`
+                `❌ Source station ${sourceCode} is not on train ${journey.trainNumber}.`
             );
+
 
             await this.clearRecommendations(
                 journey._id
             );
 
+
             return null;
         }
+
+
+        // =====================================================
+        // DESTINATION NOT FOUND
+        // =====================================================
+
+        if (
+            destinationIndex ===
+            -1
+        ) {
+
+            console.log(
+                `❌ Destination station ${destinationCode} is not on train ${journey.trainNumber}.`
+            );
+
+
+            await this.clearRecommendations(
+                journey._id
+            );
+
+
+            return null;
+        }
+
+
+        // =====================================================
+        // WRONG DIRECTION
+        // =====================================================
+
+        if (
+            sourceIndex >=
+            destinationIndex
+        ) {
+
+            console.log(
+                `❌ Invalid route: ${sourceCode} does not occur before ${destinationCode}.`
+            );
+
+
+            await this.clearRecommendations(
+                journey._id
+            );
+
+
+            return null;
+        }
+
+
+        // =====================================================
+        // LOG VALID ROUTE
+        // =====================================================
 
         console.log(
             "\n========== OPTIMIZER ROUTE =========="
         );
 
-        console.log(
-            "Train:",
-            journey.trainNumber
-        );
 
         console.log(
-            "Source:",
+            "Route station count:",
+            databaseRoute.length
+        );
+
+
+        console.log(
+            "Journey source:",
             sourceCode
         );
 
+
         console.log(
-            "Destination:",
+            "Journey destination:",
             destinationCode
         );
 
+
         console.log(
-            "Source Position:",
+            "Source route position:",
             sourceIndex + 1
         );
 
+
         console.log(
-            "Destination Position:",
+            "Destination route position:",
             destinationIndex + 1
         );
 
+
         console.log(
-            "Route Stops:",
-            routeStations.length
+            "Route start:",
+            databaseRoute[0]
         );
 
-        // =================================================
-        // OPTIMIZER
-        // =================================================
+
+        console.log(
+            "Route end:",
+            databaseRoute[
+                databaseRoute.length - 1
+            ]
+        );
+
+
+        // =====================================================
+        // RUN JOURNEY OPTIMIZER
+        // =====================================================
 
         const recommendations =
             await journeyOptimizer.optimize({
@@ -1221,7 +1486,7 @@ class ChartWorkflowService {
 
                 route: {
                     stations:
-                        routeStations,
+                        databaseRoute,
                 },
 
                 chart:
@@ -1232,28 +1497,29 @@ class ChartWorkflowService {
                         vacantBerths
                     )
                         ? vacantBerths
-                        : [],
-
-                vacancySummary:
-                    Array.isArray(
-                        vacancySummary
-                    )
-                        ? vacancySummary
-                        : [],
+                        : (
+                            vacantBerths?.vbd ||
+                            []
+                        ),
             });
+
 
         console.log(
             "\n✅ Journey Optimizer Completed"
         );
 
+
         console.log(
             "Recommendations Generated:",
-            recommendations?.length || 0
+            recommendations?.length ||
+            0
         );
+
 
         return recommendations;
     }
 }
+
 
 // =========================================================
 // EXPORT

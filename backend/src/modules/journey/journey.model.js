@@ -1,6 +1,5 @@
 const mongoose = require("mongoose");
 
-
 // ==========================================
 // Allowed Class Schema
 // ==========================================
@@ -23,7 +22,6 @@ const allowedClassSchema = new mongoose.Schema(
   }
 );
 
-
 // ==========================================
 // Journey Schema
 // ==========================================
@@ -38,8 +36,8 @@ const journeySchema = new mongoose.Schema(
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
       required: true,
+      index: true,
     },
-
 
     // ========================================
     // Train Information
@@ -51,12 +49,10 @@ const journeySchema = new mongoose.Schema(
       trim: true,
     },
 
-
     journeyDate: {
       type: Date,
       required: true,
     },
-
 
     // ========================================
     // Journey Route
@@ -69,14 +65,12 @@ const journeySchema = new mongoose.Schema(
       trim: true,
     },
 
-
     destinationStation: {
       type: String,
       required: true,
       uppercase: true,
       trim: true,
     },
-
 
     // ========================================
     // Allowed Classes
@@ -87,7 +81,6 @@ const journeySchema = new mongoose.Schema(
       required: true,
     },
 
-
     // ========================================
     // Mixed Class
     // ========================================
@@ -96,7 +89,6 @@ const journeySchema = new mongoose.Schema(
       type: Boolean,
       default: false,
     },
-
 
     // ========================================
     // Preferred Strategy
@@ -112,7 +104,6 @@ const journeySchema = new mongoose.Schema(
 
       default: "SINGLE_TICKET",
     },
-
 
     // ========================================
     // Journey Status
@@ -131,8 +122,36 @@ const journeySchema = new mongoose.Schema(
       ],
 
       default: "PENDING",
+      index: true,
     },
 
+    // ========================================
+    // Completion Information
+    // ========================================
+
+    completedAt: {
+      type: Date,
+      default: null,
+    },
+
+    completedReason: {
+      type: String,
+      default: "",
+      trim: true,
+    },
+
+    finalStationCode: {
+      type: String,
+      default: "",
+      uppercase: true,
+      trim: true,
+    },
+
+    finalStationName: {
+      type: String,
+      default: "",
+      trim: true,
+    },
 
     // ========================================
     // Monitoring Job
@@ -144,7 +163,6 @@ const journeySchema = new mongoose.Schema(
       default: null,
     },
 
-
     // ========================================
     // Last Seat Status
     // ========================================
@@ -154,7 +172,6 @@ const journeySchema = new mongoose.Schema(
       default: null,
     },
 
-
     // ========================================
     // Last Available Seats
     // ========================================
@@ -163,7 +180,6 @@ const journeySchema = new mongoose.Schema(
       type: Number,
       default: null,
     },
-
 
     // ========================================
     // Last Monitoring Time
@@ -175,7 +191,6 @@ const journeySchema = new mongoose.Schema(
     },
   },
 
-
   // ========================================
   // Schema Options
   // ========================================
@@ -185,15 +200,21 @@ const journeySchema = new mongoose.Schema(
   }
 );
 
-
 // ==========================================
-// Model
+// Indexes
 // ==========================================
 
-const Journey = mongoose.model(
+journeySchema.index({
+  userId: 1,
+  status: 1,
+});
+
+journeySchema.index({
+  trainNumber: 1,
+  journeyDate: 1,
+});
+
+module.exports = mongoose.model(
   "Journey",
   journeySchema
 );
-
-
-module.exports = Journey;

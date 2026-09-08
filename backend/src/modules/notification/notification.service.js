@@ -1,7 +1,6 @@
 const Notification = require("./notification.model");
 
 class NotificationService {
-
   // =========================================
   // CREATE
   // =========================================
@@ -13,7 +12,6 @@ class NotificationService {
     message,
     journeyId = null,
   }) {
-
     if (!userId) {
       throw new Error("userId is required.");
     }
@@ -33,33 +31,29 @@ class NotificationService {
     });
   }
 
-
   // =========================================
   // GET USER NOTIFICATIONS
   // =========================================
 
   async getNotifications(userId, options = {}) {
-
     const limit = Math.min(
       Math.max(Number(options.limit) || 50, 1),
       100
     );
 
-    const notifications =
-      await Notification.find({
-        userId,
+    const notifications = await Notification.find({
+      userId,
+    })
+      .sort({
+        createdAt: -1,
       })
-        .sort({
-          createdAt: -1,
-        })
-        .limit(limit)
-        .lean();
+      .limit(limit)
+      .lean();
 
-    const unreadCount =
-      await Notification.countDocuments({
-        userId,
-        isRead: false,
-      });
+    const unreadCount = await Notification.countDocuments({
+      userId,
+      isRead: false,
+    });
 
     return {
       notifications,
@@ -67,16 +61,11 @@ class NotificationService {
     };
   }
 
-
   // =========================================
   // MARK ONE AS READ
   // =========================================
 
-  async markAsRead(
-    notificationId,
-    userId
-  ) {
-
+  async markAsRead(notificationId, userId) {
     const notification =
       await Notification.findOneAndUpdate(
         {
@@ -106,42 +95,33 @@ class NotificationService {
     return notification;
   }
 
-
   // =========================================
   // MARK ALL AS READ
   // =========================================
 
   async markAllAsRead(userId) {
-
-    const result =
-      await Notification.updateMany(
-        {
-          userId,
-          isRead: false,
+    const result = await Notification.updateMany(
+      {
+        userId,
+        isRead: false,
+      },
+      {
+        $set: {
+          isRead: true,
         },
-        {
-          $set: {
-            isRead: true,
-          },
-        }
-      );
+      }
+    );
 
     return {
-      modifiedCount:
-        result.modifiedCount,
+      modifiedCount: result.modifiedCount,
     };
   }
-
 
   // =========================================
   // DELETE ONE
   // =========================================
 
-  async deleteNotification(
-    notificationId,
-    userId
-  ) {
-
+  async deleteNotification(notificationId, userId) {
     const notification =
       await Notification.findOneAndDelete({
         _id: notificationId,
@@ -161,21 +141,17 @@ class NotificationService {
     return notification;
   }
 
-
   // =========================================
   // DELETE ALL
   // =========================================
 
   async deleteAllNotifications(userId) {
-
-    const result =
-      await Notification.deleteMany({
-        userId,
-      });
+    const result = await Notification.deleteMany({
+      userId,
+    });
 
     return {
-      deletedCount:
-        result.deletedCount,
+      deletedCount: result.deletedCount,
     };
   }
 }

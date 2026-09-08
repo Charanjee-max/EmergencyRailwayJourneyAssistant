@@ -76,6 +76,12 @@ const pnrSchema = new mongoose.Schema(
       required: true,
       index: true,
     },
+    journeyId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "Journey",
+    default: null,
+    index: true,
+},
 
     pnr: {
       type: String,

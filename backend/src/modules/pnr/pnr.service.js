@@ -1,5 +1,6 @@
 const { configure, checkPNRStatus } = require("railkit");
 const PNR = require("./pnr.model");
+const Journey = require("../journey/journey.model");
 
 let railKitConfigured = false;
 
@@ -21,7 +22,11 @@ const configureRailKit = () => {
 const normalizePNR = (pnr) =>
   String(pnr || "").replace(/\D/g, "");
 
-const checkPNRService = async (pnr, userId) => {
+const checkPNRService = async (
+    pnr,
+    userId,
+    journeyId = null
+) => {
   configureRailKit();
 
   const normalizedPNR = normalizePNR(pnr);
@@ -63,9 +68,52 @@ const checkPNRService = async (pnr, userId) => {
   }
 
   const data = result.data;
+  // =====================================================
+// OPTIONAL JOURNEY LINK VALIDATION
+// =====================================================
+
+let linkedJourneyId = null;
+
+if (journeyId) {
+    const journey = await Journey.findOne({
+        _id: journeyId,
+        userId,
+    }).lean();
+
+    if (!journey) {
+        const error = new Error(
+            "Journey not found or access denied."
+        );
+
+        error.statusCode = 404;
+        throw error;
+    }
+
+    const pnrTrain =
+        String(data.train?.number || "").trim();
+
+    const journeyTrain =
+        String(journey.trainNumber || "").trim();
+
+    if (
+        pnrTrain &&
+        journeyTrain &&
+        pnrTrain !== journeyTrain
+    ) {
+        const error = new Error(
+            `PNR train ${pnrTrain} does not match Journey train ${journeyTrain}.`
+        );
+
+        error.statusCode = 400;
+        throw error;
+    }
+
+    linkedJourneyId = journey._id;
+}
 
   const pnrDocument = {
     userId,
+    journeyId: linkedJourneyId,
     pnr: normalizedPNR,
 
     train: {

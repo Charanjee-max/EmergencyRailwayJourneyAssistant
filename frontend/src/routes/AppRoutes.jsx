@@ -12,17 +12,13 @@ import Recommendation from "../pages/Recommendation/Recommendation";
 
 import Profile from "../pages/Profile/Profile";
 import Notifications from "../pages/Notifications/Notifications";
-
+import PNR from "../pages/PNR/PNR";
 
 function AppRoutes() {
-
     return (
-
         <Routes>
 
-            {/* ================================
-                DEFAULT
-            ================================= */}
+            {/* DEFAULT */}
 
             <Route
                 path="/"
@@ -34,80 +30,63 @@ function AppRoutes() {
                 }
             />
 
-
-            {/* ================================
-                LOGIN
-            ================================= */}
+            {/* LOGIN */}
 
             <Route
                 path="/login"
                 element={<Login />}
             />
 
-
-            {/* ================================
-                DASHBOARD
-            ================================= */}
+            {/* DASHBOARD */}
 
             <Route
                 path="/dashboard"
                 element={<Dashboard />}
             />
 
-
-            {/* ================================
-                ALL JOURNEYS
-            ================================= */}
+            {/* JOURNEYS */}
 
             <Route
                 path="/journeys"
                 element={<Journeys />}
             />
 
-
-            {/* ================================
-                ADD JOURNEY
-            ================================= */}
+            {/* ADD JOURNEY */}
 
             <Route
                 path="/add-journey"
                 element={<AddJourney />}
             />
 
-
-            {/* ================================
-                RECOMMENDATION
-            ================================= */}
+            {/* RECOMMENDATION */}
 
             <Route
                 path="/recommendation/:id"
                 element={<Recommendation />}
             />
 
-
-            {/* ================================
-                PROFILE
-            ================================= */}
+            {/* PROFILE */}
 
             <Route
                 path="/profile"
                 element={<Profile />}
             />
 
-
-            {/* ================================
-                NOTIFICATIONS
-            ================================= */}
+            {/* NOTIFICATIONS */}
 
             <Route
                 path="/notifications"
                 element={<Notifications />}
             />
 
+            {/* PNR */}
 
-            {/* ================================
-                UNKNOWN ROUTE
-            ================================= */}
+            <Route
+                path="/pnr"
+                element={<PNR />}
+            />
+
+            {/* UNKNOWN ROUTE */}
 
             <Route
                 path="*"
@@ -120,9 +99,7 @@ function AppRoutes() {
             />
 
         </Routes>
-
     );
 }
-
 
 export default AppRoutes;

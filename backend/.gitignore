@@ -16,4 +16,4 @@ Thumbs.db
 frontend/dist/
 
 # IDE
-.vscode/
+.vscode/.env

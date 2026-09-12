@@ -4,21 +4,51 @@ import {
     Navigate,
 } from "react-router-dom";
 
+
+// =========================================================
+// AUTH
+// =========================================================
+
 import Login from "../pages/Login/Login";
+import Signup from "../pages/Signup/Signup";
+
+
+// =========================================================
+// MAIN PAGES
+// =========================================================
+
 import Dashboard from "../pages/Dashboard/Dashboard";
 import Journeys from "../pages/Journeys/Journeys";
 import AddJourney from "../pages/AddJourney/AddJourney";
 import Recommendation from "../pages/Recommendation/Recommendation";
 
+
+// =========================================================
+// USER PAGES
+// =========================================================
+
 import Profile from "../pages/Profile/Profile";
 import Notifications from "../pages/Notifications/Notifications";
+
+
+// =========================================================
+// PNR
+// =========================================================
+
 import PNR from "../pages/PNR/PNR";
 
+
+
 function AppRoutes() {
+
     return (
+
         <Routes>
 
-            {/* DEFAULT */}
+
+            {/* =================================================
+                DEFAULT
+            ================================================= */}
 
             <Route
                 path="/"
@@ -30,63 +60,128 @@ function AppRoutes() {
                 }
             />
 
-            {/* LOGIN */}
+
+
+            {/* =================================================
+                LOGIN
+            ================================================= */}
 
             <Route
                 path="/login"
-                element={<Login />}
+                element={
+                    <Login />
+                }
             />
 
-            {/* DASHBOARD */}
+
+
+            {/* =================================================
+                SIGNUP
+            ================================================= */}
+
+            <Route
+                path="/signup"
+                element={
+                    <Signup />
+                }
+            />
+
+
+
+            {/* =================================================
+                DASHBOARD
+            ================================================= */}
 
             <Route
                 path="/dashboard"
-                element={<Dashboard />}
+                element={
+                    <Dashboard />
+                }
             />
 
-            {/* JOURNEYS */}
+
+
+            {/* =================================================
+                ALL JOURNEYS
+            ================================================= */}
 
             <Route
                 path="/journeys"
-                element={<Journeys />}
+                element={
+                    <Journeys />
+                }
             />
 
-            {/* ADD JOURNEY */}
+
+
+            {/* =================================================
+                ADD JOURNEY
+            ================================================= */}
 
             <Route
                 path="/add-journey"
-                element={<AddJourney />}
+                element={
+                    <AddJourney />
+                }
             />
 
-            {/* RECOMMENDATION */}
+
+
+            {/* =================================================
+                RECOMMENDATION
+            ================================================= */}
 
             <Route
                 path="/recommendation/:id"
-                element={<Recommendation />}
+                element={
+                    <Recommendation />
+                }
             />
 
-            {/* PROFILE */}
+
+
+            {/* =================================================
+                PROFILE
+            ================================================= */}
 
             <Route
                 path="/profile"
-                element={<Profile />}
+                element={
+                    <Profile />
+                }
             />
 
-            {/* NOTIFICATIONS */}
+
+
+            {/* =================================================
+                NOTIFICATIONS
+            ================================================= */}
 
             <Route
                 path="/notifications"
-                element={<Notifications />}
+                element={
+                    <Notifications />
+                }
             />
 
-            {/* PNR */}
+
+
+            {/* =================================================
+                PNR
+            ================================================= */}
 
             <Route
                 path="/pnr"
-                element={<PNR />}
+                element={
+                    <PNR />
+                }
             />
 
-            {/* UNKNOWN ROUTE */}
+
+
+            {/* =================================================
+                UNKNOWN ROUTE
+            ================================================= */}
 
             <Route
                 path="*"
@@ -98,8 +193,12 @@ function AppRoutes() {
                 }
             />
 
+
         </Routes>
+
     );
+
 }
+
 
 export default AppRoutes;

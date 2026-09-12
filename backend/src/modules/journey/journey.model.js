@@ -1,220 +1,244 @@
 const mongoose = require("mongoose");
 
-// ==========================================
-// Allowed Class Schema
-// ==========================================
+// =========================================================
+// ALLOWED CLASS SCHEMA
+// =========================================================
 
-const allowedClassSchema = new mongoose.Schema(
-  {
-    class: {
-      type: String,
-      enum: ["1A", "2A", "3A", "3E", "SL"],
-      required: true,
-    },
+const allowedClassSchema =
+    new mongoose.Schema(
+        {
+            class: {
+                type: String,
 
-    enabled: {
-      type: Boolean,
-      default: false,
-    },
-  },
-  {
-    _id: false,
-  }
-);
+                enum: [
+                    "1A",
+                    "2A",
+                    "3A",
+                    "3E",
+                    "SL",
+                ],
 
-// ==========================================
-// Journey Schema
-// ==========================================
+                required: true,
+            },
 
-const journeySchema = new mongoose.Schema(
-  {
-    // ========================================
-    // User
-    // ========================================
+            enabled: {
+                type: Boolean,
+                default: false,
+            },
+        },
+        {
+            _id: false,
+        }
+    );
 
-    userId: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "User",
-      required: true,
-      index: true,
-    },
+// =========================================================
+// JOURNEY SCHEMA
+// =========================================================
 
-    // ========================================
-    // Train Information
-    // ========================================
+const journeySchema =
+    new mongoose.Schema(
+        {
+            // =====================================================
+            // USER
+            // =====================================================
 
-    trainNumber: {
-      type: String,
-      required: true,
-      trim: true,
-    },
+            userId: {
+                type:
+                    mongoose.Schema.Types.ObjectId,
 
-    journeyDate: {
-      type: Date,
-      required: true,
-    },
+                ref: "User",
 
-    // ========================================
-    // Journey Route
-    // ========================================
+                required: true,
 
-    boardingStation: {
-      type: String,
-      required: true,
-      uppercase: true,
-      trim: true,
-    },
+                index: true,
+            },
 
-    destinationStation: {
-      type: String,
-      required: true,
-      uppercase: true,
-      trim: true,
-    },
+            // =====================================================
+            // TRAIN INFORMATION
+            // =====================================================
 
-    // ========================================
-    // Allowed Classes
-    // ========================================
+            trainNumber: {
+                type: String,
 
-    allowedClasses: {
-      type: [allowedClassSchema],
-      required: true,
-    },
+                required: true,
 
-    // ========================================
-    // Mixed Class
-    // ========================================
+                trim: true,
+            },
 
-    allowMixedClass: {
-      type: Boolean,
-      default: false,
-    },
+            journeyDate: {
+                type: Date,
 
-    // ========================================
-    // Preferred Strategy
-    // ========================================
+                required: true,
+            },
 
-    preferredStrategy: {
-      type: String,
+            // =====================================================
+            // JOURNEY ROUTE
+            // =====================================================
 
-      enum: [
-        "SINGLE_TICKET",
-        "FEWER_TICKET_CHANGES",
-      ],
+            boardingStation: {
+                type: String,
 
-      default: "SINGLE_TICKET",
-    },
+                required: true,
 
-    // ========================================
-    // Journey Status
-    // ========================================
+                uppercase: true,
 
-    status: {
-      type: String,
+                trim: true,
+            },
 
-      enum: [
-        "PENDING",
-        "MONITORING",
-        "CHART_PREPARED",
-        "RECOMMENDATION_READY",
-        "COMPLETED",
-        "CANCELLED",
-      ],
+            destinationStation: {
+                type: String,
 
-      default: "PENDING",
-      index: true,
-    },
+                required: true,
 
-    // ========================================
-    // Completion Information
-    // ========================================
+                uppercase: true,
 
-    completedAt: {
-      type: Date,
-      default: null,
-    },
+                trim: true,
+            },
 
-    completedReason: {
-      type: String,
-      default: "",
-      trim: true,
-    },
+            // =====================================================
+            // ALLOWED CLASSES
+            // =====================================================
 
-    finalStationCode: {
-      type: String,
-      default: "",
-      uppercase: true,
-      trim: true,
-    },
+            allowedClasses: {
+                type: [
+                    allowedClassSchema,
+                ],
 
-    finalStationName: {
-      type: String,
-      default: "",
-      trim: true,
-    },
+                required: true,
+            },
 
-    // ========================================
-    // Monitoring Job
-    // ========================================
+            // =====================================================
+            // MIXED CLASS
+            // =====================================================
 
-    monitoringJobId: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "MonitoringJob",
-      default: null,
-    },
+            allowMixedClass: {
+                type: Boolean,
 
-    // ========================================
-    // Last Seat Status
-    // ========================================
+                default: false,
+            },
 
-    lastSeatStatus: {
-      type: String,
-      default: null,
-    },
+            // =====================================================
+            // PREFERRED STRATEGY
+            // =====================================================
 
-    // ========================================
-    // Last Available Seats
-    // ========================================
+            preferredStrategy: {
+                type: String,
 
-    lastAvailableSeats: {
-      type: Number,
-      default: null,
-    },
+                enum: [
+                    "SINGLE_TICKET",
+                    "FEWER_TICKET_CHANGES",
+                ],
 
-    // ========================================
-    // Last Monitoring Time
-    // ========================================
+                default:
+                    "SINGLE_TICKET",
+            },
 
-    lastCheckedAt: {
-      type: Date,
-      default: null,
-    },
-  },
+            // =====================================================
+            // JOURNEY STATUS
+            // =====================================================
 
-  // ========================================
-  // Schema Options
-  // ========================================
+            status: {
+                type: String,
 
-  {
-    timestamps: true,
-  }
-);
+                enum: [
+                    "PENDING",
+                    "MONITORING",
+                    "CHART_PREPARED",
+                    "RECOMMENDATION_READY",
+                    "COMPLETED",
+                    "CANCELLED",
+                ],
 
-// ==========================================
-// Indexes
-// ==========================================
+                default: "PENDING",
+
+                index: true,
+            },
+
+            // =====================================================
+            // COMPLETION INFORMATION
+            // =====================================================
+
+            completedAt: {
+                type: Date,
+
+                default: null,
+            },
+
+            completedReason: {
+                type: String,
+
+                default: "",
+
+                trim: true,
+            },
+
+            finalStationCode: {
+                type: String,
+
+                default: "",
+
+                uppercase: true,
+
+                trim: true,
+            },
+
+            finalStationName: {
+                type: String,
+
+                default: "",
+
+                trim: true,
+            },
+
+            // =====================================================
+            // MONITORING JOB
+            // =====================================================
+
+            monitoringJobId: {
+                type:
+                    mongoose.Schema.Types.ObjectId,
+
+                ref: "MonitoringJob",
+
+                default: null,
+            },
+
+            // =====================================================
+            // LAST MONITORING TIME
+            // =====================================================
+
+            lastCheckedAt: {
+                type: Date,
+
+                default: null,
+            },
+        },
+
+        {
+            timestamps: true,
+        }
+    );
+
+// =========================================================
+// INDEXES
+// =========================================================
 
 journeySchema.index({
-  userId: 1,
-  status: 1,
+    userId: 1,
+    status: 1,
 });
 
 journeySchema.index({
-  trainNumber: 1,
-  journeyDate: 1,
+    trainNumber: 1,
+    journeyDate: 1,
 });
 
-module.exports = mongoose.model(
-  "Journey",
-  journeySchema
-);
+// =========================================================
+// EXPORT
+// =========================================================
+
+module.exports =
+    mongoose.model(
+        "Journey",
+        journeySchema
+    );

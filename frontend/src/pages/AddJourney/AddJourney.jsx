@@ -6,11 +6,6 @@ import "./AddJourney.css";
 import { createJourney } from "../../api/journeyAPI";
 import { searchStation } from "../../api/trainAPI";
 
-
-// =========================================================
-// COMPONENT
-// =========================================================
-
 export default function AddJourney() {
     const navigate = useNavigate();
 
@@ -35,67 +30,32 @@ export default function AddJourney() {
     const [error, setError] = useState("");
 
     // =========================================================
-    // STATION AUTOCOMPLETE STATE
+    // STATION AUTOCOMPLETE
     // =========================================================
 
-    const [boardingSuggestions, setBoardingSuggestions] =
-        useState([]);
+    const [boardingSuggestions, setBoardingSuggestions] = useState([]);
+    const [destinationSuggestions, setDestinationSuggestions] = useState([]);
 
-    const [destinationSuggestions, setDestinationSuggestions] =
-        useState([]);
-
-    const [activeStationField, setActiveStationField] =
-        useState(null);
+    const [activeStationField, setActiveStationField] = useState(null);
+    const [stationLoadingField, setStationLoadingField] = useState(null);
 
     /*
-     * Which station field is currently loading.
-     *
-     * null
-     * "boardingStation"
-     * "destinationStation"
+     * Separate request IDs prevent an older API response from
+     * overwriting a newer search.
      */
-    const [stationLoadingField, setStationLoadingField] =
-        useState(null);
-
-    // =========================================================
-    // SEARCH REQUEST IDS
-    // =========================================================
-    //
-    // IMPORTANT:
-    // Each field has its own request ID.
-    //
-    // If user types:
-    //
-    // B
-    // BZ
-    // BZA
-    //
-    // and the B request finishes after BZA,
-    // the old B result will be ignored.
-    //
-    // This prevents old results such as BZA/CSMT from
-    // overwriting the latest search.
-    // =========================================================
-
     const boardingSearchId = useRef(0);
     const destinationSearchId = useRef(0);
 
     // =========================================================
-    // TODAY DATE
+    // TODAY
     // =========================================================
 
     const getTodayDate = () => {
         const now = new Date();
 
         const year = now.getFullYear();
-
-        const month = String(
-            now.getMonth() + 1
-        ).padStart(2, "0");
-
-        const day = String(
-            now.getDate()
-        ).padStart(2, "0");
+        const month = String(now.getMonth() + 1).padStart(2, "0");
+        const day = String(now.getDate()).padStart(2, "0");
 
         return `${year}-${month}-${day}`;
     };
@@ -137,7 +97,7 @@ export default function AddJourney() {
     };
 
     // =========================================================
-    // NORMAL INPUT CHANGE
+    // INPUT CHANGE
     // =========================================================
 
     const handleChange = (e) => {
@@ -153,25 +113,17 @@ export default function AddJourney() {
                 ? checked
                 : value;
 
-        // -----------------------------------------------------
-        // TRAIN NUMBER
-        // -----------------------------------------------------
-
+        // Train number: numbers only
         if (name === "trainNumber") {
-            updatedValue =
-                value.replace(/\D/g, "");
+            updatedValue = value.replace(/\D/g, "");
         }
 
-        // -----------------------------------------------------
-        // STATION FIELDS
-        // -----------------------------------------------------
-
+        // Station fields: uppercase
         if (
             name === "boardingStation" ||
             name === "destinationStation"
         ) {
-            updatedValue =
-                value.toUpperCase();
+            updatedValue = value.toUpperCase();
         }
 
         setFormData((prev) => ({
@@ -181,38 +133,28 @@ export default function AddJourney() {
 
         setError("");
 
-        // -----------------------------------------------------
-        // CLEAR SUGGESTIONS WHEN FIELD IS EMPTY
-        // -----------------------------------------------------
-
+        // Clear boarding suggestions
         if (
             name === "boardingStation" &&
             !String(updatedValue).trim()
         ) {
             setBoardingSuggestions([]);
-
             boardingSearchId.current += 1;
 
-            if (
-                activeStationField ===
-                "boardingStation"
-            ) {
+            if (activeStationField === "boardingStation") {
                 setStationLoadingField(null);
             }
         }
 
+        // Clear destination suggestions
         if (
             name === "destinationStation" &&
             !String(updatedValue).trim()
         ) {
             setDestinationSuggestions([]);
-
             destinationSearchId.current += 1;
 
-            if (
-                activeStationField ===
-                "destinationStation"
-            ) {
+            if (activeStationField === "destinationStation") {
                 setStationLoadingField(null);
             }
         }
@@ -222,28 +164,14 @@ export default function AddJourney() {
     // SET SUGGESTIONS
     // =========================================================
 
-    const setSuggestionsForField = (
-        field,
-        results
-    ) => {
-        if (
-            field ===
-            "boardingStation"
-        ) {
-            setBoardingSuggestions(
-                results
-            );
-
+    const setSuggestionsForField = (field, results) => {
+        if (field === "boardingStation") {
+            setBoardingSuggestions(results);
             return;
         }
 
-        if (
-            field ===
-            "destinationStation"
-        ) {
-            setDestinationSuggestions(
-                results
-            );
+        if (field === "destinationStation") {
+            setDestinationSuggestions(results);
         }
     };
 
@@ -256,332 +184,189 @@ export default function AddJourney() {
         value,
         requestId
     ) => {
-        const search =
-            String(value || "").trim();
-
-        // -----------------------------------------------------
-        // CURRENT REQUEST ID
-        // -----------------------------------------------------
+        const search = String(value || "").trim();
 
         const currentRequestId =
             field === "boardingStation"
                 ? boardingSearchId.current
                 : destinationSearchId.current;
 
-        // -----------------------------------------------------
-        // IGNORE OLD REQUEST
-        // -----------------------------------------------------
-
-        if (
-            requestId !==
-            currentRequestId
-        ) {
+        // Ignore stale request
+        if (requestId !== currentRequestId) {
             return;
         }
 
-        // -----------------------------------------------------
-        // LESS THAN 2 CHARACTERS
-        // -----------------------------------------------------
-
+        // Minimum search length
         if (search.length < 2) {
-            setSuggestionsForField(
-                field,
-                []
-            );
+            setSuggestionsForField(field, []);
 
             if (
-                field ===
-                "boardingStation"
+                requestId ===
+                (
+                    field === "boardingStation"
+                        ? boardingSearchId.current
+                        : destinationSearchId.current
+                )
             ) {
-                if (
-                    requestId ===
-                    boardingSearchId.current
-                ) {
-                    setStationLoadingField(
-                        null
-                    );
-                }
-            } else {
-                if (
-                    requestId ===
-                    destinationSearchId.current
-                ) {
-                    setStationLoadingField(
-                        null
-                    );
-                }
+                setStationLoadingField(null);
             }
 
             return;
         }
-
-        // -----------------------------------------------------
-        // START LOADING
-        // -----------------------------------------------------
 
         setStationLoadingField(field);
 
         try {
-            const response =
-                await searchStation(
-                    search
-                );
-
-            // -------------------------------------------------
-            // CHECK AGAIN AFTER API RESPONSE
-            // -------------------------------------------------
-            //
-            // The user may have typed another character while
-            // the API request was running.
-            // -------------------------------------------------
+            const response = await searchStation(search);
 
             const latestRequestId =
-                field ===
-                "boardingStation"
+                field === "boardingStation"
                     ? boardingSearchId.current
                     : destinationSearchId.current;
 
-            if (
-                requestId !==
-                latestRequestId
-            ) {
+            // Ignore old API response
+            if (requestId !== latestRequestId) {
                 return;
             }
 
             const backendResults =
-                Array.isArray(
-                    response?.data?.data
-                )
+                Array.isArray(response?.data?.data)
                     ? response.data.data
                     : [];
 
             const normalizedResults =
                 backendResults
-                    .map(
-                        normalizeStation
-                    )
+                    .map(normalizeStation)
                     .filter(Boolean);
-
-            // -------------------------------------------------
-            // SHOW ONLY CURRENT SEARCH RESULTS
-            // -------------------------------------------------
 
             setSuggestionsForField(
                 field,
                 normalizedResults
             );
-
         } catch (searchError) {
             console.error(
                 "STATION SEARCH ERROR =",
                 searchError
             );
 
-            // -------------------------------------------------
-            // Only clear if this is still the latest request.
-            // -------------------------------------------------
-
             const latestRequestId =
-                field ===
-                "boardingStation"
+                field === "boardingStation"
                     ? boardingSearchId.current
                     : destinationSearchId.current;
 
-            if (
-                requestId ===
-                latestRequestId
-            ) {
-                setSuggestionsForField(
-                    field,
-                    []
-                );
+            if (requestId === latestRequestId) {
+                setSuggestionsForField(field, []);
             }
-
         } finally {
             const latestRequestId =
-                field ===
-                "boardingStation"
+                field === "boardingStation"
                     ? boardingSearchId.current
                     : destinationSearchId.current;
 
-            if (
-                requestId ===
-                latestRequestId
-            ) {
-                setStationLoadingField(
-                    null
-                );
+            if (requestId === latestRequestId) {
+                setStationLoadingField(null);
             }
         }
     };
 
     // =========================================================
-    // BOARDING STATION SEARCH
+    // BOARDING AUTOCOMPLETE
     // =========================================================
 
     useEffect(() => {
-        const value =
-            formData.boardingStation;
-
-        // -----------------------------------------------------
-        // Every new value invalidates the previous request.
-        // -----------------------------------------------------
+        const value = formData.boardingStation;
 
         boardingSearchId.current += 1;
 
         const requestId =
             boardingSearchId.current;
 
-        // -----------------------------------------------------
-        // EMPTY
-        // -----------------------------------------------------
-
         if (!value.trim()) {
             setBoardingSuggestions([]);
 
-            if (
-                activeStationField ===
-                "boardingStation"
-            ) {
-                setStationLoadingField(
-                    null
-                );
+            if (activeStationField === "boardingStation") {
+                setStationLoadingField(null);
             }
 
             return;
         }
 
-        // -----------------------------------------------------
-        // DEBOUNCE
-        // -----------------------------------------------------
-
-        const timer =
-            setTimeout(() => {
-                searchStations(
-                    "boardingStation",
-                    value,
-                    requestId
-                );
-            }, 350);
+        const timer = setTimeout(() => {
+            searchStations(
+                "boardingStation",
+                value,
+                requestId
+            );
+        }, 350);
 
         return () => {
             clearTimeout(timer);
         };
-
-    }, [
-        formData.boardingStation,
-    ]);
+    }, [formData.boardingStation]);
 
     // =========================================================
-    // DESTINATION STATION SEARCH
+    // DESTINATION AUTOCOMPLETE
     // =========================================================
 
     useEffect(() => {
-        const value =
-            formData.destinationStation;
-
-        // -----------------------------------------------------
-        // Every new value invalidates previous request.
-        // -----------------------------------------------------
+        const value = formData.destinationStation;
 
         destinationSearchId.current += 1;
 
         const requestId =
             destinationSearchId.current;
 
-        // -----------------------------------------------------
-        // EMPTY
-        // -----------------------------------------------------
-
         if (!value.trim()) {
             setDestinationSuggestions([]);
 
-            if (
-                activeStationField ===
-                "destinationStation"
-            ) {
-                setStationLoadingField(
-                    null
-                );
+            if (activeStationField === "destinationStation") {
+                setStationLoadingField(null);
             }
 
             return;
         }
 
-        // -----------------------------------------------------
-        // DEBOUNCE
-        // -----------------------------------------------------
-
-        const timer =
-            setTimeout(() => {
-                searchStations(
-                    "destinationStation",
-                    value,
-                    requestId
-                );
-            }, 350);
+        const timer = setTimeout(() => {
+            searchStations(
+                "destinationStation",
+                value,
+                requestId
+            );
+        }, 350);
 
         return () => {
             clearTimeout(timer);
         };
-
-    }, [
-        formData.destinationStation,
-    ]);
+    }, [formData.destinationStation]);
 
     // =========================================================
     // SELECT STATION
     // =========================================================
 
-    const selectStation = (
-        field,
-        station
-    ) => {
-        const normalized =
-            normalizeStation(
-                station
-            );
+    const selectStation = (field, station) => {
+        const normalized = normalizeStation(station);
 
         if (!normalized) {
             return;
         }
 
-        // -----------------------------------------------------
-        // Update selected station code
-        // -----------------------------------------------------
-
         setFormData((prev) => ({
             ...prev,
-            [field]:
-                normalized.code,
+            [field]: normalized.code,
         }));
 
-        // -----------------------------------------------------
-        // Clear dropdown
-        // -----------------------------------------------------
-
-        if (
-            field ===
-            "boardingStation"
-        ) {
+        if (field === "boardingStation") {
             setBoardingSuggestions([]);
-
             boardingSearchId.current += 1;
         }
 
-        if (
-            field ===
-            "destinationStation"
-        ) {
+        if (field === "destinationStation") {
             setDestinationSuggestions([]);
-
             destinationSearchId.current += 1;
         }
 
         setStationLoadingField(null);
-
         setActiveStationField(null);
-
         setError("");
     };
 
@@ -590,13 +375,8 @@ export default function AddJourney() {
     // =========================================================
 
     const closeStationSuggestions = () => {
-        // Small delay allows clicking a suggestion
-        // before the dropdown disappears.
-
         setTimeout(() => {
-            setActiveStationField(
-                null
-            );
+            setActiveStationField(null);
         }, 150);
     };
 
@@ -629,93 +409,48 @@ export default function AddJourney() {
         // VALIDATION
         // =====================================================
 
-        // -----------------------------------------------------
-        // Train number
-        // -----------------------------------------------------
-
-        if (
-            !/^\d{4,6}$/.test(
-                trainNumber
-            )
-        ) {
+        if (!/^\d{4,6}$/.test(trainNumber)) {
             setError(
                 "Please enter a valid train number (4–6 digits)."
             );
-
             return;
         }
-
-        // -----------------------------------------------------
-        // Station code
-        // -----------------------------------------------------
 
         const stationCodeRegex =
             /^[A-Z0-9]{2,5}$/;
 
-        if (
-            !stationCodeRegex.test(
-                source
-            )
-        ) {
+        if (!stationCodeRegex.test(source)) {
             setError(
                 "Please select a valid source railway station from the suggestions."
             );
-
             return;
         }
 
-        if (
-            !stationCodeRegex.test(
-                destination
-            )
-        ) {
+        if (!stationCodeRegex.test(destination)) {
             setError(
                 "Please select a valid destination railway station from the suggestions."
             );
-
             return;
         }
 
-        // -----------------------------------------------------
-        // Same station
-        // -----------------------------------------------------
-
-        if (
-            source ===
-            destination
-        ) {
+        if (source === destination) {
             setError(
                 "Source and destination cannot be the same."
             );
-
             return;
         }
-
-        // -----------------------------------------------------
-        // Journey date
-        // -----------------------------------------------------
 
         if (!journeyDate) {
             setError(
                 "Please select a journey date."
             );
-
             return;
         }
 
-        // -----------------------------------------------------
-        // Today is allowed.
-        // Only past dates are rejected.
-        // -----------------------------------------------------
-
-        if (
-            journeyDate <
-            today
-        ) {
+        if (journeyDate < today) {
             setError(
                 "Journey date cannot be in the past."
             );
-
             return;
         }
 
@@ -725,20 +460,13 @@ export default function AddJourney() {
 
         const payload = {
             trainNumber,
-
             journeyDate,
-
-            boardingStation:
-                source,
-
-            destinationStation:
-                destination,
+            boardingStation: source,
+            destinationStation: destination,
 
             allowedClasses: [
                 {
-                    class:
-                        formData.preferredClass,
-
+                    class: formData.preferredClass,
                     enabled: true,
                 },
             ],
@@ -749,10 +477,6 @@ export default function AddJourney() {
             preferredStrategy:
                 "SINGLE_TICKET",
         };
-
-        // =====================================================
-        // DEBUG
-        // =====================================================
 
         console.log(
             "========================================"
@@ -776,9 +500,7 @@ export default function AddJourney() {
             setLoading(true);
 
             const response =
-                await createJourney(
-                    payload
-                );
+                await createJourney(payload);
 
             console.log(
                 "========================================"
@@ -794,10 +516,7 @@ export default function AddJourney() {
 
             console.log(response);
 
-            navigate(
-                "/dashboard"
-            );
-
+            navigate("/dashboard");
         } catch (error) {
             console.error(
                 "========================================"
@@ -816,17 +535,10 @@ export default function AddJourney() {
             const backendData =
                 error?.response?.data;
 
-            // -------------------------------------------------
-            // Validation errors
-            // -------------------------------------------------
-
             if (
                 backendData?.errors &&
-                Array.isArray(
-                    backendData.errors
-                ) &&
-                backendData.errors
-                    .length > 0
+                Array.isArray(backendData.errors) &&
+                backendData.errors.length > 0
             ) {
                 const firstError =
                     backendData.errors[0];
@@ -839,13 +551,7 @@ export default function AddJourney() {
                 return;
             }
 
-            // -------------------------------------------------
-            // Backend message
-            // -------------------------------------------------
-
-            if (
-                backendData?.message
-            ) {
+            if (backendData?.message) {
                 setError(
                     backendData.message
                 );
@@ -853,14 +559,9 @@ export default function AddJourney() {
                 return;
             }
 
-            // -------------------------------------------------
-            // Generic error
-            // -------------------------------------------------
-
             setError(
                 "Unable to save journey. Please try again."
             );
-
         } finally {
             setLoading(false);
         }
@@ -874,155 +575,187 @@ export default function AddJourney() {
         <div className="addJourneyPage">
 
             {/* =================================================
-                BACK BUTTON
+                TOP BAR
             ================================================= */}
 
-            <button
-                type="button"
-                className="backButton"
-                onClick={() =>
-                    navigate(
-                        "/dashboard"
-                    )
-                }
-            >
-                ← Back to Dashboard
-            </button>
+            <div className="addJourneyTopBar">
+                <button
+                    type="button"
+                    className="backButton"
+                    onClick={() =>
+                        navigate("/dashboard")
+                    }
+                >
+                    <span>←</span>
+                    Dashboard
+                </button>
 
+                <div className="pageSecureBadge">
+                    <span>●</span>
+                    Secure Journey Monitoring
+                </div>
+            </div>
+
+            {/* =================================================
+                MAIN
+            ================================================= */}
 
             <div className="addJourneyLayout">
 
                 {/* =================================================
-                    LEFT INFORMATION PANEL
+                    LEFT PANEL
                 ================================================= */}
 
-                <div className="journeyInfo">
+                <section className="journeyInfo">
 
-                    <div className="infoBadge">
-                        ERJA JOURNEY MONITOR
+                    <div className="infoEyebrow">
+                        <span className="eyebrowDot" />
+                        ERJA CONTROL CENTER
                     </div>
 
                     <h1>
-                        Add New
-                        <span>
-                            Journey
-                        </span>
+                        Plan your
+                        <span>journey smarter.</span>
                     </h1>
 
                     <p className="infoDescription">
-                        Tell ERJA about your railway
-                        journey and we'll monitor
-                        availability, analyze vacant
-                        berths and find possible
+                        Add your railway journey and let ERJA
+                        monitor chart preparation, analyze
+                        available berths and identify possible
                         booking strategies.
                     </p>
 
-                    <div className="journeySteps">
+                    {/* ROUTE VISUAL */}
 
-                        {/* STEP 1 */}
+                    <div className="routeVisual">
 
-                        <div className="journeyStep">
-
-                            <div className="stepIcon">
-                                🚆
+                        <div className="routePoint">
+                            <div className="routeCircle">
+                                <span />
                             </div>
 
                             <div>
                                 <strong>
-                                    Enter Journey
+                                    Your Source
                                 </strong>
 
-                                <span>
-                                    Provide your train
-                                    and route details.
-                                </span>
+                                <small>
+                                    Boarding station
+                                </small>
                             </div>
-
                         </div>
 
-
-                        {/* STEP 2 */}
-
-                        <div className="journeyStep">
-
-                            <div className="stepIcon">
-                                🔍
-                            </div>
-
-                            <div>
-                                <strong>
-                                    Monitor Availability
-                                </strong>
-
-                                <span>
-                                    ERJA tracks available
-                                    seats.
-                                </span>
-                            </div>
-
+                        <div className="routeLine">
+                            <i />
+                            <i />
+                            <i />
+                            <i />
+                            <i />
                         </div>
 
-
-                        {/* STEP 3 */}
-
-                        <div className="journeyStep">
-
-                            <div className="stepIcon">
-                                🧠
+                        <div className="routePoint">
+                            <div className="routeCircle destination">
+                                <span />
                             </div>
 
                             <div>
                                 <strong>
-                                    Analyze & Optimize
+                                    Your Destination
                                 </strong>
 
-                                <span>
-                                    Find practical booking
-                                    possibilities.
-                                </span>
+                                <small>
+                                    Final journey station
+                                </small>
                             </div>
-
-                        </div>
-
-
-                        {/* STEP 4 */}
-
-                        <div className="journeyStep">
-
-                            <div className="stepIcon">
-                                🎯
-                            </div>
-
-                            <div>
-                                <strong>
-                                    Get Recommendation
-                                </strong>
-
-                                <span>
-                                    Receive the best
-                                    available strategy.
-                                </span>
-                            </div>
-
                         </div>
 
                     </div>
 
-                </div>
+                    {/* STEPS */}
 
+                    <div className="journeySteps">
+
+                        <div className="journeyStep active">
+                            <div className="stepNumber">
+                                01
+                            </div>
+
+                            <div>
+                                <strong>
+                                    Add journey
+                                </strong>
+
+                                <span>
+                                    Enter your train and route.
+                                </span>
+                            </div>
+                        </div>
+
+                        <div className="journeyStep">
+                            <div className="stepNumber">
+                                02
+                            </div>
+
+                            <div>
+                                <strong>
+                                    Monitor
+                                </strong>
+
+                                <span>
+                                    ERJA watches the journey.
+                                </span>
+                            </div>
+                        </div>
+
+                        <div className="journeyStep">
+                            <div className="stepNumber">
+                                03
+                            </div>
+
+                            <div>
+                                <strong>
+                                    Analyze
+                                </strong>
+
+                                <span>
+                                    Vacancy is analyzed by route.
+                                </span>
+                            </div>
+                        </div>
+
+                        <div className="journeyStep">
+                            <div className="stepNumber">
+                                04
+                            </div>
+
+                            <div>
+                                <strong>
+                                    Recommend
+                                </strong>
+
+                                <span>
+                                    Get practical booking options.
+                                </span>
+                            </div>
+                        </div>
+
+                    </div>
+
+                </section>
 
                 {/* =================================================
                     FORM CARD
                 ================================================= */}
 
-                <div className="journeyCard">
+                <section className="journeyCard">
+
+                    <div className="cardTopGlow" />
 
                     <div className="cardHeader">
 
                         <div>
-
                             <span className="cardLabel">
-                                JOURNEY REQUEST
+                                NEW MONITORING REQUEST
                             </span>
 
                             <h2>
@@ -1030,433 +763,489 @@ export default function AddJourney() {
                             </h2>
 
                             <p>
-                                Enter the details you want
-                                ERJA to monitor.
+                                Tell ERJA what journey you want to monitor.
                             </p>
-
                         </div>
 
                         <div className="cardTrainIcon">
-                            🚆
+                            <span>🚆</span>
                         </div>
 
                     </div>
 
+                    {/* WARNING */}
 
-                    {/* =================================================
-                        ERROR
-                    ================================================= */}
+                    <div className="availabilityNotice">
+                        <span className="noticeIcon">
+                            ⚠
+                        </span>
+
+                        <div>
+                            <strong>
+                                Availability can change
+                            </strong>
+
+                            <p>
+                                Recommended berths may be booked
+                                before you complete your booking.
+                            </p>
+                        </div>
+                    </div>
+
+                    {/* ERROR */}
 
                     {error && (
-                        <div className="formError">
-                            ⚠️ {error}
+                        <div
+                            className="formError"
+                            role="alert"
+                        >
+                            <span>!</span>
+                            <div>
+                                <strong>
+                                    Unable to continue
+                                </strong>
+
+                                <p>
+                                    {error}
+                                </p>
+                            </div>
                         </div>
                     )}
 
+                    <form onSubmit={handleSubmit}>
 
-                    <form
-                        onSubmit={
-                            handleSubmit
-                        }
-                    >
+                        {/* TRAIN + DATE */}
 
-                        {/* =================================================
-                            TRAIN NUMBER
-                        ================================================= */}
-
-                        <div className="formGroup">
-
-                            <label htmlFor="trainNumber">
-                                Train Number
-                            </label>
-
-                            <div className="inputWrapper">
-
-                                <span>
-                                    🚆
-                                </span>
-
-                                <input
-                                    id="trainNumber"
-                                    type="text"
-                                    name="trainNumber"
-                                    value={
-                                        formData.trainNumber
-                                    }
-                                    onChange={
-                                        handleChange
-                                    }
-                                    placeholder="Enter train number"
-                                    inputMode="numeric"
-                                    maxLength="6"
-                                    required
-                                />
-
-                            </div>
-
-                            <small>
-                                Enter the Indian Railways train number.
-                            </small>
-
-                        </div>
-
-
-                        {/* =================================================
-                            JOURNEY DATE
-                        ================================================= */}
-
-                        <div className="formGroup">
-
-                            <label htmlFor="journeyDate">
-                                Journey Date
-                            </label>
-
-                            <div className="inputWrapper">
-
-                                <span>
-                                    📅
-                                </span>
-
-                                <input
-                                    id="journeyDate"
-                                    type="date"
-                                    name="journeyDate"
-                                    value={
-                                        formData.journeyDate
-                                    }
-                                    min={today}
-                                    onChange={
-                                        handleChange
-                                    }
-                                    required
-                                />
-
-                            </div>
-
-                            <small>
-                                Select the date of your journey.
-                            </small>
-
-                        </div>
-
-
-                        {/* =================================================
-                            ROUTE
-                        ================================================= */}
-
-                        <div className="routeRow">
-
-                            {/* =================================================
-                                SOURCE
-                            ================================================= */}
+                        <div className="formGrid">
 
                             <div className="formGroup">
 
-                                <label htmlFor="boardingStation">
-                                    Source
+                                <label htmlFor="trainNumber">
+                                    Train Number
                                 </label>
 
-                                <div className="autocompleteWrapper">
+                                <div className="inputWrapper">
 
-                                    <div className="inputWrapper">
+                                    <span className="inputIcon">
+                                        🚆
+                                    </span>
 
-                                        <span>
-                                            📍
-                                        </span>
+                                    <input
+                                        id="trainNumber"
+                                        type="text"
+                                        name="trainNumber"
+                                        value={
+                                            formData.trainNumber
+                                        }
+                                        onChange={
+                                            handleChange
+                                        }
+                                        placeholder="e.g. 12764"
+                                        inputMode="numeric"
+                                        maxLength="6"
+                                        required
+                                    />
 
-                                        <input
-                                            id="boardingStation"
-                                            type="text"
-                                            name="boardingStation"
-                                            value={
-                                                formData.boardingStation
-                                            }
-                                            onChange={
-                                                handleChange
-                                            }
-                                            onFocus={() =>
-                                                setActiveStationField(
-                                                    "boardingStation"
-                                                )
-                                            }
-                                            onBlur={
-                                                closeStationSuggestions
-                                            }
-                                            placeholder="Enter source station"
-                                            maxLength="60"
-                                            autoComplete="off"
-                                            required
-                                        />
+                                </div>
 
-                                        {stationLoadingField ===
+                                <small>
+                                    Enter a 4–6 digit Indian Railways train number.
+                                </small>
+
+                            </div>
+
+                            <div className="formGroup">
+
+                                <label htmlFor="journeyDate">
+                                    Journey Date
+                                </label>
+
+                                <div className="inputWrapper">
+
+                                    <span className="inputIcon">
+                                        📅
+                                    </span>
+
+                                    <input
+                                        id="journeyDate"
+                                        type="date"
+                                        name="journeyDate"
+                                        value={
+                                            formData.journeyDate
+                                        }
+                                        min={today}
+                                        onChange={
+                                            handleChange
+                                        }
+                                        required
+                                    />
+
+                                </div>
+
+                                <small>
+                                    Today and future dates are allowed.
+                                </small>
+
+                            </div>
+
+                        </div>
+
+                        {/* ROUTE */}
+
+                        <div className="routeSection">
+
+                            <div className="sectionHeading">
+                                <span className="sectionLine" />
+
+                                <div>
+                                    <strong>
+                                        Travel Route
+                                    </strong>
+
+                                    <small>
+                                        Select stations from the suggestions.
+                                    </small>
+                                </div>
+                            </div>
+
+                            <div className="routeRow">
+
+                                {/* SOURCE */}
+
+                                <div className="formGroup">
+
+                                    <label htmlFor="boardingStation">
+                                        Source
+                                    </label>
+
+                                    <div className="autocompleteWrapper">
+
+                                        <div className="inputWrapper stationInput">
+
+                                            <span className="inputIcon">
+                                                📍
+                                            </span>
+
+                                            <input
+                                                id="boardingStation"
+                                                type="text"
+                                                name="boardingStation"
+                                                value={
+                                                    formData.boardingStation
+                                                }
+                                                onChange={
+                                                    handleChange
+                                                }
+                                                onFocus={() =>
+                                                    setActiveStationField(
+                                                        "boardingStation"
+                                                    )
+                                                }
+                                                onBlur={
+                                                    closeStationSuggestions
+                                                }
+                                                placeholder="Station code or name"
+                                                maxLength="60"
+                                                autoComplete="off"
+                                                required
+                                            />
+
+                                            {stationLoadingField ===
+                                                "boardingStation" &&
+                                                activeStationField ===
+                                                    "boardingStation" && (
+                                                    <span className="stationSearchSpinner" />
+                                                )}
+
+                                        </div>
+
+                                        {activeStationField ===
                                             "boardingStation" &&
-                                            activeStationField ===
-                                                "boardingStation" && (
-                                                <span className="stationSearchSpinner">
-                                                    ⟳
-                                                </span>
-                                            )}
+                                            boardingSuggestions.length >
+                                                0 && (
+
+                                            <div className="autocompleteDropdown">
+
+                                                <div className="dropdownHeader">
+                                                    SELECT STATION
+                                                </div>
+
+                                                {boardingSuggestions.map(
+                                                    (
+                                                        station,
+                                                        index
+                                                    ) => (
+                                                        <button
+                                                            type="button"
+                                                            key={
+                                                                station.code ||
+                                                                index
+                                                            }
+                                                            className="stationSuggestion"
+                                                            onMouseDown={(
+                                                                e
+                                                            ) =>
+                                                                e.preventDefault()
+                                                            }
+                                                            onClick={() =>
+                                                                selectStation(
+                                                                    "boardingStation",
+                                                                    station
+                                                                )
+                                                            }
+                                                        >
+                                                            <span className="stationCode">
+                                                                {
+                                                                    station.code
+                                                                }
+                                                            </span>
+
+                                                            <span className="stationName">
+                                                                {
+                                                                    station.name
+                                                                }
+                                                            </span>
+
+                                                            <span className="suggestionArrow">
+                                                                →
+                                                            </span>
+                                                        </button>
+                                                    )
+                                                )}
+
+                                            </div>
+                                        )}
 
                                     </div>
 
-
-                                    {activeStationField ===
-                                        "boardingStation" &&
-                                        boardingSuggestions.length >
-                                            0 && (
-
-                                        <div className="autocompleteDropdown">
-
-                                            {boardingSuggestions.map(
-                                                (
-                                                    station,
-                                                    index
-                                                ) => (
-
-                                                    <button
-                                                        type="button"
-                                                        key={
-                                                            station.code ||
-                                                            index
-                                                        }
-                                                        className="stationSuggestion"
-                                                        onMouseDown={(
-                                                            e
-                                                        ) =>
-                                                            e.preventDefault()
-                                                        }
-                                                        onClick={() =>
-                                                            selectStation(
-                                                                "boardingStation",
-                                                                station
-                                                            )
-                                                        }
-                                                    >
-
-                                                        <strong>
-                                                            {
-                                                                station.code
-                                                            }
-                                                        </strong>
-
-                                                        <span>
-                                                            {
-                                                                station.name
-                                                            }
-                                                        </span>
-
-                                                    </button>
-
-                                                )
-                                            )}
-
-                                        </div>
-                                    )}
+                                    <small>
+                                        Type at least 2 characters.
+                                    </small>
 
                                 </div>
 
-                                <small>
-                                    Type station name or code.
-                                </small>
+                                {/* ROUTE CONNECTOR */}
 
-                            </div>
+                                <div className="routeConnector">
 
+                                    <div className="connectorLine" />
 
-                            {/* =================================================
-                                ARROW
-                            ================================================= */}
+                                    <div className="connectorArrow">
+                                        →
+                                    </div>
 
-                            <div className="routeArrow">
-                                →
-                            </div>
+                                </div>
 
+                                {/* DESTINATION */}
 
-                            {/* =================================================
-                                DESTINATION
-                            ================================================= */}
+                                <div className="formGroup">
 
-                            <div className="formGroup">
+                                    <label htmlFor="destinationStation">
+                                        Destination
+                                    </label>
 
-                                <label htmlFor="destinationStation">
-                                    Destination
-                                </label>
+                                    <div className="autocompleteWrapper">
 
-                                <div className="autocompleteWrapper">
+                                        <div className="inputWrapper stationInput">
 
-                                    <div className="inputWrapper">
+                                            <span className="inputIcon">
+                                                📍
+                                            </span>
 
-                                        <span>
-                                            📍
-                                        </span>
+                                            <input
+                                                id="destinationStation"
+                                                type="text"
+                                                name="destinationStation"
+                                                value={
+                                                    formData.destinationStation
+                                                }
+                                                onChange={
+                                                    handleChange
+                                                }
+                                                onFocus={() =>
+                                                    setActiveStationField(
+                                                        "destinationStation"
+                                                    )
+                                                }
+                                                onBlur={
+                                                    closeStationSuggestions
+                                                }
+                                                placeholder="Station code or name"
+                                                maxLength="60"
+                                                autoComplete="off"
+                                                required
+                                            />
 
-                                        <input
-                                            id="destinationStation"
-                                            type="text"
-                                            name="destinationStation"
-                                            value={
-                                                formData.destinationStation
-                                            }
-                                            onChange={
-                                                handleChange
-                                            }
-                                            onFocus={() =>
-                                                setActiveStationField(
-                                                    "destinationStation"
-                                                )
-                                            }
-                                            onBlur={
-                                                closeStationSuggestions
-                                            }
-                                            placeholder="Enter destination station"
-                                            maxLength="60"
-                                            autoComplete="off"
-                                            required
-                                        />
+                                            {stationLoadingField ===
+                                                "destinationStation" &&
+                                                activeStationField ===
+                                                    "destinationStation" && (
+                                                    <span className="stationSearchSpinner" />
+                                                )}
 
-                                        {stationLoadingField ===
+                                        </div>
+
+                                        {activeStationField ===
                                             "destinationStation" &&
-                                            activeStationField ===
-                                                "destinationStation" && (
-                                                <span className="stationSearchSpinner">
-                                                    ⟳
-                                                </span>
-                                            )}
+                                            destinationSuggestions.length >
+                                                0 && (
+
+                                            <div className="autocompleteDropdown">
+
+                                                <div className="dropdownHeader">
+                                                    SELECT STATION
+                                                </div>
+
+                                                {destinationSuggestions.map(
+                                                    (
+                                                        station,
+                                                        index
+                                                    ) => (
+                                                        <button
+                                                            type="button"
+                                                            key={
+                                                                station.code ||
+                                                                index
+                                                            }
+                                                            className="stationSuggestion"
+                                                            onMouseDown={(
+                                                                e
+                                                            ) =>
+                                                                e.preventDefault()
+                                                            }
+                                                            onClick={() =>
+                                                                selectStation(
+                                                                    "destinationStation",
+                                                                    station
+                                                                )
+                                                            }
+                                                        >
+                                                            <span className="stationCode">
+                                                                {
+                                                                    station.code
+                                                                }
+                                                            </span>
+
+                                                            <span className="stationName">
+                                                                {
+                                                                    station.name
+                                                                }
+                                                            </span>
+
+                                                            <span className="suggestionArrow">
+                                                                →
+                                                            </span>
+                                                        </button>
+                                                    )
+                                                )}
+
+                                            </div>
+                                        )}
 
                                     </div>
 
-
-                                    {activeStationField ===
-                                        "destinationStation" &&
-                                        destinationSuggestions.length >
-                                            0 && (
-
-                                        <div className="autocompleteDropdown">
-
-                                            {destinationSuggestions.map(
-                                                (
-                                                    station,
-                                                    index
-                                                ) => (
-
-                                                    <button
-                                                        type="button"
-                                                        key={
-                                                            station.code ||
-                                                            index
-                                                        }
-                                                        className="stationSuggestion"
-                                                        onMouseDown={(
-                                                            e
-                                                        ) =>
-                                                            e.preventDefault()
-                                                        }
-                                                        onClick={() =>
-                                                            selectStation(
-                                                                "destinationStation",
-                                                                station
-                                                            )
-                                                        }
-                                                    >
-
-                                                        <strong>
-                                                            {
-                                                                station.code
-                                                            }
-                                                        </strong>
-
-                                                        <span>
-                                                            {
-                                                                station.name
-                                                            }
-                                                        </span>
-
-                                                    </button>
-
-                                                )
-                                            )}
-
-                                        </div>
-                                    )}
+                                    <small>
+                                        Type at least 2 characters.
+                                    </small>
 
                                 </div>
-
-                                <small>
-                                    Type station name or code.
-                                </small>
 
                             </div>
 
                         </div>
 
-
-                        {/* =================================================
-                            PREFERRED CLASS
-                        ================================================= */}
+                        {/* CLASS */}
 
                         <div className="formGroup">
 
                             <label htmlFor="preferredClass">
-                                Preferred Class
+                                Preferred Travel Class
                             </label>
 
-                            <div className="inputWrapper">
+                            <div className="classGrid">
 
-                                <span>
-                                    🛏️
-                                </span>
+                                {[
+                                    {
+                                        value: "1A",
+                                        name: "First AC",
+                                        icon: "◆",
+                                    },
+                                    {
+                                        value: "2A",
+                                        name: "AC 2 Tier",
+                                        icon: "◇",
+                                    },
+                                    {
+                                        value: "3A",
+                                        name: "AC 3 Tier",
+                                        icon: "◇",
+                                    },
+                                    {
+                                        value: "3E",
+                                        name: "AC 3 Economy",
+                                        icon: "◇",
+                                    },
+                                    {
+                                        value: "SL",
+                                        name: "Sleeper",
+                                        icon: "▤",
+                                    },
+                                ].map((item) => (
+                                    <label
+                                        key={item.value}
+                                        className={`classOption ${
+                                            formData.preferredClass ===
+                                            item.value
+                                                ? "selected"
+                                                : ""
+                                        }`}
+                                    >
+                                        <input
+                                            type="radio"
+                                            name="preferredClass"
+                                            value={item.value}
+                                            checked={
+                                                formData.preferredClass ===
+                                                item.value
+                                            }
+                                            onChange={
+                                                handleChange
+                                            }
+                                        />
 
-                                <select
-                                    id="preferredClass"
-                                    name="preferredClass"
-                                    value={
-                                        formData.preferredClass
-                                    }
-                                    onChange={
-                                        handleChange
-                                    }
-                                >
+                                        <span className="classIcon">
+                                            {item.icon}
+                                        </span>
 
-                                    <option value="1A">
-                                        1A — First AC
-                                    </option>
+                                        <span className="classContent">
+                                            <strong>
+                                                {item.value}
+                                            </strong>
 
-                                    <option value="2A">
-                                        2A — AC 2 Tier
-                                    </option>
+                                            <small>
+                                                {item.name}
+                                            </small>
+                                        </span>
 
-                                    <option value="3A">
-                                        3A — AC 3 Tier
-                                    </option>
-
-                                    <option value="3E">
-                                        3E — AC 3 Economy
-                                    </option>
-
-                                    <option value="SL">
-                                        SL — Sleeper
-                                    </option>
-
-                                </select>
+                                        <span className="classCheck">
+                                            ✓
+                                        </span>
+                                    </label>
+                                ))}
 
                             </div>
 
                         </div>
 
-
-                        {/* =================================================
-                            MIXED CLASS
-                        ================================================= */}
+                        {/* MIXED CLASS */}
 
                         <label
-                            className={
-                                `mixedClassOption ${
-                                    formData.allowMixedClass
-                                        ? "selected"
-                                        : ""
-                                }`
-                            }
+                            className={`mixedClassOption ${
+                                formData.allowMixedClass
+                                    ? "selected"
+                                    : ""
+                            }`}
                         >
-
                             <input
                                 type="checkbox"
                                 name="allowMixedClass"
@@ -1468,68 +1257,58 @@ export default function AddJourney() {
                                 }
                             />
 
-                            <div className="customCheckbox">
-
+                            <span className="customCheckbox">
                                 {formData.allowMixedClass &&
                                     "✓"}
+                            </span>
 
-                            </div>
-
-                            <div className="mixedClassText">
+                            <span className="mixedClassText">
 
                                 <strong>
-                                    Allow Mixed Class
+                                    Allow Mixed Class Recommendations
                                 </strong>
 
                                 <span>
-                                    Allow ERJA to recommend
-                                    different classes for
-                                    different journey segments.
+                                    Let ERJA consider different
+                                    classes for different journey
+                                    segments when useful.
                                 </span>
 
-                            </div>
+                            </span>
 
                         </label>
 
-
-                        {/* =================================================
-                            SUBMIT
-                        ================================================= */}
+                        {/* SUBMIT */}
 
                         <button
                             type="submit"
                             className="saveJourneyButton"
                             disabled={loading}
                         >
-
                             {loading ? (
                                 <>
                                     <span className="spinner" />
-                                    Saving Journey...
+                                    Starting Monitoring...
                                 </>
                             ) : (
                                 <>
-                                    Start Monitoring →
+                                    Start Journey Monitoring
+                                    <span className="buttonArrow">
+                                        →
+                                    </span>
                                 </>
                             )}
-
                         </button>
 
                     </form>
 
-
-                    {/* =================================================
-                        SECURITY NOTE
-                    ================================================= */}
-
                     <div className="secureNote">
-
-                        🔒 Your journey information is securely
-                        stored and used only for monitoring.
-
+                        <span>🔒</span>
+                        Your journey information is securely
+                        stored and used for ERJA monitoring.
                     </div>
 
-                </div>
+                </section>
 
             </div>
 

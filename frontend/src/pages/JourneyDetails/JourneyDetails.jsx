@@ -1,7 +1,18 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import {
+    useCallback,
+    useEffect,
+    useMemo,
+    useState,
+} from "react";
+
+import {
+    useNavigate,
+    useParams,
+} from "react-router-dom";
 
 import { getJourneyById } from "../../api/journeyAPI";
+import { getRecommendations } from "../../api/recommendationAPI";
+
 import "./JourneyDetails.css";
 
 export default function JourneyDetails() {
@@ -9,9 +20,20 @@ export default function JourneyDetails() {
     const navigate = useNavigate();
 
     const [journey, setJourney] = useState(null);
+    const [recommendations, setRecommendations] = useState([]);
+
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
+    const [recommendationLoading, setRecommendationLoading] =
+        useState(false);
+
     const [error, setError] = useState("");
+    const [recommendationError, setRecommendationError] =
+        useState("");
+
+    // =========================================================
+    // LOAD JOURNEY
+    // =========================================================
 
     const loadJourney = useCallback(
         async (isRefresh = false) => {
@@ -30,9 +52,11 @@ export default function JourneyDetails() {
 
                 setError("");
 
-                const response = await getJourneyById(id);
+                const response =
+                    await getJourneyById(id);
 
-                const data = response?.data?.data;
+                const data =
+                    response?.data?.data;
 
                 if (!data) {
                     throw new Error(
@@ -60,21 +84,97 @@ export default function JourneyDetails() {
         [id]
     );
 
+    // =========================================================
+    // LOAD RECOMMENDATIONS
+    // =========================================================
+
+    const loadRecommendations =
+        useCallback(async () => {
+            if (!id) {
+                return;
+            }
+
+            try {
+                setRecommendationLoading(true);
+                setRecommendationError("");
+
+                const response =
+                    await getRecommendations(id);
+
+                const data =
+                    response?.data?.data ??
+                    response?.data ??
+                    [];
+
+                setRecommendations(
+                    Array.isArray(data)
+                        ? data
+                        : []
+                );
+            } catch (err) {
+                console.error(
+                    "Failed to load recommendations:",
+                    err
+                );
+
+                setRecommendations([]);
+
+                /*
+                 * Recommendation data may legitimately be
+                 * unavailable before the chart is prepared.
+                 * Therefore this should not make the entire
+                 * Journey Details page fail.
+                 */
+                setRecommendationError(
+                    err.response?.data?.message ||
+                    err.message ||
+                    "Recommendations are not available yet."
+                );
+            } finally {
+                setRecommendationLoading(false);
+            }
+        }, [id]);
+
+    // =========================================================
+    // INITIAL LOAD
+    // =========================================================
+
     useEffect(() => {
         loadJourney();
     }, [loadJourney]);
 
+    useEffect(() => {
+        loadRecommendations();
+    }, [loadRecommendations]);
 
-    // =========================================
-    // HELPERS
-    // =========================================
+    // =========================================================
+    // REFRESH EVERYTHING
+    // =========================================================
+
+    const handleRefresh = async () => {
+        await Promise.all([
+            loadJourney(true),
+            loadRecommendations(),
+        ]);
+    };
+
+    // =========================================================
+    // DATE FORMATTERS
+    // =========================================================
 
     const formatDate = (date) => {
-        if (!date) return "—";
+        if (!date) {
+            return "—";
+        }
 
-        const parsedDate = new Date(date);
+        const parsedDate =
+            new Date(date);
 
-        if (Number.isNaN(parsedDate.getTime())) {
+        if (
+            Number.isNaN(
+                parsedDate.getTime()
+            )
+        ) {
             return "—";
         }
 
@@ -88,16 +188,20 @@ export default function JourneyDetails() {
         );
     };
 
-
     const formatDateTime = (date) => {
         if (!date) {
-            return "Not checked yet";
+            return "Not available";
         }
 
-        const parsedDate = new Date(date);
+        const parsedDate =
+            new Date(date);
 
-        if (Number.isNaN(parsedDate.getTime())) {
-            return "Not checked yet";
+        if (
+            Number.isNaN(
+                parsedDate.getTime()
+            )
+        ) {
+            return "Not available";
         }
 
         return parsedDate.toLocaleString(
@@ -112,30 +216,36 @@ export default function JourneyDetails() {
         );
     };
 
+    // =========================================================
+    // STRATEGY
+    // =========================================================
 
     const formatStrategy = (strategy) => {
         if (!strategy) {
             return "Single Ticket";
         }
 
-        return strategy
+        return String(strategy)
             .replaceAll("_", " ")
             .toLowerCase()
-            .replace(/\b\w/g, (char) =>
-                char.toUpperCase()
+            .replace(
+                /\b\w/g,
+                (char) =>
+                    char.toUpperCase()
             );
     };
 
+    // =========================================================
+    // STATUS
+    // =========================================================
 
     const getStatusClass = (status) => {
         return (
-            status
-                ?.toLowerCase()
-                .replaceAll("_", "-") ||
-            "pending"
+            String(status || "PENDING")
+                .toLowerCase()
+                .replaceAll("_", "-")
         );
     };
-
 
     const getStatusIcon = (status) => {
         switch (status) {
@@ -159,7 +269,6 @@ export default function JourneyDetails() {
         }
     };
 
-
     const getStatusText = (status) => {
         switch (status) {
             case "MONITORING":
@@ -182,10 +291,9 @@ export default function JourneyDetails() {
         }
     };
 
-
-    // =========================================
+    // =========================================================
     // ENABLED CLASSES
-    // =========================================
+    // =========================================================
 
     const enabledClasses = useMemo(() => {
         return (
@@ -195,10 +303,97 @@ export default function JourneyDetails() {
         );
     }, [journey]);
 
+    // =========================================================
+    // CHART INFORMATION
+    // =========================================================
 
-    // =========================================
+    const chart = journey?.chart || {};
+
+    const chartPrepared =
+        chart.chartPrepared === true ||
+        chart.prepared === true;
+
+    const chartOneDate =
+        chart.chartOneDate || null;
+
+    const chartTwoDate =
+        chart.chartTwoDate || null;
+
+    /*
+     * If chartTwoDate exists, the second/final chart
+     * has been prepared according to the data currently
+     * exposed by the backend.
+     */
+    const finalChartPrepared =
+        Boolean(chartTwoDate);
+
+    // =========================================================
+    // RECOMMENDATION INFORMATION
+    // =========================================================
+
+    const recommendationCount =
+        recommendations.length;
+
+    const topRecommendation =
+        recommendations[0] || null;
+
+    const getRecommendationStrategy =
+        (recommendation) => {
+            if (!recommendation) {
+                return "No recommendation";
+            }
+
+            return formatStrategy(
+                recommendation.strategy ||
+                recommendation.type ||
+                recommendation.recommendationType
+            );
+        };
+
+    const getRecommendationScore =
+        (recommendation) => {
+            if (!recommendation) {
+                return "—";
+            }
+
+            return (
+                recommendation.score ??
+                recommendation.confidence ??
+                "—"
+            );
+        };
+
+    const getRecommendationTickets =
+        (recommendation) => {
+            if (
+                !recommendation ||
+                !Array.isArray(
+                    recommendation.tickets
+                )
+            ) {
+                return 0;
+            }
+
+            return recommendation.tickets.length;
+        };
+
+    // =========================================================
+    // JOURNEY STATE
+    // =========================================================
+
+    const isCompleted =
+        journey.status === "COMPLETED";
+
+    const isCancelled =
+        journey.status === "CANCELLED";
+
+    const isActive =
+        !isCompleted &&
+        !isCancelled;
+
+    // =========================================================
     // LOADING
-    // =========================================
+    // =========================================================
 
     if (loading) {
         return (
@@ -232,10 +427,9 @@ export default function JourneyDetails() {
         );
     }
 
-
-    // =========================================
+    // =========================================================
     // ERROR
-    // =========================================
+    // =========================================================
 
     if (error || !journey) {
         return (
@@ -288,13 +482,12 @@ export default function JourneyDetails() {
         );
     }
 
-
     return (
         <div className="journey-details-page">
 
-            {/* =====================================
+            {/* =================================================
                 HEADER
-            ====================================== */}
+            ================================================= */}
 
             <header className="journey-details-header">
 
@@ -311,23 +504,23 @@ export default function JourneyDetails() {
 
                     <button
                         className="refresh-details-btn"
-                        onClick={() =>
-                            loadJourney(true)
+                        onClick={handleRefresh}
+                        disabled={
+                            refreshing ||
+                            recommendationLoading
                         }
-                        disabled={refreshing}
                     >
-                        {refreshing
+                        {refreshing ||
+                        recommendationLoading
                             ? "Refreshing..."
                             : "↻ Refresh"}
                     </button>
 
                 </div>
 
-
                 <div className="details-page-label">
                     ERJA JOURNEY MONITOR
                 </div>
-
 
                 <div className="details-heading-row">
 
@@ -338,13 +531,12 @@ export default function JourneyDetails() {
                         </h1>
 
                         <p>
-                            Monitor the status,
-                            availability and configuration
-                            of your railway journey.
+                            Monitor your railway journey,
+                            chart preparation and ERJA
+                            booking recommendations.
                         </p>
 
                     </div>
-
 
                     <div
                         className={`journey-status-badge ${getStatusClass(
@@ -368,17 +560,15 @@ export default function JourneyDetails() {
 
             </header>
 
-
-            {/* =====================================
+            {/* =================================================
                 MAIN
-            ====================================== */}
+            ================================================= */}
 
             <main className="journey-details-content">
 
-
-                {/* =================================
+                {/* =================================================
                     ROUTE CARD
-                ================================== */}
+                ================================================= */}
 
                 <section className="route-card">
 
@@ -397,7 +587,6 @@ export default function JourneyDetails() {
 
                         </div>
 
-
                         <div className="journey-date-box">
 
                             <span>
@@ -413,7 +602,6 @@ export default function JourneyDetails() {
                         </div>
 
                     </div>
-
 
                     <div className="route-display">
 
@@ -434,7 +622,6 @@ export default function JourneyDetails() {
 
                         </div>
 
-
                         <div className="route-line">
 
                             <div className="route-node"></div>
@@ -451,7 +638,6 @@ export default function JourneyDetails() {
 
                         </div>
 
-
                         <div className="station destination">
 
                             <span className="station-label">
@@ -464,7 +650,7 @@ export default function JourneyDetails() {
                             </strong>
 
                             <small>
-                                Destination
+                                Passenger Destination
                             </small>
 
                         </div>
@@ -473,10 +659,9 @@ export default function JourneyDetails() {
 
                 </section>
 
-
-                {/* =================================
-                    MONITORING OVERVIEW
-                ================================== */}
+                {/* =================================================
+                    TOP INFORMATION
+                ================================================= */}
 
                 <section className="details-grid">
 
@@ -489,7 +674,7 @@ export default function JourneyDetails() {
                         <div>
 
                             <span>
-                                Monitoring Status
+                                Journey Status
                             </span>
 
                             <strong>
@@ -499,59 +684,59 @@ export default function JourneyDetails() {
                             </strong>
 
                             <small>
-                                ERJA journey monitoring
+                                ERJA monitoring state
                             </small>
 
                         </div>
 
                     </div>
-
 
                     <div className="info-card">
 
                         <div className="info-icon green">
-                            🎟️
+                            📋
                         </div>
 
                         <div>
 
                             <span>
-                                Available Seats
+                                Chart Status
                             </span>
 
                             <strong>
-                                {journey.lastAvailableSeats ??
-                                    "—"}
+                                {chartPrepared
+                                    ? "Prepared"
+                                    : "Waiting"}
                             </strong>
 
                             <small>
-                                Last monitored availability
+                                IRCTC chart status
                             </small>
 
                         </div>
 
                     </div>
 
-
                     <div className="info-card">
 
                         <div className="info-icon orange">
-                            🔎
+                            ✨
                         </div>
 
                         <div>
 
                             <span>
-                                Seat Status
+                                Recommendations
                             </span>
 
                             <strong>
-                                {journey.lastSeatStatus ||
-                                    "Not checked"}
+                                {recommendationLoading
+                                    ? "Checking..."
+                                    : recommendationCount}
                             </strong>
 
                             <small>
-                                Current monitored status
+                                Active ERJA strategies
                             </small>
 
                         </div>
@@ -560,24 +745,144 @@ export default function JourneyDetails() {
 
                 </section>
 
+                {/* =================================================
+                    CHART STATUS
+                ================================================= */}
 
-                {/* =================================
+                <section className="details-panel chart-status-panel">
+
+                    <div className="panel-heading">
+
+                        <div className="panel-number">
+                            01
+                        </div>
+
+                        <div>
+
+                            <span>
+                                IRCTC CHART
+                            </span>
+
+                            <h2>
+                                Chart Preparation
+                            </h2>
+
+                        </div>
+
+                    </div>
+
+                    <div className="chart-timeline">
+
+                        <div
+                            className={`chart-step ${
+                                chartOneDate
+                                    ? "completed-step"
+                                    : ""
+                            }`}
+                        >
+
+                            <div className="chart-step-icon">
+                                {chartOneDate
+                                    ? "✓"
+                                    : "1"}
+                            </div>
+
+                            <div>
+
+                                <span>
+                                    FIRST CHART
+                                </span>
+
+                                <strong>
+                                    {chartOneDate
+                                        ? formatDateTime(
+                                              chartOneDate
+                                          )
+                                        : "Not prepared yet"}
+                                </strong>
+
+                                <small>
+                                    Initial chart preparation
+                                </small>
+
+                            </div>
+
+                        </div>
+
+                        <div className="chart-timeline-line"></div>
+
+                        <div
+                            className={`chart-step ${
+                                finalChartPrepared
+                                    ? "completed-step"
+                                    : ""
+                            }`}
+                        >
+
+                            <div className="chart-step-icon">
+                                {finalChartPrepared
+                                    ? "✓"
+                                    : "2"}
+                            </div>
+
+                            <div>
+
+                                <span>
+                                    SECOND / FINAL CHART
+                                </span>
+
+                                <strong>
+                                    {chartTwoDate
+                                        ? formatDateTime(
+                                              chartTwoDate
+                                          )
+                                        : "Not prepared yet"}
+                                </strong>
+
+                                <small>
+                                    Final chart information
+                                </small>
+
+                            </div>
+
+                        </div>
+
+                    </div>
+
+                    <div className="chart-source-note">
+
+                        <span>
+                            ℹ️
+                        </span>
+
+                        <p>
+                            ERJA uses the expected chart
+                            window to decide when to query
+                            IRCTC. The actual preparation
+                            status shown here comes from
+                            IRCTC chart data.
+                        </p>
+
+                    </div>
+
+                </section>
+
+                {/* =================================================
                     TWO COLUMN DETAILS
-                ================================== */}
+                ================================================= */}
 
                 <div className="details-two-column">
 
-
-                    {/* ==============================
-                        BOOKING PREFERENCES
-                    =============================== */}
+                    {/* =================================================
+                        BOOKING CONFIGURATION
+                    ================================================= */}
 
                     <section className="details-panel">
 
                         <div className="panel-heading">
 
                             <div className="panel-number">
-                                01
+                                02
                             </div>
 
                             <div>
@@ -594,9 +899,7 @@ export default function JourneyDetails() {
 
                         </div>
 
-
                         <div className="preference-list">
-
 
                             <div className="preference-row">
 
@@ -608,30 +911,27 @@ export default function JourneyDetails() {
 
                                     {enabledClasses.length >
                                     0 ? (
-
                                         enabledClasses.map(
                                             (item) => (
                                                 <span
                                                     className="details-class-badge"
-                                                    key={item.class}
+                                                    key={
+                                                        item.class
+                                                    }
                                                 >
                                                     {item.class}
                                                 </span>
                                             )
                                         )
-
                                     ) : (
-
                                         <strong>
                                             Not specified
                                         </strong>
-
                                     )}
 
                                 </div>
 
                             </div>
-
 
                             <div className="preference-row">
 
@@ -646,15 +946,12 @@ export default function JourneyDetails() {
                                             : "disabled-text"
                                     }
                                 >
-
                                     {journey.allowMixedClass
                                         ? "✓ Allowed"
                                         : "✕ Not Allowed"}
-
                                 </strong>
 
                             </div>
-
 
                             <div className="preference-row">
 
@@ -670,7 +967,6 @@ export default function JourneyDetails() {
 
                             </div>
 
-
                             <div className="preference-row">
 
                                 <span>
@@ -678,7 +974,7 @@ export default function JourneyDetails() {
                                 </span>
 
                                 <strong>
-                                    {formatDate(
+                                    {formatDateTime(
                                         journey.createdAt
                                     )}
                                 </strong>
@@ -689,57 +985,60 @@ export default function JourneyDetails() {
 
                     </section>
 
-
-                    {/* ==============================
+                    {/* =================================================
                         MONITORING
-                    =============================== */}
+                    ================================================= */}
 
                     <section className="details-panel">
 
                         <div className="panel-heading">
 
                             <div className="panel-number">
-                                02
+                                03
                             </div>
 
                             <div>
 
                                 <span>
-                                    MONITORING
+                                    ERJA MONITORING
                                 </span>
 
                                 <h2>
-                                    Latest Check
+                                    Monitoring State
                                 </h2>
 
                             </div>
 
                         </div>
 
-
                         <div
                             className={`monitor-box ${
-                                journey.lastSeatStatus
+                                isActive
                                     ? "has-monitor-data"
                                     : ""
                             }`}
                         >
 
                             <div className="monitor-status-icon">
-                                {journey.lastSeatStatus
+                                {isCompleted
                                     ? "✓"
-                                    : "⏳"}
+                                    : isCancelled
+                                    ? "✕"
+                                    : "📡"}
                             </div>
 
                             <div>
 
                                 <strong>
-                                    {journey.lastSeatStatus ||
-                                        "Waiting for first check"}
+                                    {isCompleted
+                                        ? "Journey completed"
+                                        : isCancelled
+                                        ? "Journey cancelled"
+                                        : "Journey monitoring active"}
                                 </strong>
 
                                 <p>
-                                    Last checked:{" "}
+                                    Last monitoring check:{" "}
                                     {formatDateTime(
                                         journey.lastCheckedAt
                                     )}
@@ -749,7 +1048,6 @@ export default function JourneyDetails() {
 
                         </div>
 
-
                         <div className="monitor-note">
 
                             <span>
@@ -757,10 +1055,12 @@ export default function JourneyDetails() {
                             </span>
 
                             <p>
-                                ERJA continuously monitors
-                                your journey and analyzes
-                                availability to find suitable
-                                booking possibilities.
+                                ERJA does not use RailRadar
+                                seat availability for this
+                                workflow. Vacancy analysis
+                                is performed from the IRCTC
+                                chart workflow after chart
+                                preparation.
                             </p>
 
                         </div>
@@ -769,13 +1069,225 @@ export default function JourneyDetails() {
 
                 </div>
 
+                {/* =================================================
+                    RECOMMENDATION SUMMARY
+                ================================================= */}
 
-                {/* =================================
+                <section className="recommendation-summary-panel">
+
+                    <div className="recommendation-summary-header">
+
+                        <div>
+
+                            <span>
+                                ERJA OPTIMIZATION
+                            </span>
+
+                            <h2>
+                                Booking Recommendation
+                            </h2>
+
+                        </div>
+
+                        <div className="recommendation-count-badge">
+                            {recommendationLoading
+                                ? "Checking"
+                                : `${recommendationCount} Available`}
+                        </div>
+
+                    </div>
+
+                    {recommendationLoading ? (
+
+                        <div className="recommendation-empty">
+
+                            <div className="recommendation-empty-icon">
+                                🔎
+                            </div>
+
+                            <strong>
+                                Checking recommendations...
+                            </strong>
+
+                            <p>
+                                ERJA is checking the latest
+                                recommendation data.
+                            </p>
+
+                        </div>
+
+                    ) : topRecommendation ? (
+
+                        <div className="recommendation-highlight">
+
+                            <div className="recommendation-main-icon">
+                                ✨
+                            </div>
+
+                            <div className="recommendation-main-content">
+
+                                <span>
+                                    TOP STRATEGY
+                                </span>
+
+                                <h3>
+                                    {getRecommendationStrategy(
+                                        topRecommendation
+                                    )}
+                                </h3>
+
+                                <p>
+                                    {topRecommendation.reason ||
+                                        "ERJA has generated a booking strategy based on the available chart data."}
+                                </p>
+
+                                <div className="recommendation-meta">
+
+                                    <div>
+                                        <span>
+                                            SCORE
+                                        </span>
+                                        <strong>
+                                            {getRecommendationScore(
+                                                topRecommendation
+                                            )}
+                                        </strong>
+                                    </div>
+
+                                    <div>
+                                        <span>
+                                            TICKETS
+                                        </span>
+                                        <strong>
+                                            {getRecommendationTickets(
+                                                topRecommendation
+                                            )}
+                                        </strong>
+                                    </div>
+
+                                </div>
+
+                            </div>
+
+                            <button
+                                className="recommendation-view-btn"
+                                onClick={() =>
+                                    navigate(
+                                        `/recommendation/${id}`
+                                    )
+                                }
+                            >
+                                View All
+                                <span>→</span>
+                            </button>
+
+                        </div>
+
+                    ) : (
+
+                        <div className="recommendation-empty">
+
+                            <div className="recommendation-empty-icon">
+                                {chartPrepared
+                                    ? "🔎"
+                                    : "⏳"}
+                            </div>
+
+                            <strong>
+                                {chartPrepared
+                                    ? "No recommendation available"
+                                    : "Waiting for chart preparation"}
+                            </strong>
+
+                            <p>
+                                {recommendationError ||
+                                    (chartPrepared
+                                        ? "IRCTC has not returned a usable vacancy combination for this journey yet."
+                                        : "ERJA will analyze vacancy only after the required IRCTC chart is prepared.")}
+                            </p>
+
+                        </div>
+
+                    )}
+
+                </section>
+
+                {/* =================================================
+                    AVAILABILITY WARNING
+                ================================================= */}
+
+                <section className="availability-warning">
+
+                    <div className="availability-warning-icon">
+                        ⚠️
+                    </div>
+
+                    <div>
+
+                        <strong>
+                            Important availability notice
+                        </strong>
+
+                        <p>
+                            Berth availability may change at
+                            any time. Recommended berths may
+                            become unavailable or be booked by
+                            other passengers before you complete
+                            your booking.
+                        </p>
+
+                    </div>
+
+                </section>
+
+                {/* =================================================
+                    COMPLETION INFORMATION
+                ================================================= */}
+
+                {isCompleted && (
+                    <section className="completion-card">
+
+                        <div className="completion-icon">
+                            ✓
+                        </div>
+
+                        <div>
+
+                            <span>
+                                JOURNEY COMPLETED
+                            </span>
+
+                            <h2>
+                                Train reached its final station
+                            </h2>
+
+                            <p>
+                                {journey.finalStationCode
+                                    ? `${journey.finalStationCode}${
+                                          journey.finalStationName
+                                              ? ` — ${journey.finalStationName}`
+                                              : ""
+                                      }`
+                                    : "Final station information recorded by ERJA."}
+                            </p>
+
+                            <small>
+                                Completed at:{" "}
+                                {formatDateTime(
+                                    journey.completedAt
+                                )}
+                            </small>
+
+                        </div>
+
+                    </section>
+                )}
+
+                {/* =================================================
                     ACTIONS
-                ================================== */}
+                ================================================= */}
 
                 <section className="journey-actions">
-
 
                     <button
                         className="recommendation-action"
@@ -797,8 +1309,7 @@ export default function JourneyDetails() {
                             </strong>
 
                             <small>
-                                See ERJA's best booking
-                                strategies
+                                See ERJA's booking strategies
                             </small>
 
                         </div>
@@ -808,7 +1319,6 @@ export default function JourneyDetails() {
                         </b>
 
                     </button>
-
 
                     <button
                         className="secondary-action"

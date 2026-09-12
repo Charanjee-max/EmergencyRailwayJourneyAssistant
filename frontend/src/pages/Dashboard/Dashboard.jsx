@@ -5,472 +5,1161 @@ import "./Dashboard.css";
 
 import Navbar from "../../components/Navbar/Navbar";
 import SummaryCard from "../../components/SummaryCard/SummaryCard";
+
 import { getJourneys } from "../../api/journeyAPI";
 import { getRecommendations } from "../../api/recommendationAPI";
 
+
 function Dashboard() {
+
     const navigate = useNavigate();
 
     const [journeys, setJourneys] = useState([]);
     const [latestRecommendation, setLatestRecommendation] = useState(null);
 
     const [loading, setLoading] = useState(true);
-    const [recommendationLoading, setRecommendationLoading] = useState(false);
+    const [recommendationLoading, setRecommendationLoading] =
+        useState(false);
+
     const [error, setError] = useState("");
+
+
+    // =========================================================
+    // LOAD DASHBOARD
+    // =========================================================
 
     useEffect(() => {
         loadDashboard();
     }, []);
 
+
     const loadDashboard = async () => {
+
         setLoading(true);
         setError("");
 
         try {
+
             const response = await getJourneys();
 
-            const journeyData = response?.data?.data || [];
+            const journeyData =
+                response?.data?.data || [];
 
             setJourneys(journeyData);
 
-            // Find recommendations from journeys
+
             if (journeyData.length > 0) {
-                await loadLatestRecommendation(journeyData);
+
+                await loadLatestRecommendation(
+                    journeyData
+                );
+
             } else {
+
                 setLatestRecommendation(null);
+
             }
+
         } catch (err) {
-            console.error("Failed to load dashboard:", err);
-            setError("Unable to load dashboard data.");
+
+            console.error(
+                "Failed to load dashboard:",
+                err
+            );
+
+            setError(
+                "Unable to load dashboard data."
+            );
+
         } finally {
+
             setLoading(false);
+
         }
     };
 
-    const loadLatestRecommendation = async (journeyData) => {
+
+    // =========================================================
+    // LOAD LATEST RECOMMENDATION
+    // =========================================================
+
+    const loadLatestRecommendation = async (
+        journeyData
+    ) => {
+
         setRecommendationLoading(true);
 
         try {
-            const results = await Promise.allSettled(
-                journeyData.map((journey) =>
-                    getRecommendations(journey._id)
-                )
-            );
+
+            const results =
+                await Promise.allSettled(
+                    journeyData.map(
+                        (journey) =>
+                            getRecommendations(
+                                journey._id
+                            )
+                    )
+                );
+
 
             const recommendations = [];
 
-            results.forEach((result, index) => {
-                if (result.status !== "fulfilled") return;
 
-                const data = result.value?.data?.data;
+            results.forEach(
+                (result, index) => {
 
-                if (!data) return;
+                    if (
+                        result.status !==
+                        "fulfilled"
+                    ) {
+                        return;
+                    }
 
-                const journey = journeyData[index];
 
-                if (Array.isArray(data)) {
-                    data.forEach((recommendation) => {
+                    const data =
+                        result.value?.data?.data;
+
+
+                    if (!data) {
+                        return;
+                    }
+
+
+                    const journey =
+                        journeyData[index];
+
+
+                    if (
+                        Array.isArray(data)
+                    ) {
+
+                        data.forEach(
+                            (recommendation) => {
+
+                                recommendations.push({
+                                    ...recommendation,
+                                    journeyId:
+                                        journey._id,
+                                    journeyDate:
+                                        journey.journeyDate,
+                                    trainNumber:
+                                        journey.trainNumber,
+                                    boardingStation:
+                                        journey.boardingStation,
+                                    destinationStation:
+                                        journey.destinationStation,
+                                });
+
+                            }
+                        );
+
+                    } else {
+
                         recommendations.push({
-                            ...recommendation,
-                            journeyId: journey._id,
-                            journeyDate: journey.journeyDate,
+                            ...data,
+                            journeyId:
+                                journey._id,
+                            journeyDate:
+                                journey.journeyDate,
+                            trainNumber:
+                                journey.trainNumber,
+                            boardingStation:
+                                journey.boardingStation,
+                            destinationStation:
+                                journey.destinationStation,
                         });
-                    });
-                } else {
-                    recommendations.push({
-                        ...data,
-                        journeyId: journey._id,
-                        journeyDate: journey.journeyDate,
-                    });
-                }
-            });
 
-            if (recommendations.length === 0) {
+                    }
+
+                }
+            );
+
+
+            if (
+                recommendations.length === 0
+            ) {
+
                 setLatestRecommendation(null);
+
                 return;
             }
 
-            // Prefer newest recommendation
-            recommendations.sort((a, b) => {
-                const dateA = new Date(
-                    a.analyzedAt ||
-                    a.createdAt ||
-                    a.updatedAt ||
-                    a.journeyDate ||
-                    0
-                );
 
-                const dateB = new Date(
-                    b.analyzedAt ||
-                    b.createdAt ||
-                    b.updatedAt ||
-                    b.journeyDate ||
-                    0
-                );
+            recommendations.sort(
+                (a, b) => {
 
-                return dateB - dateA;
-            });
+                    const dateA =
+                        new Date(
+                            a.analyzedAt ||
+                            a.createdAt ||
+                            a.updatedAt ||
+                            a.journeyDate ||
+                            0
+                        );
 
-            setLatestRecommendation(recommendations[0]);
+                    const dateB =
+                        new Date(
+                            b.analyzedAt ||
+                            b.createdAt ||
+                            b.updatedAt ||
+                            b.journeyDate ||
+                            0
+                        );
+
+                    return dateB - dateA;
+
+                }
+            );
+
+
+            setLatestRecommendation(
+                recommendations[0]
+            );
+
+
         } catch (err) {
+
             console.error(
                 "Failed to load recommendations:",
                 err
             );
 
             setLatestRecommendation(null);
+
         } finally {
+
             setRecommendationLoading(false);
+
         }
     };
 
-    const getRecommendationName = (recommendation) => {
-        if (!recommendation) return "No recommendation";
+
+    // =========================================================
+    // HELPERS
+    // =========================================================
+
+    const getRecommendationName = (
+        recommendation
+    ) => {
+
+        if (!recommendation) {
+            return "No recommendation";
+        }
+
 
         const strategy =
             recommendation.strategy ||
             recommendation.type ||
             recommendation.recommendationType;
 
-        if (!strategy) return "Recommendation Available";
+
+        if (!strategy) {
+            return "Recommendation Available";
+        }
+
 
         return strategy
             .replaceAll("_", " ")
             .toLowerCase()
-            .replace(/\b\w/g, (char) => char.toUpperCase());
+            .replace(
+                /\b\w/g,
+                (char) =>
+                    char.toUpperCase()
+            );
+
     };
 
-    const getScore = (recommendation) => {
+
+    const getScore = (
+        recommendation
+    ) => {
+
         return (
             recommendation?.score ??
             recommendation?.confidence ??
             "-"
         );
+
     };
 
-    const getCoach = (recommendation) => {
+
+    const getCoach = (
+        recommendation
+    ) => {
+
         if (
             recommendation?.tickets &&
             recommendation.tickets.length > 0
         ) {
-            return recommendation.tickets[0]?.coach || "-";
+
+            return (
+                recommendation.tickets[0]
+                    ?.coach || "-"
+            );
+
         }
 
-        return recommendation?.coach || "-";
+
+        return (
+            recommendation?.coach ||
+            "-"
+        );
+
     };
 
-    const monitoringCount = journeys.filter((journey) => {
-        const status = String(journey.status || "").toUpperCase();
 
-        return (
-            status === "PENDING" ||
-            status === "ACTIVE" ||
-            status === "MONITORING"
+    const getJourneyStatus = (
+        journey
+    ) => {
+
+        const status =
+            String(
+                journey?.status ||
+                "PENDING"
+            ).toUpperCase();
+
+
+        switch (status) {
+
+            case "MONITORING":
+                return "Monitoring";
+
+            case "CHART_PREPARED":
+                return "Chart Prepared";
+
+            case "RECOMMENDATION_READY":
+                return "Recommendation Ready";
+
+            case "COMPLETED":
+                return "Completed";
+
+            case "CANCELLED":
+                return "Cancelled";
+
+            case "ACTIVE":
+                return "Active";
+
+            default:
+                return "Pending";
+
+        }
+
+    };
+
+
+    const getStatusClass = (
+        journey
+    ) => {
+
+        const status =
+            String(
+                journey?.status ||
+                "PENDING"
+            ).toUpperCase();
+
+
+        if (
+            status === "COMPLETED"
+        ) {
+            return "status completed";
+        }
+
+
+        if (
+            status === "CANCELLED"
+        ) {
+            return "status cancelled";
+        }
+
+
+        if (
+            status ===
+                "RECOMMENDATION_READY" ||
+            status ===
+                "CHART_PREPARED"
+        ) {
+            return "status ready";
+        }
+
+
+        if (
+            status === "MONITORING" ||
+            status === "ACTIVE"
+        ) {
+            return "status monitoring";
+        }
+
+
+        return "status pending";
+
+    };
+
+
+    const formatDate = (
+        date
+    ) => {
+
+        if (!date) {
+            return "-";
+        }
+
+
+        const parsed =
+            new Date(date);
+
+
+        if (
+            Number.isNaN(
+                parsed.getTime()
+            )
+        ) {
+            return "-";
+        }
+
+
+        return parsed.toLocaleDateString(
+            "en-IN",
+            {
+                day: "2-digit",
+                month: "short",
+                year: "numeric",
+            }
         );
-    }).length;
 
-    const recommendationCount = latestRecommendation ? 1 : 0;
+    };
 
-    // Alerts are not currently provided by the Dashboard API,
-    // so we do not invent a value.
+
+    // =========================================================
+    // COUNTS
+    // =========================================================
+
+    const monitoringCount =
+        journeys.filter(
+            (journey) => {
+
+                const status =
+                    String(
+                        journey.status ||
+                        ""
+                    ).toUpperCase();
+
+
+                return (
+                    status === "PENDING" ||
+                    status === "ACTIVE" ||
+                    status === "MONITORING" ||
+                    status ===
+                        "CHART_PREPARED" ||
+                    status ===
+                        "RECOMMENDATION_READY"
+                );
+
+            }
+        ).length;
+
+
+    const completedCount =
+        journeys.filter(
+            (journey) =>
+                String(
+                    journey.status || ""
+                ).toUpperCase() ===
+                "COMPLETED"
+        ).length;
+
+
+    const recommendationCount =
+        latestRecommendation
+            ? 1
+            : 0;
+
+
+    // Alerts are not currently supplied
+    // by the Dashboard API.
     const alertCount = 0;
 
+
+    // =========================================================
+    // LOADING
+    // =========================================================
+
     if (loading) {
+
         return (
+
             <>
+
                 <Navbar />
 
-                <div className="dashboard">
-                    <div className="dashboard-loading">
-                        <div className="loading-spinner"></div>
-                        <h2>Loading Dashboard...</h2>
-                        <p>
-                            Fetching your journeys and recommendations.
-                        </p>
-                    </div>
-                </div>
-            </>
-        );
-    }
+                <main className="dashboard">
 
-    return (
-        <>
-            <Navbar />
+                    <section className="dashboard-loading">
 
-            <div className="dashboard">
+                        <div className="loading-orbit">
 
-                <div className="dashboard-header">
-                    <div>
-                        <span className="dashboard-eyebrow">
-                            ERJA CONTROL CENTER
-                        </span>
-
-                        <h1>
-                            Emergency Railway Journey Assistant
-                        </h1>
-
-                        <p className="subtitle">
-                            Monitor your journeys, track availability,
-                            and discover the best booking options.
-                        </p>
-                    </div>
-
-                    <button
-                        className="header-add-btn"
-                        onClick={() => navigate("/add-journey")}
-                    >
-                        <span>＋</span>
-                        Add Journey
-                    </button>
-                </div>
-
-                {error && (
-                    <div className="dashboard-error">
-                        ⚠️ {error}
-                    </div>
-                )}
-
-                <div className="summary-grid">
-
-                    <SummaryCard
-                        title="Total Journeys"
-                        value={journeys.length}
-                        color="#1565C0"
-                    />
-
-                    <SummaryCard
-                        title="Monitoring"
-                        value={monitoringCount}
-                        color="#43A047"
-                    />
-
-                    <SummaryCard
-                        title="Recommendations"
-                        value={recommendationCount}
-                        color="#FB8C00"
-                    />
-
-                    <SummaryCard
-                        title="Alerts"
-                        value={alertCount}
-                        color="#E53935"
-                    />
-
-                </div>
-
-                <div className="actions">
-                    <button
-                        className="add-btn"
-                        onClick={() => navigate("/add-journey")}
-                    >
-                        <span>＋</span>
-                        Add New Journey
-                    </button>
-                </div>
-
-                <div className="content-grid">
-
-                    {/* JOURNEYS */}
-
-                    <div className="card journeys-card">
-
-                        <div className="card-header">
-                            <div>
-                                <span className="section-label">
-                                    MONITORED
-                                </span>
-
-                                <h2>My Journeys</h2>
+                            <div className="loading-train">
+                                🚆
                             </div>
 
-                            <button
-                                className="secondary-btn"
-                                onClick={() => navigate("/journeys")}
-                            >
-                                View All →
-                            </button>
                         </div>
+
+                        <h2>
+                            Preparing your
+                            control center
+                        </h2>
+
+                        <p>
+                            Fetching journeys
+                            and recommendations...
+                        </p>
+
+                    </section>
+
+                </main>
+
+            </>
+
+        );
+
+    }
+
+
+    // =========================================================
+    // DASHBOARD
+    // =========================================================
+
+    return (
+
+        <>
+
+            <Navbar />
+
+
+            <main className="dashboard">
+
+                {/* =================================================
+                    HERO
+                ================================================= */}
+
+                <section className="dashboard-hero">
+
+                    <div className="hero-content">
+
+                        <div className="hero-badge">
+
+                            <span className="live-dot"></span>
+
+                            ERJA CONTROL CENTER
+
+                        </div>
+
+
+                        <h1>
+                            Emergency Railway
+                            <span>
+                                Journey Assistant
+                            </span>
+                        </h1>
+
+
+                        <p className="hero-subtitle">
+
+                            Monitor your railway
+                            journeys, analyze
+                            availability, and discover
+                            smarter booking strategies.
+
+                        </p>
+
+
+                        <div className="hero-actions">
+
+                            <button
+                                className="primary-action"
+                                onClick={() =>
+                                    navigate(
+                                        "/add-journey"
+                                    )
+                                }
+                            >
+
+                                <span className="button-icon">
+                                    +
+                                </span>
+
+                                Add New Journey
+
+                                <span className="button-arrow">
+                                    →
+                                </span>
+
+                            </button>
+
+
+                            <button
+                                className="secondary-action"
+                                onClick={() =>
+                                    navigate(
+                                        "/journeys"
+                                    )
+                                }
+                            >
+                                View My Journeys
+                            </button>
+
+                        </div>
+
+                    </div>
+
+
+                    <div className="hero-visual">
+
+                        <div className="rail-glow"></div>
+
+                        <div className="rail-circle">
+
+                            <div className="rail-circle-inner">
+
+                                <span>
+                                    🚆
+                                </span>
+
+                            </div>
+
+                        </div>
+
+
+                        <div className="route-line">
+
+                            <span className="station-node">
+                                SC
+                            </span>
+
+                            <div className="route-track">
+                                <span className="moving-train">
+                                    🚆
+                                </span>
+                            </div>
+
+                            <span className="station-node">
+                                BZA
+                            </span>
+
+                        </div>
+
+                    </div>
+
+                </section>
+
+
+                {/* =================================================
+                    ERROR
+                ================================================= */}
+
+                {error && (
+
+                    <div className="dashboard-error">
+
+                        <span>
+                            ⚠️
+                        </span>
+
+                        {error}
+
+                        <button
+                            onClick={
+                                loadDashboard
+                            }
+                        >
+                            Retry
+                        </button>
+
+                    </div>
+
+                )}
+
+
+                {/* =================================================
+                    STATISTICS
+                ================================================= */}
+
+                <section className="stats-grid">
+
+                    <div className="stat-card stat-blue">
+
+                        <div className="stat-icon">
+                            🚆
+                        </div>
+
+                        <div className="stat-content">
+
+                            <span>
+                                TOTAL JOURNEYS
+                            </span>
+
+                            <strong>
+                                {journeys.length}
+                            </strong>
+
+                            <small>
+                                All tracked journeys
+                            </small>
+
+                        </div>
+
+                    </div>
+
+
+                    <div className="stat-card stat-green">
+
+                        <div className="stat-icon">
+                            ◉
+                        </div>
+
+                        <div className="stat-content">
+
+                            <span>
+                                MONITORING
+                            </span>
+
+                            <strong>
+                                {monitoringCount}
+                            </strong>
+
+                            <small>
+                                Currently active
+                            </small>
+
+                        </div>
+
+                    </div>
+
+
+                    <div className="stat-card stat-orange">
+
+                        <div className="stat-icon">
+                            ✦
+                        </div>
+
+                        <div className="stat-content">
+
+                            <span>
+                                RECOMMENDATIONS
+                            </span>
+
+                            <strong>
+                                {recommendationCount}
+                            </strong>
+
+                            <small>
+                                Available strategies
+                            </small>
+
+                        </div>
+
+                    </div>
+
+
+                    <div className="stat-card stat-purple">
+
+                        <div className="stat-icon">
+                            ✓
+                        </div>
+
+                        <div className="stat-content">
+
+                            <span>
+                                COMPLETED
+                            </span>
+
+                            <strong>
+                                {completedCount}
+                            </strong>
+
+                            <small>
+                                Journey history
+                            </small>
+
+                        </div>
+
+                    </div>
+
+                </section>
+
+
+                {/* =================================================
+                    MAIN CONTENT
+                ================================================= */}
+
+                <section className="dashboard-grid">
+
+
+                    {/* =================================================
+                        JOURNEYS
+                    ================================================= */}
+
+                    <div className="dashboard-card journeys-card">
+
+                        <div className="card-heading">
+
+                            <div>
+
+                                <span className="card-kicker">
+                                    YOUR TRAVEL
+                                </span>
+
+                                <h2>
+                                    My Journeys
+                                </h2>
+
+                            </div>
+
+
+                            <button
+                                className="text-action"
+                                onClick={() =>
+                                    navigate(
+                                        "/journeys"
+                                    )
+                                }
+                            >
+                                View All
+                                <span>→</span>
+                            </button>
+
+                        </div>
+
 
                         {journeys.length === 0 ? (
 
                             <div className="empty-state">
-                                <div className="empty-icon">🚆</div>
 
-                                <h3>No journeys yet</h3>
+                                <div className="empty-illustration">
+                                    🚆
+                                </div>
+
+                                <h3>
+                                    No journeys yet
+                                </h3>
 
                                 <p>
-                                    Add a journey to start monitoring
-                                    railway availability.
+                                    Add your first journey
+                                    and let ERJA monitor
+                                    railway availability
+                                    for you.
                                 </p>
 
                                 <button
-                                    className="view-btn"
+                                    className="empty-action"
                                     onClick={() =>
-                                        navigate("/add-journey")
+                                        navigate(
+                                            "/add-journey"
+                                        )
                                     }
                                 >
                                     Add Your First Journey
+                                    →
                                 </button>
+
                             </div>
 
                         ) : (
 
-                            <div className="table-wrapper">
-                                <table>
+                            <div className="journey-list">
 
-                                    <thead>
-                                        <tr>
-                                            <th>Train</th>
-                                            <th>Route</th>
-                                            <th>Date</th>
-                                            <th>Status</th>
-                                            <th>Action</th>
-                                        </tr>
-                                    </thead>
+                                {journeys
+                                    .slice(0, 5)
+                                    .map(
+                                        (journey) => (
 
-                                    <tbody>
+                                            <div
+                                                className="journey-row"
+                                                key={
+                                                    journey._id
+                                                }
+                                            >
 
-                                        {journeys.slice(0, 6).map(
-                                            (journey) => (
+                                                <div className="train-icon-box">
+                                                    🚆
+                                                </div>
 
-                                                <tr key={journey._id}>
 
-                                                    <td>
+                                                <div className="journey-main">
+
+                                                    <div className="train-number">
+                                                        Train{" "}
+                                                        {
+                                                            journey.trainNumber
+                                                        }
+                                                    </div>
+
+
+                                                    <div className="journey-route">
+
                                                         <strong>
-                                                            {journey.trainNumber}
-                                                        </strong>
-                                                    </td>
-
-                                                    <td>
-                                                        <span className="route">
                                                             {
                                                                 journey.boardingStation
                                                             }
-                                                            <span>
+                                                        </strong>
+
+                                                        <div className="route-connector">
+
+                                                            <span></span>
+                                                            <span></span>
+                                                            <span></span>
+
+                                                            <b>
                                                                 →
-                                                            </span>
+                                                            </b>
+
+                                                        </div>
+
+                                                        <strong>
                                                             {
                                                                 journey.destinationStation
                                                             }
-                                                        </span>
-                                                    </td>
+                                                        </strong>
 
-                                                    <td>
-                                                        {new Date(
+                                                    </div>
+
+
+                                                    <div className="journey-date">
+
+                                                        {formatDate(
                                                             journey.journeyDate
-                                                        ).toLocaleDateString(
-                                                            "en-GB"
                                                         )}
-                                                    </td>
 
-                                                    <td>
-                                                        <span className="status active">
-                                                            {
-                                                                journey.status ||
-                                                                "PENDING"
-                                                            }
-                                                        </span>
-                                                    </td>
+                                                    </div>
 
-                                                    <td>
-                                                        <button
-                                                            className="view-btn small"
-                                                            onClick={() =>
-                                                                navigate(
-                                                                    `/recommendation/${journey._id}`
-                                                                )
-                                                            }
-                                                        >
-                                                            View
-                                                        </button>
-                                                    </td>
+                                                </div>
 
-                                                </tr>
 
-                                            )
-                                        )}
+                                                <div className="journey-status">
 
-                                    </tbody>
+                                                    <span
+                                                        className={
+                                                            getStatusClass(
+                                                                journey
+                                                            )
+                                                        }
+                                                    >
 
-                                </table>
+                                                        <i></i>
+
+                                                        {
+                                                            getJourneyStatus(
+                                                                journey
+                                                            )
+                                                        }
+
+                                                    </span>
+
+                                                </div>
+
+
+                                                <button
+                                                    className="journey-view"
+                                                    onClick={() =>
+                                                        navigate(
+                                                            `/recommendation/${journey._id}`
+                                                        )
+                                                    }
+                                                >
+                                                    View
+                                                </button>
+
+                                            </div>
+
+                                        )
+                                    )}
+
                             </div>
 
                         )}
 
                     </div>
 
-                    {/* LATEST RECOMMENDATION */}
 
-                    <div className="card recommendation-card">
+                    {/* =================================================
+                        AI RECOMMENDATION
+                    ================================================= */}
 
-                        <div className="card-header">
+                    <div className="dashboard-card recommendation-card">
+
+                        <div className="card-heading">
+
                             <div>
-                                <span className="section-label">
-                                    AI BOOKING ENGINE
+
+                                <span className="card-kicker">
+                                    ERJA INTELLIGENCE
                                 </span>
 
-                                <h2>Latest Recommendation</h2>
+                                <h2>
+                                    Latest Recommendation
+                                </h2>
+
                             </div>
+
+                            <div className="ai-badge">
+                                AI
+                            </div>
+
                         </div>
+
 
                         {recommendationLoading ? (
 
                             <div className="recommendation-loading">
-                                <div className="loading-spinner small"></div>
+
+                                <div className="ai-loader">
+                                    <span></span>
+                                    <span></span>
+                                    <span></span>
+                                </div>
+
+                                <h3>
+                                    Analyzing journey
+                                </h3>
+
                                 <p>
-                                    Loading recommendation...
+                                    Checking available
+                                    booking strategies...
                                 </p>
+
                             </div>
 
                         ) : latestRecommendation ? (
 
-                            <div className="recommendation">
+                            <div className="recommendation-content">
 
-                                <div className="recommendation-icon">
-                                    ✓
-                                </div>
+                                <div className="recommendation-hero">
 
-                                <div className="recommendation-title">
-                                    <span>Recommended Strategy</span>
-
-                                    <h3>
-                                        {getRecommendationName(
-                                            latestRecommendation
-                                        )}
-                                    </h3>
-                                </div>
-
-                                <div className="recommendation-info">
-
-                                    <div className="info-item">
-                                        <span>Coach</span>
-                                        <strong>
-                                            {getCoach(
-                                                latestRecommendation
-                                            )}
-                                        </strong>
+                                    <div className="recommendation-check">
+                                        ✓
                                     </div>
 
-                                    <div className="info-item">
-                                        <span>Score</span>
-                                        <strong>
-                                            {getScore(
-                                                latestRecommendation
-                                            )}
-                                        </strong>
+                                    <div>
+
+                                        <span>
+                                            BEST AVAILABLE
+                                            STRATEGY
+                                        </span>
+
+                                        <h3>
+                                            {
+                                                getRecommendationName(
+                                                    latestRecommendation
+                                                )
+                                            }
+                                        </h3>
+
                                     </div>
 
                                 </div>
+
+
+                                <div className="recommendation-route">
+
+                                    <div>
+
+                                        <small>
+                                            TRAIN
+                                        </small>
+
+                                        <strong>
+                                            {
+                                                latestRecommendation.trainNumber ||
+                                                "-"
+                                            }
+                                        </strong>
+
+                                    </div>
+
+
+                                    <div className="recommendation-arrow">
+                                        →
+                                    </div>
+
+
+                                    <div>
+
+                                        <small>
+                                            ROUTE
+                                        </small>
+
+                                        <strong>
+                                            {
+                                                latestRecommendation.boardingStation ||
+                                                "-"
+                                            }
+                                            {" "}
+                                            →
+                                            {" "}
+                                            {
+                                                latestRecommendation.destinationStation ||
+                                                "-"
+                                            }
+                                        </strong>
+
+                                    </div>
+
+                                </div>
+
+
+                                <div className="recommendation-stats">
+
+                                    <div>
+
+                                        <span>
+                                            COACH
+                                        </span>
+
+                                        <strong>
+                                            {
+                                                getCoach(
+                                                    latestRecommendation
+                                                )
+                                            }
+                                        </strong>
+
+                                    </div>
+
+
+                                    <div>
+
+                                        <span>
+                                            SCORE
+                                        </span>
+
+                                        <strong>
+                                            {
+                                                getScore(
+                                                    latestRecommendation
+                                                )
+                                            }
+
+                                        </strong>
+
+                                    </div>
+
+                                </div>
+
 
                                 <button
-                                    className="view-btn full"
+                                    className="recommendation-action"
                                     onClick={() =>
                                         navigate(
                                             `/recommendation/${latestRecommendation.journeyId}`
                                         )
                                     }
                                 >
-                                    View Recommendation →
+
+                                    View Full Recommendation
+
+                                    <span>
+                                        →
+                                    </span>
+
                                 </button>
 
                             </div>
@@ -479,18 +1168,37 @@ function Dashboard() {
 
                             <div className="empty-recommendation">
 
-                                <div className="empty-icon">
-                                    🔎
+                                <div className="recommendation-empty-icon">
+                                    ✦
                                 </div>
 
                                 <h3>
-                                    No Recommendation Yet
+                                    Waiting for analysis
                                 </h3>
 
                                 <p>
-                                    Recommendations will appear here
-                                    once ERJA analyzes your journey.
+                                    Once ERJA analyzes
+                                    your journey, the
+                                    best booking strategy
+                                    will appear here.
                                 </p>
+
+
+                                {journeys.length === 0 && (
+
+                                    <button
+                                        className="empty-action"
+                                        onClick={() =>
+                                            navigate(
+                                                "/add-journey"
+                                            )
+                                        }
+                                    >
+                                        Start a Journey
+                                        →
+                                    </button>
+
+                                )}
 
                             </div>
 
@@ -498,11 +1206,61 @@ function Dashboard() {
 
                     </div>
 
+                </section>
+
+
+                {/* =================================================
+                    SAFETY / AVAILABILITY WARNING
+                ================================================= */}
+
+                <section className="availability-warning">
+
+                    <div className="warning-icon">
+                        ⚠
+                    </div>
+
+                    <div>
+
+                        <strong>
+                            Availability can change at any time
+                        </strong>
+
+                        <p>
+                            Recommended berths may become
+                            unavailable or be booked by another
+                            passenger before you complete your
+                            booking.
+                        </p>
+
+                    </div>
+
+                </section>
+
+
+                {/* =================================================
+                    FOOTER STATUS
+                ================================================= */}
+
+                <div className="dashboard-footer">
+
+                    <span className="footer-status">
+                        <i></i>
+                        ERJA monitoring system active
+                    </span>
+
+                    <span>
+                        Emergency Railway Journey Assistant
+                    </span>
+
                 </div>
 
-            </div>
+            </main>
+
         </>
+
     );
+
 }
+
 
 export default Dashboard;

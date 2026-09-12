@@ -1,1069 +1,1101 @@
-const Journey = require("./journey.model");
-const Chart = require("../chart/chart.model");
-const Recommendation = require("../recommendation/recommendation.model");
+const Journey =
+    require("./journey.model");
+
+const Chart =
+    require("../chart/chart.model");
+
+const Recommendation =
+    require("../recommendation/recommendation.model");
 
 const {
-  getStopsBetweenService,
-  getTrainStopsService,
+    getStopsBetweenService,
+    getTrainStopsService,
 } = require("../train/train.service");
+
+const {
+    calculateChartTiming,
+} = require("../chart/chartTiming.service");
 
 // =========================================================
 // INDIA TIMEZONE
 // =========================================================
 
-const INDIA_TIME_ZONE = "Asia/Kolkata";
+const INDIA_TIME_ZONE =
+    "Asia/Kolkata";
 
 // =========================================================
-// GET CURRENT INDIA DATE + TIME
+// CURRENT INDIA DATE + TIME
 // =========================================================
 
 const getIndiaDateTime = () => {
-  const parts = new Intl.DateTimeFormat(
-    "en-CA",
-    {
-      timeZone: INDIA_TIME_ZONE,
+    const parts =
+        new Intl.DateTimeFormat(
+            "en-CA",
+            {
+                timeZone:
+                    INDIA_TIME_ZONE,
 
-      year: "numeric",
-      month: "2-digit",
-      day: "2-digit",
+                year: "numeric",
+                month: "2-digit",
+                day: "2-digit",
 
-      hour: "2-digit",
-      minute: "2-digit",
+                hour: "2-digit",
+                minute: "2-digit",
 
-      hourCycle: "h23",
+                hourCycle: "h23",
+            }
+        ).formatToParts(
+            new Date()
+        );
+
+    const values = {};
+
+    for (const part of parts) {
+        if (
+            part.type !==
+            "literal"
+        ) {
+            values[part.type] =
+                part.value;
+        }
     }
-  ).formatToParts(new Date());
 
-  const values = {};
+    return {
+        date:
+            `${values.year}-${values.month}-${values.day}`,
 
-  for (const part of parts) {
-    if (part.type !== "literal") {
-      values[part.type] = part.value;
-    }
-  }
-
-  return {
-    date: `${values.year}-${values.month}-${values.day}`,
-
-    minutes:
-      Number(values.hour) * 60 +
-      Number(values.minute),
-  };
+        minutes:
+            Number(values.hour) *
+                60 +
+            Number(values.minute),
+    };
 };
 
 // =========================================================
-// NORMALIZE DATE TO YYYY-MM-DD
+// NORMALIZE DATE
 // =========================================================
 
-const normalizeJourneyDate = (journeyDate) => {
-  if (typeof journeyDate === "string") {
-    return journeyDate.slice(0, 10);
-  }
-
-  const date = new Date(journeyDate);
-
-  if (Number.isNaN(date.getTime())) {
-    return null;
-  }
-
-  return new Intl.DateTimeFormat(
-    "en-CA",
-    {
-      timeZone: INDIA_TIME_ZONE,
-
-      year: "numeric",
-      month: "2-digit",
-      day: "2-digit",
+const normalizeJourneyDate = (
+    journeyDate
+) => {
+    if (
+        typeof journeyDate ===
+        "string"
+    ) {
+        return journeyDate.slice(
+            0,
+            10
+        );
     }
-  ).format(date);
+
+    const date =
+        new Date(journeyDate);
+
+    if (
+        Number.isNaN(
+            date.getTime()
+        )
+    ) {
+        return null;
+    }
+
+    return new Intl.DateTimeFormat(
+        "en-CA",
+        {
+            timeZone:
+                INDIA_TIME_ZONE,
+
+            year: "numeric",
+            month: "2-digit",
+            day: "2-digit",
+        }
+    ).format(date);
 };
 
 // =========================================================
 // PARSE HH:mm
 // =========================================================
 
-const parseTimeToMinutes = (time) => {
-  const value = String(time || "").trim();
-
-  const match = value.match(
-    /^(\d{1,2}):(\d{2})$/
-  );
-
-  if (!match) {
-    return null;
-  }
-
-  const hours = Number(match[1]);
-  const minutes = Number(match[2]);
-
-  if (
-    hours < 0 ||
-    hours > 23 ||
-    minutes < 0 ||
-    minutes > 59
-  ) {
-    return null;
-  }
-
-  return hours * 60 + minutes;
-};
-
-// =========================================================
-// GET FINAL STATION FROM TRAIN TIMETABLE
-// =========================================================
-
-const getTrainFinalStation = async (
-  trainNumber
+const parseTimeToMinutes = (
+    time
 ) => {
-  const stops = await getTrainStopsService({
-    trainNumber,
-  });
+    const value =
+        String(time || "")
+            .trim();
 
-  if (
-    !Array.isArray(stops) ||
-    stops.length === 0
-  ) {
-    const error = new Error(
-      `Unable to determine final station for train ${trainNumber}.`
+    const match =
+        value.match(
+            /^(\d{1,2}):(\d{2})$/
+        );
+
+    if (!match) {
+        return null;
+    }
+
+    const hours =
+        Number(match[1]);
+
+    const minutes =
+        Number(match[2]);
+
+    if (
+        hours < 0 ||
+        hours > 23 ||
+        minutes < 0 ||
+        minutes > 59
+    ) {
+        return null;
+    }
+
+    return (
+        hours * 60 +
+        minutes
     );
-
-    error.statusCode = 400;
-
-    throw error;
-  }
-
-  const sortedStops = [...stops].sort(
-    (a, b) =>
-      Number(a.no || 0) -
-      Number(b.no || 0)
-  );
-
-  const finalStop =
-    sortedStops[sortedStops.length - 1];
-
-  if (!finalStop) {
-    const error = new Error(
-      `Unable to determine final station for train ${trainNumber}.`
-    );
-
-    error.statusCode = 400;
-
-    throw error;
-  }
-
-  return {
-    code: String(
-      finalStop.code || ""
-    )
-      .trim()
-      .toUpperCase(),
-
-    name: String(
-      finalStop.station ||
-      finalStop.name ||
-      ""
-    ).trim(),
-
-    arrival:
-      finalStop.arrival || "",
-
-    departure:
-      finalStop.departure || "",
-
-    day:
-      finalStop.day || "",
-
-    no:
-      finalStop.no || "",
-  };
 };
 
 // =========================================================
-// CHECK WHETHER TRAIN HAS REACHED FINAL STATION
+// GET FINAL STATION
 // =========================================================
 
-const hasTrainReachedFinalStation = async (
-  journey
-) => {
-  if (!journey) {
-    return false;
-  }
+const getTrainFinalStation =
+    async (
+        trainNumber
+    ) => {
+        const stops =
+            await getTrainStopsService(
+                {
+                    trainNumber,
+                }
+            );
 
-  if (journey.status === "COMPLETED") {
-    return true;
-  }
+        if (
+            !Array.isArray(
+                stops
+            ) ||
+            stops.length === 0
+        ) {
+            const error =
+                new Error(
+                    `Unable to determine final station for train ${trainNumber}.`
+                );
 
-  const finalStation =
-    await getTrainFinalStation(
-      journey.trainNumber
-    );
+            error.statusCode =
+                400;
 
-  if (!finalStation.code) {
-    return false;
-  }
+            throw error;
+        }
 
-  // -------------------------------------------------------
-  // If the train's final station is already the monitoring
-  // station / known destination in future live integrations,
-  // this function remains the single completion decision point.
-  // -------------------------------------------------------
+        const sortedStops =
+            [...stops].sort(
+                (a, b) =>
+                    Number(
+                        a.no || 0
+                    ) -
+                    Number(
+                        b.no || 0
+                    )
+            );
 
-  const journeyDate =
-    normalizeJourneyDate(
-      journey.journeyDate
-    );
+        const finalStop =
+            sortedStops[
+                sortedStops.length -
+                    1
+            ];
 
-  const today =
-    getIndiaDateTime().date;
+        if (!finalStop) {
+            const error =
+                new Error(
+                    `Unable to determine final station for train ${trainNumber}.`
+                );
 
-  if (!journeyDate) {
-    return false;
-  }
+            error.statusCode =
+                400;
 
-  // Journey date is after today.
-  if (journeyDate > today) {
-    return false;
-  }
+            throw error;
+        }
 
-  // Journey date is before today.
-  // By this point the train has necessarily completed
-  // its journey date, so the final station has been reached.
-  if (journeyDate < today) {
-    return true;
-  }
+        return {
+            code:
+                String(
+                    finalStop.code ||
+                        ""
+                )
+                    .trim()
+                    .toUpperCase(),
 
-  // -------------------------------------------------------
-  // TODAY
-  // -------------------------------------------------------
+            name:
+                String(
+                    finalStop.station ||
+                        finalStop.name ||
+                        ""
+                ).trim(),
 
-  const finalArrivalMinutes =
-    parseTimeToMinutes(
-      finalStation.arrival
-    );
+            arrival:
+                finalStop.arrival ||
+                "",
 
-  if (
-    finalArrivalMinutes === null
-  ) {
-    return false;
-  }
+            departure:
+                finalStop.departure ||
+                "",
 
-  const indiaNow =
-    getIndiaDateTime();
+            day:
+                finalStop.day ||
+                "",
 
-  // -------------------------------------------------------
-  // Final station arrival time
-  // -------------------------------------------------------
+            no:
+                finalStop.no ||
+                "",
+        };
+    };
 
-  // For today's journey, if final arrival time has passed,
-  // consider the journey completed.
-  if (
-    finalArrivalMinutes <=
-    indiaNow.minutes
-  ) {
-    return true;
-  }
+// =========================================================
+// CHECK FINAL STATION
+// =========================================================
 
-  return false;
-};
+const hasTrainReachedFinalStation =
+    async (
+        journey
+    ) => {
+        if (!journey) {
+            return false;
+        }
+
+        if (
+            journey.status ===
+            "COMPLETED"
+        ) {
+            return true;
+        }
+
+        const finalStation =
+            await getTrainFinalStation(
+                journey.trainNumber
+            );
+
+        if (
+            !finalStation.code
+        ) {
+            return false;
+        }
+
+        const journeyDate =
+            normalizeJourneyDate(
+                journey.journeyDate
+            );
+
+        const indiaNow =
+            getIndiaDateTime();
+
+        if (!journeyDate) {
+            return false;
+        }
+
+        if (
+            journeyDate >
+            indiaNow.date
+        ) {
+            return false;
+        }
+
+        if (
+            journeyDate <
+            indiaNow.date
+        ) {
+            return true;
+        }
+
+        const finalArrivalMinutes =
+            parseTimeToMinutes(
+                finalStation.arrival
+            );
+
+        if (
+            finalArrivalMinutes ===
+            null
+        ) {
+            return false;
+        }
+
+        return (
+            finalArrivalMinutes <=
+            indiaNow.minutes
+        );
+    };
 
 // =========================================================
 // COMPLETE JOURNEY
 // =========================================================
 
-const completeJourney = async (
-  journeyId
-) => {
-  const journey =
-    await Journey.findById(
-      journeyId
-    );
+const completeJourney =
+    async (
+        journeyId
+    ) => {
+        const journey =
+            await Journey.findById(
+                journeyId
+            );
 
-  if (!journey) {
-    const error = new Error(
-      "Journey not found."
-    );
+        if (!journey) {
+            const error =
+                new Error(
+                    "Journey not found."
+                );
 
-    error.statusCode = 404;
+            error.statusCode =
+                404;
 
-    throw error;
-  }
+            throw error;
+        }
 
-  if (
-    journey.status ===
-    "COMPLETED"
-  ) {
-    return journey;
-  }
+        if (
+            journey.status ===
+            "COMPLETED"
+        ) {
+            return journey;
+        }
 
-  const finalStation =
-    await getTrainFinalStation(
-      journey.trainNumber
-    );
+        const finalStation =
+            await getTrainFinalStation(
+                journey.trainNumber
+            );
 
-  journey.status =
-    "COMPLETED";
+        journey.status =
+            "COMPLETED";
 
-  journey.completedAt =
-    new Date();
+        journey.completedAt =
+            new Date();
 
-  journey.completedReason =
-    "Train reached its final station.";
+        journey.completedReason =
+            "Train reached its final station.";
 
-  journey.finalStationCode =
-    finalStation.code;
+        journey.finalStationCode =
+            finalStation.code;
 
-  journey.finalStationName =
-    finalStation.name;
+        journey.finalStationName =
+            finalStation.name;
 
-  await journey.save();
+        await journey.save();
 
-  console.log(
-    "========================================"
-  );
+        console.log(
+            "========================================"
+        );
 
-  console.log(
-    "🏁 JOURNEY COMPLETED"
-  );
+        console.log(
+            "🏁 JOURNEY COMPLETED"
+        );
 
-  console.log(
-    "Journey ID:",
-    journey._id
-  );
+        console.log(
+            "Journey ID:",
+            journey._id
+        );
 
-  console.log(
-    "Train:",
-    journey.trainNumber
-  );
+        console.log(
+            "Train:",
+            journey.trainNumber
+        );
 
-  console.log(
-    "Final Station:",
-    `${finalStation.code} - ${finalStation.name}`
-  );
+        console.log(
+            "Final Station:",
+            `${finalStation.code} - ${finalStation.name}`
+        );
 
-  console.log(
-    "Completed At:",
-    journey.completedAt
-  );
+        console.log(
+            "Completed At:",
+            journey.completedAt
+        );
 
-  console.log(
-    "========================================"
-  );
+        console.log(
+            "========================================"
+        );
 
-  return journey;
-};
+        return journey;
+    };
 
 // =========================================================
-// CHECK + COMPLETE JOURNEY IF REQUIRED
+// CHECK + COMPLETE
 // =========================================================
 
 const checkAndCompleteJourney =
-  async (journey) => {
-    if (!journey) {
-      return {
-        completed: false,
-        journey: null,
-      };
-    }
-
-    if (
-      journey.status ===
-      "COMPLETED"
-    ) {
-      return {
-        completed: true,
-        journey,
-      };
-    }
-
-    const reachedFinalStation =
-      await hasTrainReachedFinalStation(
+    async (
         journey
-      );
+    ) => {
+        if (!journey) {
+            return {
+                completed: false,
+                journey: null,
+            };
+        }
 
-    if (!reachedFinalStation) {
-      return {
-        completed: false,
-        journey,
-      };
-    }
+        if (
+            journey.status ===
+            "COMPLETED"
+        ) {
+            return {
+                completed: true,
+                journey,
+            };
+        }
 
-    const completedJourney =
-      await completeJourney(
-        journey._id
-      );
+        const reachedFinalStation =
+            await hasTrainReachedFinalStation(
+                journey
+            );
 
-    return {
-      completed: true,
-      journey: completedJourney,
+        if (
+            !reachedFinalStation
+        ) {
+            return {
+                completed: false,
+                journey,
+            };
+        }
+
+        const completedJourney =
+            await completeJourney(
+                journey._id
+            );
+
+        return {
+            completed: true,
+            journey:
+                completedJourney,
+        };
     };
-  };
 
 // =========================================================
 // VALIDATE JOURNEY DATE
 // =========================================================
 
 const validateJourneyDate = (
-  journeyDate,
-  routeStops
+    journeyDate,
+    routeStops
 ) => {
-  const selectedDate =
-    normalizeJourneyDate(
-      journeyDate
-    );
+    const selectedDate =
+        normalizeJourneyDate(
+            journeyDate
+        );
 
-  if (!selectedDate) {
-    const error = new Error(
-      "Journey date must be a valid date."
-    );
+    if (!selectedDate) {
+        const error =
+            new Error(
+                "Journey date must be a valid date."
+            );
 
-    error.statusCode = 400;
+        error.statusCode =
+            400;
 
-    throw error;
-  }
+        throw error;
+    }
 
-  const indiaNow =
-    getIndiaDateTime();
+    const indiaNow =
+        getIndiaDateTime();
 
-  console.log(
-    "\n========================================"
-  );
+    if (
+        selectedDate <
+        indiaNow.date
+    ) {
+        const error =
+            new Error(
+                "Journey date cannot be in the past."
+            );
 
-  console.log(
-    "📅 JOURNEY DATE VALIDATION"
-  );
+        error.statusCode =
+            400;
 
-  console.log(
-    "========================================"
-  );
+        throw error;
+    }
 
-  console.log(
-    "Selected Date:",
-    selectedDate
-  );
+    if (
+        selectedDate >
+        indiaNow.date
+    ) {
+        return;
+    }
 
-  console.log(
-    "India Today:",
-    indiaNow.date
-  );
+    if (
+        !Array.isArray(
+            routeStops
+        ) ||
+        routeStops.length === 0
+    ) {
+        const error =
+            new Error(
+                "Unable to determine the train timetable for today's journey."
+            );
 
-  // =======================================================
-  // PAST DATE
-  // =======================================================
+        error.statusCode =
+            400;
 
-  if (
-    selectedDate <
-    indiaNow.date
-  ) {
-    const error = new Error(
-      "Journey date cannot be in the past."
-    );
+        throw error;
+    }
 
-    error.statusCode = 400;
+    const boardingStop =
+        routeStops[0];
 
-    throw error;
-  }
+    const boardingStation =
+        String(
+            boardingStop.code ||
+                ""
+        )
+            .trim()
+            .toUpperCase();
 
-  // =======================================================
-  // FUTURE DATE
-  // =======================================================
+    const departure =
+        String(
+            boardingStop.departure ||
+                ""
+        ).trim();
 
-  if (
-    selectedDate >
-    indiaNow.date
-  ) {
-    console.log(
-      "✅ Future journey date."
-    );
+    if (
+        !departure ||
+        departure ===
+            "DSTN" ||
+        departure ===
+            "DSTN."
+    ) {
+        const error =
+            new Error(
+                `Unable to determine today's departure time from ${boardingStation}.`
+            );
 
-    console.log(
-      "========================================\n"
-    );
+        error.statusCode =
+            400;
 
-    return;
-  }
+        throw error;
+    }
 
-  // =======================================================
-  // TODAY
-  // =======================================================
+    const departureMinutes =
+        parseTimeToMinutes(
+            departure
+        );
 
-  console.log(
-    "📍 Selected journey date is TODAY."
-  );
+    if (
+        departureMinutes ===
+        null
+    ) {
+        const error =
+            new Error(
+                `Unable to determine today's departure time from ${boardingStation}.`
+            );
 
-  if (
-    !Array.isArray(routeStops) ||
-    routeStops.length === 0
-  ) {
-    const error = new Error(
-      "Unable to determine the train timetable for today's journey."
-    );
+        error.statusCode =
+            400;
 
-    error.statusCode = 400;
+        throw error;
+    }
 
-    throw error;
-  }
+    if (
+        departureMinutes <=
+        indiaNow.minutes
+    ) {
+        const error =
+            new Error(
+                `Train ${boardingStation} has already departed today at ${departure}. Please select a future journey date.`
+            );
 
-  const boardingStop =
-    routeStops[0];
+        error.statusCode =
+            400;
 
-  if (!boardingStop) {
-    const error = new Error(
-      "Unable to determine the boarding station timetable."
-    );
-
-    error.statusCode = 400;
-
-    throw error;
-  }
-
-  const boardingStation =
-    String(
-      boardingStop.code || ""
-    )
-      .trim()
-      .toUpperCase();
-
-  const departure =
-    String(
-      boardingStop.departure || ""
-    ).trim();
-
-  console.log(
-    "Boarding Station:",
-    boardingStation
-  );
-
-  console.log(
-    "Train Departure:",
-    departure
-  );
-
-  if (
-    !departure ||
-    departure === "DSTN" ||
-    departure === "DSTN."
-  ) {
-    const error = new Error(
-      `Unable to determine today's departure time from ${boardingStation}.`
-    );
-
-    error.statusCode = 400;
-
-    throw error;
-  }
-
-  const departureMinutes =
-    parseTimeToMinutes(
-      departure
-    );
-
-  if (
-    departureMinutes === null
-  ) {
-    const error = new Error(
-      `Unable to determine today's departure time from ${boardingStation}.`
-    );
-
-    error.statusCode = 400;
-
-    throw error;
-  }
-
-  console.log(
-    "Current India Time:",
-    `${String(
-      Math.floor(
-        indiaNow.minutes / 60
-      )
-    ).padStart(2, "0")}:${String(
-      indiaNow.minutes % 60
-    ).padStart(2, "0")}`
-  );
-
-  if (
-    departureMinutes <=
-    indiaNow.minutes
-  ) {
-    console.log(
-      "❌ TRAIN HAS ALREADY DEPARTED TODAY."
-    );
-
-    console.log(
-      "========================================\n"
-    );
-
-    const error = new Error(
-      `Train ${boardingStation} has already departed today at ${departure}. Please select a future journey date.`
-    );
-
-    error.statusCode = 400;
-
-    throw error;
-  }
-
-  console.log(
-    "✅ TRAIN HAS NOT DEPARTED YET."
-  );
-
-  console.log(
-    "✅ TODAY JOURNEY IS ALLOWED."
-  );
-
-  console.log(
-    "========================================\n"
-  );
+        throw error;
+    }
 };
 
 // =========================================================
 // CREATE JOURNEY
 // =========================================================
 
-const createJourney = async (
-  journeyData,
-  userId
-) => {
-  const trainNumber =
-    String(
-      journeyData.trainNumber || ""
-    ).trim();
+const createJourney =
+    async (
+        journeyData,
+        userId
+    ) => {
+        const trainNumber =
+            String(
+                journeyData.trainNumber ||
+                    ""
+            ).trim();
 
-  const boardingStation =
-    String(
-      journeyData.boardingStation ||
-        ""
-    )
-      .trim()
-      .toUpperCase();
+        const boardingStation =
+            String(
+                journeyData.boardingStation ||
+                    ""
+            )
+                .trim()
+                .toUpperCase();
 
-  const destinationStation =
-    String(
-      journeyData.destinationStation ||
-        ""
-    )
-      .trim()
-      .toUpperCase();
+        const destinationStation =
+            String(
+                journeyData.destinationStation ||
+                    ""
+            )
+                .trim()
+                .toUpperCase();
 
-  if (
-    !trainNumber ||
-    !boardingStation ||
-    !destinationStation
-  ) {
-    const error = new Error(
-      "Train number, source station and destination station are required."
-    );
+        if (
+            !trainNumber ||
+            !boardingStation ||
+            !destinationStation
+        ) {
+            const error =
+                new Error(
+                    "Train number, source station and destination station are required."
+                );
 
-    error.statusCode = 400;
+            error.statusCode =
+                400;
 
-    throw error;
-  }
+            throw error;
+        }
 
-  if (
-    boardingStation ===
-    destinationStation
-  ) {
-    const error = new Error(
-      "Boarding and destination stations cannot be the same."
-    );
+        if (
+            boardingStation ===
+            destinationStation
+        ) {
+            const error =
+                new Error(
+                    "Boarding and destination stations cannot be the same."
+                );
 
-    error.statusCode = 400;
+            error.statusCode =
+                400;
 
-    throw error;
-  }
+            throw error;
+        }
 
-  // =======================================================
-  // VALIDATE TRAIN ROUTE
-  // =======================================================
+        // =====================================================
+        // ROUTE VALIDATION
+        // =====================================================
 
-  console.log(
-    "\n========================================"
-  );
+        let routeValidation;
 
-  console.log(
-    "🚆 VALIDATING JOURNEY ROUTE"
-  );
+        try {
+            routeValidation =
+                await getStopsBetweenService(
+                    {
+                        trainNumber,
+                        from:
+                            boardingStation,
+                        to:
+                            destinationStation,
+                    }
+                );
+        } catch (error) {
+            const routeError =
+                new Error(
+                    error.message ||
+                        `Unable to validate route for train ${trainNumber}.`
+                );
 
-  console.log(
-    "========================================"
-  );
+            routeError.statusCode =
+                400;
 
-  console.log(
-    "Train:",
-    trainNumber
-  );
+            throw routeError;
+        }
 
-  console.log(
-    "Source:",
-    boardingStation
-  );
+        if (
+            !routeValidation ||
+            routeValidation.found !==
+                true
+        ) {
+            const error =
+                new Error(
+                    routeValidation?.message ||
+                        `Train ${trainNumber} does not operate from ${boardingStation} to ${destinationStation}.`
+                );
 
-  console.log(
-    "Destination:",
-    destinationStation
-  );
+            error.statusCode =
+                400;
 
-  let routeValidation;
+            throw error;
+        }
 
-  try {
-    routeValidation =
-      await getStopsBetweenService({
-        trainNumber,
-        from: boardingStation,
-        to: destinationStation,
-      });
-  } catch (error) {
-    console.error(
-      "❌ TRAIN ROUTE VALIDATION ERROR:",
-      error.message
-    );
+        // =====================================================
+        // DATE VALIDATION
+        // =====================================================
 
-    const routeError =
-      new Error(
-        error.message ||
-          `Unable to validate route for train ${trainNumber}.`
-      );
+        validateJourneyDate(
+            journeyData.journeyDate,
+            routeValidation.stops
+        );
 
-    routeError.statusCode =
-      400;
+        // =====================================================
+        // CREATE
+        // =====================================================
 
-    throw routeError;
-  }
+        const journey =
+            await Journey.create(
+                {
+                    userId,
 
-  if (
-    !routeValidation ||
-    routeValidation.found !== true
-  ) {
-    console.log(
-      "❌ JOURNEY ROUTE INVALID"
-    );
+                    trainNumber,
 
-    console.log(
-      routeValidation?.message ||
-        "Selected source and destination are not valid for this train."
-    );
+                    journeyDate:
+                        journeyData.journeyDate,
 
-    const error = new Error(
-      routeValidation?.message ||
-        `Train ${trainNumber} does not operate from ${boardingStation} to ${destinationStation}.`
-    );
+                    boardingStation,
 
-    error.statusCode = 400;
+                    destinationStation,
 
-    throw error;
-  }
+                    allowedClasses:
+                        journeyData.allowedClasses,
 
-  console.log(
-    "✅ JOURNEY ROUTE VALIDATED"
-  );
+                    allowMixedClass:
+                        journeyData.allowMixedClass,
 
-  console.log(
-    `Train: ${trainNumber}`
-  );
+                    preferredStrategy:
+                        journeyData.preferredStrategy,
+                }
+            );
 
-  console.log(
-    `Source: ${boardingStation}`
-  );
+        console.log(
+            "✅ JOURNEY CREATED:",
+            journey._id
+        );
 
-  console.log(
-    `Destination: ${destinationStation}`
-  );
-
-  console.log(
-    `Stops in journey: ${routeValidation.count}`
-  );
-
-  console.log(
-    "========================================\n"
-  );
-
-  // =======================================================
-  // VALIDATE JOURNEY DATE
-  // =======================================================
-
-  validateJourneyDate(
-    journeyData.journeyDate,
-    routeValidation.stops
-  );
-
-  // =======================================================
-  // CREATE JOURNEY
-  // =======================================================
-
-  const journey =
-    await Journey.create({
-      userId,
-
-      trainNumber,
-
-      journeyDate:
-        journeyData.journeyDate,
-
-      boardingStation,
-
-      destinationStation,
-
-      allowedClasses:
-        journeyData.allowedClasses,
-
-      allowMixedClass:
-        journeyData.allowMixedClass,
-
-      preferredStrategy:
-        journeyData.preferredStrategy,
-    });
-
-  console.log(
-    "✅ JOURNEY CREATED:",
-    journey._id
-  );
-
-  return journey;
-};
+        return journey;
+    };
 
 // =========================================================
-// GET ACTIVE JOURNEYS
+// GET CHART + EXPECTED CHART TIMING
 // =========================================================
 
-const getUserJourneys =
-  async (userId) => {
-    const journeys =
-      await Journey.find({
-        userId,
+const getJourneyChartInformation =
+    async (
+        journey
+    ) => {
+        const journeyDate =
+            normalizeJourneyDate(
+                journey.journeyDate
+            );
 
-        status: {
-          $nin: [
-            "COMPLETED",
-            "CANCELLED",
-          ],
-        },
-      })
-        .sort({
-          createdAt: -1,
-        })
-        .lean();
+        const chart =
+            await Chart.findOne(
+                {
+                    trainNumber:
+                        journey.trainNumber,
 
-    return attachChartInformation(
-      journeys
-    );
-  };
+                    journeyDate:
+                        journeyDate,
 
-// =========================================================
-// GET JOURNEY HISTORY
-// =========================================================
+                    boardingStation:
+                        journey.boardingStation,
+                }
+            )
+                .sort({
+                    fetchedAt: -1,
+                })
+                .lean();
 
-const getJourneyHistory =
-  async (userId) => {
-    const journeys =
-      await Journey.find({
-        userId,
+        // =====================================================
+        // LOAD TRAIN ROUTE
+        // =====================================================
 
-        status: {
-          $in: [
-            "COMPLETED",
-            "CANCELLED",
-          ],
-        },
-      })
-        .sort({
-          completedAt: -1,
-          updatedAt: -1,
-        })
-        .lean();
+        let routeStops = [];
 
-    return attachChartInformation(
-      journeys
-    );
-  };
+        try {
+            routeStops =
+                await getTrainStopsService(
+                    {
+                        trainNumber:
+                            journey.trainNumber,
+                    }
+                );
+        } catch (error) {
+            console.log(
+                "⚠️ Unable to load timetable for chart timing:",
+                error.message
+            );
+        }
+
+        let originStop = null;
+
+        if (
+            Array.isArray(
+                routeStops
+            ) &&
+            routeStops.length
+        ) {
+            const sorted =
+                [...routeStops].sort(
+                    (a, b) =>
+                        Number(
+                            a.no || 0
+                        ) -
+                        Number(
+                            b.no || 0
+                        )
+                );
+
+            originStop =
+                sorted[0] || null;
+        }
+
+        // =====================================================
+        // EXPECTED CHART TIMING
+        // =====================================================
+
+        let expectedFirstChartTime =
+            null;
+
+        let expectedFinalChartTime =
+            null;
+
+        if (
+            originStop?.departure
+        ) {
+            try {
+                const timing =
+                    calculateChartTiming(
+                        {
+                            journeyDate,
+                            originDeparture:
+                                originStop.departure,
+                        }
+                    );
+
+                expectedFirstChartTime =
+                    timing.firstChartTime;
+
+                expectedFinalChartTime =
+                    timing.finalChartTime;
+            } catch (error) {
+                console.log(
+                    "⚠️ Expected chart timing unavailable:",
+                    error.message
+                );
+            }
+        }
+
+        // =====================================================
+        // RETURN
+        // =====================================================
+
+        return {
+            prepared:
+                chart?.chartPrepared ===
+                true,
+
+            chartPrepared:
+                chart?.chartPrepared ===
+                true,
+
+            chartOneDate:
+                chart?.chartOneDate ||
+                null,
+
+            chartTwoDate:
+                chart?.chartTwoDate ||
+                null,
+
+            expectedFirstChartTime,
+
+            expectedFinalChartTime,
+
+            fetchedAt:
+                chart?.fetchedAt ||
+                null,
+
+            finalChartPrepared:
+                Boolean(
+                    chart?.chartTwoDate
+                ),
+        };
+    };
 
 // =========================================================
 // ATTACH CHART INFORMATION
 // =========================================================
 
 const attachChartInformation =
-  async (journeys) => {
-    return await Promise.all(
-      journeys.map(
-        async (journey) => {
-          const chart =
-            await Chart.findOne({
-              trainNumber:
-                journey.trainNumber,
+    async (
+        journeys
+    ) => {
+        return await Promise.all(
+            journeys.map(
+                async (
+                    journey
+                ) => {
+                    const chart =
+                        await getJourneyChartInformation(
+                            journey
+                        );
 
-              journeyDate:
-                new Date(
-                  journey.journeyDate
-                )
-                  .toISOString()
-                  .split("T")[0],
+                    return {
+                        ...journey,
 
-              boardingStation:
-                journey.boardingStation,
-            })
-              .sort({
-                fetchedAt: -1,
-              })
-              .lean();
-
-          return {
-            ...journey,
-
-            chart: chart
-              ? {
-                  prepared:
-                    chart.chartPrepared ===
-                    true,
-
-                  chartPrepared:
-                    chart.chartPrepared ===
-                    true,
-
-                  chartOneDate:
-                    chart.chartOneDate ||
-                    null,
-
-                  chartTwoDate:
-                    chart.chartTwoDate ||
-                    null,
-
-                  fetchedAt:
-                    chart.fetchedAt ||
-                    null,
+                        chart,
+                    };
                 }
-              : {
-                  prepared: false,
-
-                  chartPrepared:
-                    false,
-
-                  chartOneDate: null,
-
-                  chartTwoDate: null,
-
-                  fetchedAt: null,
-                },
-          };
-        }
-      )
-    );
-  };
+            )
+        );
+    };
 
 // =========================================================
-// GET SINGLE JOURNEY BY ID
+// GET ACTIVE JOURNEYS
+// =========================================================
+
+const getUserJourneys =
+    async (
+        userId
+    ) => {
+        const journeys =
+            await Journey.find(
+                {
+                    userId,
+
+                    status: {
+                        $nin: [
+                            "COMPLETED",
+                            "CANCELLED",
+                        ],
+                    },
+                }
+            )
+                .sort({
+                    createdAt: -1,
+                })
+                .lean();
+
+        return attachChartInformation(
+            journeys
+        );
+    };
+
+// =========================================================
+// GET HISTORY
+// =========================================================
+
+const getJourneyHistory =
+    async (
+        userId
+    ) => {
+        const journeys =
+            await Journey.find(
+                {
+                    userId,
+
+                    status: {
+                        $in: [
+                            "COMPLETED",
+                            "CANCELLED",
+                        ],
+                    },
+                }
+            )
+                .sort({
+                    completedAt: -1,
+                    updatedAt: -1,
+                })
+                .lean();
+
+        return attachChartInformation(
+            journeys
+        );
+    };
+
+// =========================================================
+// GET SINGLE JOURNEY
 // =========================================================
 
 const getJourneyById =
-  async (
-    journeyId,
-    userId
-  ) => {
-    const journey =
-      await Journey.findOne({
-        _id: journeyId,
-        userId,
-      }).lean();
+    async (
+        journeyId,
+        userId
+    ) => {
+        const journey =
+            await Journey.findOne(
+                {
+                    _id: journeyId,
+                    userId,
+                }
+            ).lean();
 
-    if (!journey) {
-      const error =
-        new Error(
-          "Journey request not found."
-        );
+        if (!journey) {
+            const error =
+                new Error(
+                    "Journey request not found."
+                );
 
-      error.statusCode = 404;
+            error.statusCode =
+                404;
 
-      throw error;
-    }
+            throw error;
+        }
 
-    const result =
-      await attachChartInformation([
-        journey,
-      ]);
+        const result =
+            await attachChartInformation(
+                [journey]
+            );
 
-    return result[0];
-  };
+        return result[0];
+    };
 
 // =========================================================
 // DELETE JOURNEY
 // =========================================================
 
 const deleteJourney =
-  async (
-    journeyId,
-    userId
-  ) => {
-    console.log(
-      "\n========================================"
-    );
+    async (
+        journeyId,
+        userId
+    ) => {
+        const journey =
+            await Journey.findOne(
+                {
+                    _id: journeyId,
+                    userId,
+                }
+            );
 
-    console.log(
-      "🗑️ DELETING JOURNEY"
-    );
+        if (!journey) {
+            const error =
+                new Error(
+                    "Journey request not found or access denied."
+                );
 
-    console.log(
-      "========================================"
-    );
+            error.statusCode =
+                404;
 
-    const journey =
-      await Journey.findOne({
-        _id: journeyId,
-        userId,
-      });
+            throw error;
+        }
 
-    if (!journey) {
-      const error =
-        new Error(
-          "Journey request not found or access denied."
+        await Recommendation.deleteMany(
+            {
+                journey:
+                    journeyId,
+            }
         );
 
-      error.statusCode = 404;
+        await Journey.deleteOne(
+            {
+                _id: journeyId,
+                userId,
+            }
+        );
 
-      throw error;
-    }
-
-    const recommendationResult =
-      await Recommendation.deleteMany({
-        journey: journeyId,
-      });
-
-    console.log(
-      "Recommendations deleted:",
-      recommendationResult.deletedCount
-    );
-
-    await Journey.deleteOne({
-      _id: journeyId,
-      userId,
-    });
-
-    console.log(
-      "✅ Journey deleted successfully."
-    );
-
-    console.log(
-      "========================================\n"
-    );
-
-    return journey;
-  };
+        return journey;
+    };
 
 // =========================================================
 // EXPORT
 // =========================================================
 
 module.exports = {
-  createJourney,
+    createJourney,
 
-  getUserJourneys,
+    getUserJourneys,
 
-  getJourneyHistory,
+    getJourneyHistory,
 
-  getJourneyById,
+    getJourneyById,
 
-  deleteJourney,
+    deleteJourney,
 
-  getTrainFinalStation,
+    getTrainFinalStation,
 
-  hasTrainReachedFinalStation,
+    hasTrainReachedFinalStation,
 
-  completeJourney,
+    completeJourney,
 
-  checkAndCompleteJourney,
+    checkAndCompleteJourney,
 };

@@ -734,75 +734,50 @@ class ChartWorkflowService {
             }
 
 
-            // =================================================
-            // BEFORE EXPECTED CHART
-            // =================================================
+           // =================================================
+// BEFORE EXPECTED CHART
+// =================================================
 
-            if (
-                chartTiming &&
-                !chartTiming.shouldCheckChart
-            ) {
+if (
+    chartTiming &&
+    !chartTiming.shouldCheckChart
+) {
 
-                console.log(
-                    "\n========================================"
-                );
+    console.log(
+        "\n========================================"
+    );
 
+    console.log(
+        "⏳ TOO EARLY FOR CHART CHECK"
+    );
 
-                console.log(
-                    "⏳ TOO EARLY FOR CHART CHECK"
-                );
+    console.log(
+        "========================================"
+    );
 
+    console.log(
+        "Expected First Chart:",
+        chartTiming.firstChartTime
+    );
 
-                console.log(
-                    "========================================"
-                );
+    console.log(
+        "No IRCTC chart API call will be made yet."
+    );
 
+    console.log(
+        "No vacant berth API call will be made."
+    );
 
-                console.log(
-                    "Expected First Chart:",
-                    chartTiming.firstChartTime
-                );
+    console.log(
+        "🛑 Journey Optimizer will NOT run."
+    );
 
+    await this.clearRecommendations(
+        journey._id
+    );
 
-                console.log(
-                    "No IRCTC chart API call will be made yet."
-                );
-
-
-                console.log(
-                    "No vacant berth API call will be made."
-                );
-
-
-                const waitChartData = {
-
-                    chartPrepared:
-                        false,
-
-                    chartOneTime:
-                        chartTiming.firstChartTime,
-
-                    chartTwoTime:
-                        chartTiming.finalChartTime,
-
-                    firstChartTime:
-                        chartTiming.firstChartTime,
-
-                    finalChartTime:
-                        chartTiming.finalChartTime,
-
-                    reason:
-                        "BEFORE_EXPECTED_CHART_TIME",
-                };
-
-
-                return await this.runOptimizer(
-                    journey,
-                    waitChartData,
-                    []
-                );
-            }
-
+    return null;
+}
 
             // =================================================
             // CALL IRCTC CHART API
@@ -924,70 +899,47 @@ class ChartWorkflowService {
 
 
             // =================================================
-            // CHART NOT PREPARED
-            // =================================================
+// CHART NOT PREPARED
+// =================================================
 
-            if (
-                !chart.chartPrepared
-            ) {
+if (
+    !chart.chartPrepared
+) {
 
-                console.log(
-                    "\n========================================"
-                );
+    console.log(
+        "\n========================================"
+    );
 
+    console.log(
+        "🟡 IRCTC CHART NOT PREPARED"
+    );
 
-                console.log(
-                    "🟡 IRCTC CHART NOT PREPARED"
-                );
+    console.log(
+        "========================================"
+    );
 
+    console.log(
+        "Expected chart window has been reached."
+    );
 
-                console.log(
-                    "========================================"
-                );
+    console.log(
+        "But IRCTC says the chart is still not prepared."
+    );
 
+    console.log(
+        "No vacancy API call will be made."
+    );
 
-                console.log(
-                    "Expected chart window has been reached."
-                );
+    console.log(
+        "🛑 Journey Optimizer will NOT run."
+    );
 
+    await this.clearRecommendations(
+        journey._id
+    );
 
-                console.log(
-                    "But IRCTC says the chart is still not prepared."
-                );
-
-
-                console.log(
-                    "No vacancy API call will be made."
-                );
-
-
-                const waitChartData = {
-
-                    ...chart,
-
-                    chartPrepared:
-                        false,
-
-                    firstChartTime:
-                        chartTiming?.firstChartTime ||
-                        null,
-
-                    finalChartTime:
-                        chartTiming?.finalChartTime ||
-                        null,
-
-                    reason:
-                        "IRCTC_CHART_NOT_PREPARED",
-                };
-
-
-                return await this.runOptimizer(
-                    journey,
-                    waitChartData,
-                    []
-                );
-            }
-
+    return null;
+}
 
             // =================================================
             // CHART PREPARED

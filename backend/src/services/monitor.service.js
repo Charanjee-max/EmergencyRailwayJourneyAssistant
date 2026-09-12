@@ -1,9 +1,28 @@
-const Journey = require("../modules/journey/journey.model");
-const axios = require("axios");
+// =========================================================
+// ERJA - JOURNEY MONITOR SERVICE
+// =========================================================
+//
+// Responsibilities:
+// 1. Find all active journeys
+// 2. Check whether train has reached its final station
+// 3. Complete the journey when train reaches final station
+// 4. Run Workflow Manager
+// 5. Workflow Manager handles:
+//      - Chart timing
+//      - IRCTC chart preparation
+//      - IRCTC vacant berth data
+//      - Journey optimization
+//      - Recommendations
+//
+// IMPORTANT:
+// RailRadar seat availability is NO LONGER USED here.
+//
+// RailRadar should only be used by the dedicated
+// live-train-status functionality.
+//
+// =========================================================
 
-const {
-    sendNotification,
-} = require("./notification.service");
+const Journey = require("../modules/journey/journey.model");
 
 const workflowManager =
     require("../workflows/workflowManager");
@@ -11,51 +30,6 @@ const workflowManager =
 const {
     checkAndCompleteJourney,
 } = require("../modules/journey/journey.service");
-
-const RAILRADAR_TIMEOUT = 15000;
-
-// =========================================================
-// RAILRADAR QUOTA STATE
-// =========================================================
-//
-// Once RailRadar returns monthly quota exceeded,
-// ERJA stops calling the RailRadar seat API for the
-// remainder of the current server session.
-//
-// The flag resets when Node.js server restarts.
-// =========================================================
-
-let railRadarQuotaExceeded = false;
-
-
-// =========================================================
-// CHECK RAILRADAR QUOTA STATE
-// =========================================================
-
-const isRailRadarQuotaExceeded = () => {
-    return railRadarQuotaExceeded;
-};
-
-
-// =========================================================
-// MARK RAILRADAR QUOTA AS EXCEEDED
-// =========================================================
-
-const markRailRadarQuotaExceeded = () => {
-
-    if (!railRadarQuotaExceeded) {
-
-        railRadarQuotaExceeded = true;
-
-        console.log(
-            "🚨 RailRadar monthly quota has been exhausted."
-        );
-
-        console.log(
-            "🛑 RailRadar seat monitoring disabled for this server session."
-        );
-    }
-};
 
 
 // =========================================================
@@ -171,6 +145,17 @@ const monitorPendingJourneys = async () => {
                 // Completion is based on the TRAIN'S FINAL
                 // STATION, not passenger destination.
                 //
+                // Example:
+                //
+                // Train route:
+                // SC → BZA → VSKP
+                //
+                // Passenger:
+                // SC → BZA
+                //
+                // Journey remains active until the TRAIN reaches
+                // VSKP.
+                //
                 // =================================================
 
                 try {
@@ -185,6 +170,10 @@ const monitorPendingJourneys = async () => {
                             journey
                         );
 
+
+                    // =================================================
+                    // TRAIN HAS REACHED FINAL STATION
+                    // =================================================
 
                     if (
                         completion?.completed
@@ -212,16 +201,20 @@ const monitorPendingJourneys = async () => {
 
 
                         // -----------------------------------------
-                        // DO NOT RUN:
+                        // DO NOT RUN WORKFLOW
+                        // -----------------------------------------
                         //
-                        // RailRadar
-                        // Workflow
+                        // The journey is finished.
                         //
                         // -----------------------------------------
 
                         continue;
                     }
 
+
+                    // =================================================
+                    // COMPLETION STATUS COULD NOT BE DETERMINED
+                    // =================================================
 
                     if (
                         completion?.determined === false
@@ -250,542 +243,20 @@ const monitorPendingJourneys = async () => {
                         "⚠ Journey completion check failed."
                     );
 
-
                     console.log(
                         completionError.message
                     );
-                }
 
-
-                // =================================================
-                // JOURNEY DATE
-                // =================================================
-
-                const journeyDate =
-                    journey.journeyDate
-                        .toISOString()
-                        .split("T")[0];
-
-
-                // =================================================
-                // GET FIRST ENABLED CLASS
-                // =================================================
-
-                const enabledClass =
-                    journey.allowedClasses?.find(
-                        (item) =>
-                            item.enabled
-                    );
-
-
-                if (
-                    !enabledClass
-                ) {
-
-                    console.log(
-                        "⚠ No enabled class found."
-                    );
-
-                } else {
-
-                    console.log(
-                        `Preferred Class: ${enabledClass.class}`
-                    );
-                }
-
-
-                // =================================================
-                // RAILRADAR SEAT MONITORING
-                // =================================================
-                //
-                // RailRadar is only used here for monitoring.
-                //
-                // ERJA reservation recommendation uses:
-                //
-                // IRCTC chart
-                // IRCTC vacant berth data
-                //
-                // =================================================
-
-                if (
-                    railRadarQuotaExceeded
-                ) {
-
-                    console.log(
-                        "⏭ RailRadar monitoring skipped."
-                    );
-
-                    console.log(
-                        "Reason: monthly quota already exhausted."
-                    );
-
-                } else if (
-                    !enabledClass
-                ) {
-
-                    console.log(
-                        "⏭ RailRadar seat check skipped because no class is enabled."
-                    );
-
-                } else {
-
-                    try {
-
-                        console.log(
-                            "========================================"
-                        );
-
-                        console.log(
-                            "🚆 Calling RailRadar Seat API"
-                        );
-
-                        console.log(
-                            "========================================"
-                        );
-
-
-                        console.log({
-                            trainNumber:
-                                journey.trainNumber,
-
-                            journeyDate,
-
-                            source:
-                                journey.boardingStation,
-
-                            destination:
-                                journey.destinationStation,
-
-                            classCode:
-                                enabledClass.class,
-
-                            quotaCode:
-                                "GN",
-                        });
-
-
-                        // =============================================
-                        // CALL RAILRADAR
-                        // =============================================
-
-                        const response =
-                            await axios.get(
-                                `${process.env.RAILRADAR_BASE_URL}/trains/${journey.trainNumber}/seats`,
-                                {
-                                    headers: {
-                                        Authorization:
-                                            `Bearer ${process.env.RAILRADAR_API_KEY}`,
-                                    },
-
-                                    params: {
-                                        journeyDate,
-
-                                        source:
-                                            journey.boardingStation,
-
-                                        destination:
-                                            journey.destinationStation,
-
-                                        classCode:
-                                            enabledClass.class,
-
-                                        quotaCode:
-                                            "GN",
-                                    },
-
-                                    timeout:
-                                        RAILRADAR_TIMEOUT,
-                                }
-                            );
-
-
-                        console.log(
-                            "✅ Seat Availability Received"
-                        );
-
-
-                        // =============================================
-                        // VALIDATE RESPONSE
-                        // =============================================
-
-                        const calendar =
-                            response?.data?.data?.calendar;
-
-
-                        if (
-                            !Array.isArray(calendar)
-                        ) {
-
-                            console.log(
-                                "⚠ RailRadar response does not contain a valid calendar."
-                            );
-
-                            continue;
-                        }
-
-
-                        // =============================================
-                        // FIND JOURNEY DATE
-                        // =============================================
-
-                        const todayAvailability =
-                            calendar.find(
-                                (item) =>
-                                    item.rawDate ===
-                                    journeyDate
-                            );
-
-
-                        if (
-                            !todayAvailability
-                        ) {
-
-                            console.log(
-                                "⚠ Journey date not found in RailRadar response."
-                            );
-
-                            continue;
-                        }
-
-
-                        // =============================================
-                        // CURRENT AVAILABILITY
-                        // =============================================
-
-                        const currentStatus =
-                            todayAvailability.status ??
-                            null;
-
-
-                        const currentSeats =
-                            todayAvailability.availableSeats ??
-                            null;
-
-
-                        console.log(
-                            `Current Status : ${currentStatus}`
-                        );
-
-                        console.log(
-                            `Current Seats  : ${currentSeats}`
-                        );
-
-
-                        // =============================================
-                        // FIRST MONITORING
-                        // =============================================
-
-                        if (
-                            !journey.lastSeatStatus
-                        ) {
-
-                            journey.lastSeatStatus =
-                                currentStatus;
-
-                            journey.lastAvailableSeats =
-                                currentSeats;
-
-                            journey.lastCheckedAt =
-                                new Date();
-
-
-                            await journey.save();
-
-
-                            console.log(
-                                "📝 Initial seat status saved."
-                            );
-                        }
-
-
-                        // =============================================
-                        // STATUS / SEAT COUNT CHANGED
-                        // =============================================
-
-                        else if (
-
-                            journey.lastSeatStatus !==
-                                currentStatus ||
-
-                            journey.lastAvailableSeats !==
-                                currentSeats
-
-                        ) {
-
-                            const previousStatus =
-                                journey.lastSeatStatus;
-
-
-                            const previousSeats =
-                                journey.lastAvailableSeats;
-
-
-                            console.log(
-                                "========================================"
-                            );
-
-                            console.log(
-                                "🎉 SEAT AVAILABILITY CHANGED"
-                            );
-
-                            console.log(
-                                "========================================"
-                            );
-
-
-                            console.log(
-                                `Journey ID      : ${journey._id}`
-                            );
-
-                            console.log(
-                                `Train Number    : ${journey.trainNumber}`
-                            );
-
-                            console.log(
-                                `Journey Date    : ${journeyDate}`
-                            );
-
-                            console.log(
-                                `Source          : ${journey.boardingStation}`
-                            );
-
-                            console.log(
-                                `Destination     : ${journey.destinationStation}`
-                            );
-
-
-                            console.log(
-                                "----------------------------------------"
-                            );
-
-
-                            console.log(
-                                `Status Changed  : ${previousStatus} → ${currentStatus}`
-                            );
-
-                            console.log(
-                                `Seats Changed   : ${previousSeats} → ${currentSeats}`
-                            );
-
-
-                            // =========================================
-                            // UPDATE DATABASE
-                            // =========================================
-
-                            journey.lastSeatStatus =
-                                currentStatus;
-
-                            journey.lastAvailableSeats =
-                                currentSeats;
-
-                            journey.lastCheckedAt =
-                                new Date();
-
-
-                            await journey.save();
-
-
-                            console.log(
-                                "✅ MongoDB Updated."
-                            );
-
-
-                            // =========================================
-                            // SEND NOTIFICATION
-                            // =========================================
-
-                            try {
-
-                                await sendNotification(
-                                    journey,
-                                    previousStatus,
-                                    currentStatus
-                                );
-
-
-                                console.log(
-                                    "🔔 Notification Sent."
-                                );
-
-                            } catch (
-                                notificationError
-                            ) {
-
-                                console.log(
-                                    "⚠ Notification Failed."
-                                );
-
-
-                                console.log(
-                                    notificationError.message
-                                );
-                            }
-
-
-                            console.log(
-                                "========================================"
-                            );
-                        }
-
-
-                        // =============================================
-                        // NO CHANGE
-                        // =============================================
-
-                        else {
-
-                            journey.lastCheckedAt =
-                                new Date();
-
-
-                            await journey.save();
-
-
-                            console.log(
-                                "ℹ No Change."
-                            );
-                        }
-
-                    } catch (
-                        apiError
-                    ) {
-
-                        console.log(
-                            "========================================"
-                        );
-
-                        console.log(
-                            "❌ RailRadar API Failed"
-                        );
-
-                        console.log(
-                            "========================================"
-                        );
-
-
-                        // =============================================
-                        // RATE LIMIT / MONTHLY QUOTA
-                        // =============================================
-
-                        const quotaExceeded =
-                            apiError.response?.status ===
-                                429 ||
-
-                            apiError.response?.data?.error?.code ===
-                                "TOO_MANY_REQUESTS";
-
-
-                        if (
-                            quotaExceeded
-                        ) {
-
-                            console.log(
-                                "🚨 RailRadar rate limit / monthly quota reached."
-                            );
-
-
-                            console.log(
-                                "🛑 Disabling RailRadar calls for the rest of this server session."
-                            );
-
-
-                            markRailRadarQuotaExceeded();
-
-
-                            if (
-                                apiError.response?.data
-                            ) {
-
-                                console.dir(
-                                    apiError.response.data,
-                                    {
-                                        depth: null,
-                                    }
-                                );
-                            }
-
-                        }
-
-                        // =============================================
-                        // TIMEOUT
-                        // =============================================
-
-                        else if (
-
-                            apiError.code ===
-                                "ECONNABORTED" ||
-
-                            apiError.code ===
-                                "ETIMEDOUT"
-
-                        ) {
-
-                            console.log(
-                                "⏱ RailRadar request timed out."
-                            );
-
-
-                            console.log(
-                                "⏭ Skipping this journey for this cycle."
-                            );
-
-                        }
-
-                        // =============================================
-                        // OTHER HTTP ERRORS
-                        // =============================================
-
-                        else if (
-                            apiError.response
-                        ) {
-
-                            console.log(
-                                `HTTP Status: ${apiError.response.status}`
-                            );
-
-
-                            console.log(
-                                "RailRadar Response:"
-                            );
-
-
-                            console.dir(
-                                apiError.response.data,
-                                {
-                                    depth: null,
-                                }
-                            );
-
-                        }
-
-                        // =============================================
-                        // NETWORK / UNKNOWN ERROR
-                        // =============================================
-
-                        else {
-
-                            console.log(
-                                "Message:",
-                                apiError.message
-                            );
-
-
-                            if (
-                                apiError.code
-                            ) {
-
-                                console.log(
-                                    "Code:",
-                                    apiError.code
-                                );
-                            }
-                        }
-
-
-                        console.log(
-                            "========================================"
-                        );
-                    }
+                    // ---------------------------------------------
+                    // IMPORTANT:
+                    //
+                    // Do NOT stop monitoring the journey just
+                    // because completion check failed.
+                    //
+                    // Workflow Manager can still attempt to
+                    // process the journey.
+                    //
+                    // ---------------------------------------------
                 }
 
 
@@ -793,13 +264,17 @@ const monitorPendingJourneys = async () => {
                 // WORKFLOW MANAGER
                 // =================================================
                 //
-                // IMPORTANT:
+                // Workflow Manager is now the main processing
+                // pipeline for active journeys.
                 //
-                // This is intentionally outside the RailRadar
-                // try/catch.
+                // It handles:
                 //
-                // Therefore RailRadar quota exhaustion does NOT
-                // stop the IRCTC workflow.
+                // 1. Chart timing
+                // 2. IRCTC chart preparation
+                // 3. IRCTC vacant berth API
+                // 4. Reservation graph
+                // 5. Journey optimizer
+                // 6. Recommendation generation
                 //
                 // =================================================
 
@@ -864,6 +339,7 @@ const monitorPendingJourneys = async () => {
                     );
                 }
 
+
             } catch (
                 journeyError
             ) {
@@ -872,7 +348,7 @@ const monitorPendingJourneys = async () => {
                 // INDIVIDUAL JOURNEY ERROR
                 // =================================================
                 //
-                // One journey failure must not stop other journeys.
+                // One journey failure must NOT stop other journeys.
                 //
                 // =================================================
 
@@ -935,6 +411,7 @@ const monitorPendingJourneys = async () => {
             "========================================"
         );
 
+
     } catch (
         error
     ) {
@@ -984,5 +461,4 @@ const monitorPendingJourneys = async () => {
 
 module.exports = {
     monitorPendingJourneys,
-    isRailRadarQuotaExceeded,
 };

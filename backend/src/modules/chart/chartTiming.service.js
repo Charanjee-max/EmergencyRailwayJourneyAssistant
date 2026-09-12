@@ -1,21 +1,15 @@
 // =========================================================
 // CHART TIMING SERVICE
-// Based on Railway Board December 2025 chart preparation rule
+// Based on Railway Board chart preparation rule
 // =========================================================
 
-const INDIA_TIME_ZONE = "Asia/Kolkata";
+const INDIA_OFFSET_MINUTES = 330;
 
 // ---------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------
 
 const pad = (value) => String(value).padStart(2, "0");
-
-const formatDate = (date) => {
-  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(
-    date.getDate()
-  )}`;
-};
 
 const parseTime = (time) => {
   if (!time) return null;
@@ -46,7 +40,12 @@ const parseTime = (time) => {
 };
 
 // ---------------------------------------------------------
-// Build India-local Date without depending on server TZ
+// Create an exact India-local Date
+//
+// Example:
+// 2026-09-15 18:40 IST
+// becomes:
+// 2026-09-15T13:10:00.000Z
 // ---------------------------------------------------------
 
 const createIndiaDate = (
@@ -55,25 +54,77 @@ const createIndiaDate = (
   minutes,
   dayOffset = 0
 ) => {
-  const base = new Date(`${journeyDate}T00:00:00+05:30`);
-
-  if (Number.isNaN(base.getTime())) {
-    throw new Error(`Invalid journey date: ${journeyDate}`);
+  if (!journeyDate) {
+    throw new Error("Journey date is required.");
   }
 
-  base.setUTCDate(base.getUTCDate() + dayOffset);
-  base.setUTCHours(
-    hours - 5,
-    minutes - 30,
-    0,
-    0
+  // Normalize Date object / ISO date into YYYY-MM-DD
+  let datePart;
+
+  if (journeyDate instanceof Date) {
+    if (Number.isNaN(journeyDate.getTime())) {
+      throw new Error("Invalid journey date.");
+    }
+
+    // Extract calendar date in India
+    const parts = new Intl.DateTimeFormat("en-CA", {
+      timeZone: "Asia/Kolkata",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+    }).formatToParts(journeyDate);
+
+    const values = {};
+
+    for (const part of parts) {
+      if (part.type !== "literal") {
+        values[part.type] = part.value;
+      }
+    }
+
+    datePart = `${values.year}-${values.month}-${values.day}`;
+  } else {
+    const stringDate = String(journeyDate).trim();
+
+    const match = stringDate.match(
+      /^(\d{4})-(\d{2})-(\d{2})/
+    );
+
+    if (!match) {
+      throw new Error(
+        `Invalid journey date: ${journeyDate}`
+      );
+    }
+
+    datePart = `${match[1]}-${match[2]}-${match[3]}`;
+  }
+
+  // Create UTC representation of the requested IST time.
+  //
+  // IST = UTC + 5:30
+  //
+  // Therefore:
+  // UTC = IST - 5:30
+
+  const [year, month, day] = datePart
+    .split("-")
+    .map(Number);
+
+  const utcMilliseconds = Date.UTC(
+    year,
+    month - 1,
+    day + dayOffset,
+    hours,
+    minutes
   );
 
-  return base;
+  return new Date(
+    utcMilliseconds - INDIA_OFFSET_MINUTES * 60 * 1000
+  );
 };
 
 // ---------------------------------------------------------
-// Calculate first chart time
+// First chart
 // ---------------------------------------------------------
 
 const calculateFirstChartTime = ({
@@ -92,16 +143,23 @@ const calculateFirstChartTime = ({
     );
   }
 
-  const { hours, minutes, totalMinutes } = parsed;
+  const {
+    hours,
+    minutes,
+    totalMinutes,
+  } = parsed;
 
   // -------------------------------------------------------
   // RULE 1
   //
   // 05:01 - 14:00
-  // First chart: previous day 20:00
+  // First chart target: previous day 20:00
   // -------------------------------------------------------
 
-  if (totalMinutes >= 301 && totalMinutes <= 840) {
+  if (
+    totalMinutes >= 301 &&
+    totalMinutes <= 840
+  ) {
     return createIndiaDate(
       journeyDate,
       20,
@@ -114,10 +172,13 @@ const calculateFirstChartTime = ({
   // RULE 2
   //
   // 14:01 - 23:59
-  // First chart: 10 hours before
+  // First chart target: 10 hours before departure
   // -------------------------------------------------------
 
-  if (totalMinutes >= 841 && totalMinutes <= 1439) {
+  if (
+    totalMinutes >= 841 &&
+    totalMinutes <= 1439
+  ) {
     const departure = createIndiaDate(
       journeyDate,
       hours,
@@ -125,7 +186,8 @@ const calculateFirstChartTime = ({
     );
 
     return new Date(
-      departure.getTime() - 10 * 60 * 60 * 1000
+      departure.getTime() -
+        10 * 60 * 60 * 1000
     );
   }
 
@@ -133,9 +195,7 @@ const calculateFirstChartTime = ({
   // RULE 3
   //
   // 00:00 - 05:00
-  // First chart: 10 hours before
-  //
-  // Departure is early morning on journey date.
+  // First chart target: 10 hours before departure
   // -------------------------------------------------------
 
   const departure = createIndiaDate(
@@ -145,7 +205,8 @@ const calculateFirstChartTime = ({
   );
 
   return new Date(
-    departure.getTime() - 10 * 60 * 60 * 1000
+    departure.getTime() -
+      10 * 60 * 60 * 1000
   );
 };
 
@@ -171,8 +232,11 @@ const calculateFinalChartTime = ({
     parsed.minutes
   );
 
+  // Final chart target: 30 minutes before departure
+
   return new Date(
-    departure.getTime() - 30 * 60 * 1000
+    departure.getTime() -
+      30 * 60 * 1000
   );
 };
 
@@ -184,15 +248,17 @@ const calculateChartTiming = ({
   journeyDate,
   originDeparture,
 }) => {
-  const firstChartTime = calculateFirstChartTime({
-    journeyDate,
-    originDeparture,
-  });
+  const firstChartTime =
+    calculateFirstChartTime({
+      journeyDate,
+      originDeparture,
+    });
 
-  const finalChartTime = calculateFinalChartTime({
-    journeyDate,
-    originDeparture,
-  });
+  const finalChartTime =
+    calculateFinalChartTime({
+      journeyDate,
+      originDeparture,
+    });
 
   const now = new Date();
 
@@ -210,6 +276,10 @@ const calculateChartTiming = ({
       now >= firstChartTime,
   };
 };
+
+// ---------------------------------------------------------
+// Exports
+// ---------------------------------------------------------
 
 module.exports = {
   calculateFirstChartTime,

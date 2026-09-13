@@ -1,21 +1,36 @@
+"use strict";
+
 const express = require("express");
+
+const authenticate = require("../../middleware/auth.middleware");
+
+const {
+    getTrainClasses,
+} = require("./chartClass.controller");
+
+// ---------------------------------------------------------
+// Router
+// ---------------------------------------------------------
 
 const router = express.Router();
 
-const chartController = require("./chart.controller");
+// ---------------------------------------------------------
+// GET TRAIN CLASSES
+//
+// GET /api/chart/classes
+//
+// Query:
+// trainNumber
+// journeyDate
+// boardingStation
+//
+// Authentication required.
+// ---------------------------------------------------------
 
-/**
- * ==========================================
- * Train Composition
- * ==========================================
- */
-router.post("/test", chartController.testChart);
-
-/**
- * ==========================================
- * Vacant Berth
- * ==========================================
- */
-router.post("/vacant-berth", chartController.fetchVacantBerth);
+router.get(
+    "/classes",
+    authenticate,
+    getTrainClasses
+);
 
 module.exports = router;

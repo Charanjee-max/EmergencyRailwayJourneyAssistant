@@ -1,148 +1,450 @@
 const {
-  searchTrainService,
-  getLiveTrainStatusService,
-  getSeatAvailabilityService,
-  getTrainStopsService,
-  checkTrainStopService,
-  getStopsBetweenService,
+    searchTrainService,
+    getLiveTrainStatusService,
+    getSeatAvailabilityService,
+    getTrainStopsService,
+    checkTrainStopService,
+    getStopsBetweenService,
 } = require("./train.service");
 
+const {
+    searchTrainValidation,
+    liveTrainValidation,
+    seatAvailabilityValidation,
+    trainStopsValidation,
+    checkTrainStopValidation,
+    stopsBetweenValidation,
+} = require("./train.validation");
+
+
 // ============================================================
-// Search Train
+// VALIDATION RESPONSE
 // ============================================================
 
-const searchTrain = async (req, res) => {
-  try {
-    const result = await searchTrainService(req.query);
+const validationErrorResponse = (
+    res,
+    error
+) => {
 
-    return res.status(200).json({
-      success: true,
-      message: "Train search successful.",
-      data: result,
+    return res.status(400).json({
+
+        success: false,
+
+        message:
+            "Validation failed.",
+
+        errors:
+            error.details.map((err) => ({
+
+                field:
+                    err.path.join("."),
+
+                message:
+                    err.message,
+
+            })),
+
     });
-  } catch (error) {
-    return res.status(500).json({
-      success: false,
-      message: error.message,
-    });
-  }
 };
 
+
 // ============================================================
-// Live Train Running Status
+// SEARCH TRAIN
 // ============================================================
 
-const getLiveTrainStatus = async (req, res) => {
-  try {
-    const result = await getLiveTrainStatusService(req.query);
+const searchTrain = async (
+    req,
+    res
+) => {
 
-    return res.status(200).json({
-      success: true,
-      message: "Live train status fetched successfully.",
-      data: result,
-    });
-  } catch (error) {
-    return res.status(500).json({
-      success: false,
-      message: error.message,
-    });
-  }
+    try {
+
+        const {
+            error,
+            value,
+        } = searchTrainValidation(
+            req.query
+        );
+
+        if (error) {
+            return validationErrorResponse(
+                res,
+                error
+            );
+        }
+
+        const result =
+            await searchTrainService(
+                value
+            );
+
+        return res.status(200).json({
+
+            success: true,
+
+            message:
+                "Train search successful.",
+
+            data:
+                result,
+
+        });
+
+    } catch (error) {
+
+        console.error(
+            "❌ SEARCH TRAIN ERROR:",
+            error.message
+        );
+
+        return res.status(500).json({
+
+            success: false,
+
+            message:
+                "Unable to search train.",
+
+        });
+
+    }
+
 };
 
+
 // ============================================================
-// Seat Availability Forecast
+// LIVE TRAIN RUNNING STATUS
 // ============================================================
 
-const getSeatAvailability = async (req, res) => {
-  try {
-    const result = await getSeatAvailabilityService(req.query);
+const getLiveTrainStatus = async (
+    req,
+    res
+) => {
 
-    return res.status(200).json({
-      success: true,
-      message: "Seat availability fetched successfully.",
-      data: result,
-    });
-  } catch (error) {
-    return res.status(500).json({
-      success: false,
-      message: error.message,
-    });
-  }
+    try {
+
+        const {
+            error,
+            value,
+        } = liveTrainValidation(
+            req.query
+        );
+
+        if (error) {
+            return validationErrorResponse(
+                res,
+                error
+            );
+        }
+
+        const result =
+            await getLiveTrainStatusService(
+                value
+            );
+
+        return res.status(200).json({
+
+            success: true,
+
+            message:
+                "Live train status fetched successfully.",
+
+            data:
+                result,
+
+        });
+
+    } catch (error) {
+
+        console.error(
+            "❌ LIVE TRAIN ERROR:",
+            error.message
+        );
+
+        return res.status(500).json({
+
+            success: false,
+
+            message:
+                "Unable to fetch live train status.",
+
+        });
+
+    }
+
 };
 
+
 // ============================================================
-// Get Complete Train Timetable
+// SEAT AVAILABILITY
 // ============================================================
 
-const getTrainStops = async (req, res) => {
-  try {
-    const result = await getTrainStopsService(req.query);
+const getSeatAvailability = async (
+    req,
+    res
+) => {
 
-    return res.status(200).json({
-      success: true,
-      message: "Train timetable fetched successfully.",
-      count: result.length,
-      data: result,
-    });
-  } catch (error) {
-    return res.status(500).json({
-      success: false,
-      message: error.message,
-    });
-  }
+    try {
+
+        const {
+            error,
+            value,
+        } = seatAvailabilityValidation(
+            req.query
+        );
+
+        if (error) {
+            return validationErrorResponse(
+                res,
+                error
+            );
+        }
+
+        const result =
+            await getSeatAvailabilityService(
+                value
+            );
+
+        return res.status(200).json({
+
+            success: true,
+
+            message:
+                "Seat availability fetched successfully.",
+
+            data:
+                result,
+
+        });
+
+    } catch (error) {
+
+        console.error(
+            "❌ SEAT AVAILABILITY ERROR:",
+            error.message
+        );
+
+        return res.status(500).json({
+
+            success: false,
+
+            message:
+                "Unable to fetch seat availability.",
+
+        });
+
+    }
+
 };
 
+
 // ============================================================
-// Check Train Stop
+// COMPLETE TRAIN TIMETABLE
 // ============================================================
 
-const checkTrainStop = async (req, res) => {
-  try {
-    const result = await checkTrainStopService(req.query);
+const getTrainStops = async (
+    req,
+    res
+) => {
 
-    return res.status(200).json({
-      success: true,
-      message: "Train stop checked successfully.",
-      data: result,
-    });
-  } catch (error) {
-    return res.status(500).json({
-      success: false,
-      message: error.message,
-    });
-  }
+    try {
+
+        const {
+            error,
+            value,
+        } = trainStopsValidation(
+            req.query
+        );
+
+        if (error) {
+            return validationErrorResponse(
+                res,
+                error
+            );
+        }
+
+        const result =
+            await getTrainStopsService(
+                value
+            );
+
+        return res.status(200).json({
+
+            success: true,
+
+            message:
+                "Train timetable fetched successfully.",
+
+            count:
+                result.length,
+
+            data:
+                result,
+
+        });
+
+    } catch (error) {
+
+        console.error(
+            "❌ TRAIN STOPS ERROR:",
+            error.message
+        );
+
+        return res.status(500).json({
+
+            success: false,
+
+            message:
+                "Unable to fetch train timetable.",
+
+        });
+
+    }
+
 };
 
+
 // ============================================================
-// Get Stops Between Two Stations
+// CHECK TRAIN STOP
 // ============================================================
 
-const getStopsBetween = async (req, res) => {
-  try {
-    const result = await getStopsBetweenService(req.query);
+const checkTrainStop = async (
+    req,
+    res
+) => {
 
-    return res.status(200).json({
-      success: true,
-      message: "Stops between stations fetched successfully.",
-      data: result,
-    });
-  } catch (error) {
-    return res.status(500).json({
-      success: false,
-      message: error.message,
-    });
-  }
+    try {
+
+        const {
+            error,
+            value,
+        } = checkTrainStopValidation(
+            req.query
+        );
+
+        if (error) {
+            return validationErrorResponse(
+                res,
+                error
+            );
+        }
+
+        const result =
+            await checkTrainStopService(
+                value
+            );
+
+        return res.status(200).json({
+
+            success: true,
+
+            message:
+                "Train stop checked successfully.",
+
+            data:
+                result,
+
+        });
+
+    } catch (error) {
+
+        console.error(
+            "❌ CHECK TRAIN STOP ERROR:",
+            error.message
+        );
+
+        return res.status(500).json({
+
+            success: false,
+
+            message:
+                "Unable to check train stop.",
+
+        });
+
+    }
+
 };
 
+
 // ============================================================
-// Exports
+// STOPS BETWEEN
+// ============================================================
+
+const getStopsBetween = async (
+    req,
+    res
+) => {
+
+    try {
+
+        const {
+            error,
+            value,
+        } = stopsBetweenValidation(
+            req.query
+        );
+
+        if (error) {
+            return validationErrorResponse(
+                res,
+                error
+            );
+        }
+
+        const result =
+            await getStopsBetweenService(
+                value
+            );
+
+        return res.status(200).json({
+
+            success: true,
+
+            message:
+                "Stops between stations fetched successfully.",
+
+            data:
+                result,
+
+        });
+
+    } catch (error) {
+
+        console.error(
+            "❌ STOPS BETWEEN ERROR:",
+            error.message
+        );
+
+        return res.status(500).json({
+
+            success: false,
+
+            message:
+                "Unable to fetch stops between stations.",
+
+        });
+
+    }
+
+};
+
+
+// ============================================================
+// EXPORT
 // ============================================================
 
 module.exports = {
-  searchTrain,
-  getLiveTrainStatus,
-  getSeatAvailability,
-  getTrainStops,
-  checkTrainStop,
-  getStopsBetween,
+
+    searchTrain,
+
+    getLiveTrainStatus,
+
+    getSeatAvailability,
+
+    getTrainStops,
+
+    checkTrainStop,
+
+    getStopsBetween,
+
 };

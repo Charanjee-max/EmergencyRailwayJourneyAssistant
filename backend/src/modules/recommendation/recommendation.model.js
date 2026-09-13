@@ -1,234 +1,307 @@
 const mongoose =
-    require("mongoose");
+  require("mongoose");
+
 
 // =========================================================
 // TICKET SCHEMA
 // =========================================================
 
 const ticketSchema =
-    new mongoose.Schema(
+  new mongoose.Schema(
+    {
+      from: {
+        type: String,
 
-        {
+        required: true,
 
-            from: {
+        trim: true,
 
-                type: String,
+        uppercase: true,
 
-                required: true,
+        maxlength: 10,
+      },
 
-                trim: true,
 
-                uppercase: true,
-            },
+      to: {
+        type: String,
 
-            to: {
+        required: true,
 
-                type: String,
+        trim: true,
 
-                required: true,
+        uppercase: true,
 
-                trim: true,
+        maxlength: 10,
+      },
 
-                uppercase: true,
-            },
 
-            class: {
+      class: {
+        type: String,
 
-                type: String,
+        required: true,
 
-                required: true,
+        trim: true,
 
-                trim: true,
+        uppercase: true,
 
-                uppercase: true,
-            },
+        enum: [
+          "1A",
+          "2A",
+          "3A",
+          "3E",
+          "SL",
+          "2S",
+        ],
+      },
 
-            coach: {
 
-                type: String,
+      coach: {
+        type: String,
 
-                default: null,
+        default: null,
 
-                trim: true,
-            },
+        trim: true,
 
-            berth: {
+        maxlength: 20,
+      },
 
-                type: String,
 
-                default: null,
+      berth: {
+        type: String,
 
-                trim: true,
-            },
-        },
+        default: null,
 
-        {
-            _id: false,
-        }
-    );
+        trim: true,
+
+        maxlength: 30,
+      },
+    },
+
+    {
+      _id: false,
+
+      strict: true,
+    }
+  );
+
 
 // =========================================================
 // VACANCY SUMMARY SCHEMA
 // =========================================================
 
 const vacancySummarySchema =
-    new mongoose.Schema(
+  new mongoose.Schema(
+    {
+      class: {
+        type: String,
 
-        {
+        required: true,
 
-            class: {
+        trim: true,
 
-                type: String,
+        uppercase: true,
 
-                required: true,
+        enum: [
+          "1A",
+          "2A",
+          "3A",
+          "3E",
+          "SL",
+          "2S",
+        ],
+      },
 
-                trim: true,
 
-                uppercase: true,
-            },
+      count: {
+        type: Number,
 
-            count: {
+        required: true,
 
-                type: Number,
+        min: 0,
 
-                required: true,
+        max: 100000,
+      },
 
-                min: 0,
-            },
 
-            status: {
+      status: {
+        type: String,
 
-                type: String,
+        enum: [
+          "AVAILABLE",
+          "ERROR",
+        ],
 
-                enum: [
-                    "AVAILABLE",
-                    "ERROR",
-                ],
+        default:
+          "AVAILABLE",
+      },
 
-                default:
-                    "AVAILABLE",
-            },
 
-            error: {
+      error: {
+        type: String,
 
-                type: String,
+        default: "",
 
-                default: "",
-            },
-        },
+        trim: true,
 
-        {
-            _id: false,
-        }
-    );
+        maxlength: 500,
+      },
+    },
+
+    {
+      _id: false,
+
+      strict: true,
+    }
+  );
+
 
 // =========================================================
 // RECOMMENDATION SCHEMA
 // =========================================================
 
 const recommendationSchema =
-    new mongoose.Schema(
+  new mongoose.Schema(
+    {
+      // =====================================================
+      // JOURNEY
+      // =====================================================
 
-        {
+      journey: {
+        type:
+          mongoose.Schema
+            .Types
+            .ObjectId,
 
-            journey: {
+        ref:
+          "Journey",
 
-                type:
-                    mongoose.Schema
-                        .Types
-                        .ObjectId,
+        required: true,
 
-                ref:
-                    "Journey",
+        index: true,
+      },
 
-                required: true,
 
-                index: true,
-            },
+      // =====================================================
+      // STRATEGY
+      // =====================================================
 
-            strategy: {
+      strategy: {
+        type: String,
 
-                type: String,
+        required: true,
 
-                required: true,
+        trim: true,
 
-                trim: true,
-            },
+        maxlength: 100,
+      },
 
-            score: {
 
-                type: Number,
+      // =====================================================
+      // SCORE
+      // =====================================================
 
-                required: true,
-            },
+      score: {
+        type: Number,
 
-            reason: {
+        required: true,
 
-                type: String,
+        min: 0,
 
-                default: "",
+        max: 100,
+      },
 
-                trim: true,
-            },
 
-            tickets: {
+      // =====================================================
+      // REASON
+      // =====================================================
 
-                type:
-                    [ticketSchema],
+      reason: {
+        type: String,
 
-                default: [],
-            },
+        default: "",
 
-            // =================================================
-            // VACANCIES BY CLASS
-            // =================================================
+        trim: true,
 
-            vacancySummary: {
+        maxlength: 2000,
+      },
 
-                type:
-                    [vacancySummarySchema],
 
-                default: [],
-            },
+      // =====================================================
+      // TICKETS
+      // =====================================================
 
-            status: {
+      tickets: {
+        type:
+          [ticketSchema],
 
-                type: String,
+        default: [],
+      },
 
-                enum: [
-                    "ACTIVE",
-                    "EXPIRED",
-                ],
 
-                default:
-                    "ACTIVE",
+      // =====================================================
+      // VACANCIES BY CLASS
+      // =====================================================
 
-                index: true,
-            },
-        },
+      vacancySummary: {
+        type:
+          [vacancySummarySchema],
 
-        {
-            timestamps: true,
-        }
-    );
+        default: [],
+      },
+
+
+      // =====================================================
+      // STATUS
+      // =====================================================
+
+      status: {
+        type: String,
+
+        enum: [
+          "ACTIVE",
+          "EXPIRED",
+        ],
+
+        default:
+          "ACTIVE",
+
+        index: true,
+      },
+    },
+
+    {
+      timestamps: true,
+
+      strict: true,
+
+      strictQuery: true,
+    }
+  );
+
 
 // =========================================================
 // INDEXES
 // =========================================================
 
 recommendationSchema.index({
-
-    journey: 1,
-
-    status: 1,
+  journey: 1,
+  status: 1,
 });
+
+
+// Newest recommendations first
+recommendationSchema.index({
+  journey: 1,
+  createdAt: -1,
+});
+
 
 // =========================================================
 // EXPORT
 // =========================================================
 
 module.exports =
-    mongoose.model(
-        "Recommendation",
-        recommendationSchema
-    );
+  mongoose.model(
+    "Recommendation",
+    recommendationSchema
+  );

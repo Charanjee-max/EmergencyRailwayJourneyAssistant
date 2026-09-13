@@ -1,120 +1,348 @@
-const mongoose = require("mongoose");
+const mongoose =
+  require("mongoose");
 
-const trainStopSchema = new mongoose.Schema(
-  {
-    trainNumber: {
-      type: String,
-      required: true,
-      trim: true,
+
+// ============================================================
+// TRAIN STOP SCHEMA
+// ============================================================
+
+const trainStopSchema =
+  new mongoose.Schema(
+    {
+      // ======================================================
+      // TRAIN NUMBER
+      // ======================================================
+
+      trainNumber: {
+        type: String,
+
+        required: true,
+
+        trim: true,
+
+        match: [
+          /^\d{4,5}$/,
+          "Invalid train number.",
+        ],
+      },
+
+
+      // ======================================================
+      // ROUTE ORDER
+      // ======================================================
+
+      no: {
+        type: String,
+
+        default: "",
+
+        trim: true,
+
+        maxlength: 20,
+      },
+
+
+      // ======================================================
+      // TRACK
+      // ======================================================
+
+      track: {
+        type: String,
+
+        default: "",
+
+        trim: true,
+
+        maxlength: 50,
+      },
+
+
+      // ======================================================
+      // STATION CODE
+      // ======================================================
+
+      code: {
+        type: String,
+
+        required: true,
+
+        trim: true,
+
+        uppercase: true,
+
+        maxlength: 10,
+
+        match: [
+          /^[A-Z0-9]{2,10}$/,
+          "Invalid station code.",
+        ],
+
+        index: true,
+      },
+
+
+      // ======================================================
+      // STATION NAME
+      // ======================================================
+
+      station: {
+        type: String,
+
+        required: true,
+
+        trim: true,
+
+        maxlength: 150,
+      },
+
+
+      // ======================================================
+      // XO
+      // ======================================================
+
+      xo: {
+        type: String,
+
+        default: "",
+
+        trim: true,
+
+        maxlength: 20,
+      },
+
+
+      // ======================================================
+      // NOTE
+      // ======================================================
+
+      note: {
+        type: String,
+
+        default: "",
+
+        trim: true,
+
+        maxlength: 500,
+      },
+
+
+      // ======================================================
+      // ARRIVAL
+      // ======================================================
+
+      arrival: {
+        type: String,
+
+        default: "",
+
+        trim: true,
+
+        maxlength: 10,
+      },
+
+
+      // ======================================================
+      // ARRIVAL AVERAGE
+      // ======================================================
+
+      arrivalAvg: {
+        type: String,
+
+        default: "",
+
+        trim: true,
+
+        maxlength: 10,
+      },
+
+
+      // ======================================================
+      // DEPARTURE
+      // ======================================================
+
+      departure: {
+        type: String,
+
+        default: "",
+
+        trim: true,
+
+        maxlength: 10,
+      },
+
+
+      // ======================================================
+      // DEPARTURE AVERAGE
+      // ======================================================
+
+      departureAvg: {
+        type: String,
+
+        default: "",
+
+        trim: true,
+
+        maxlength: 10,
+      },
+
+
+      // ======================================================
+      // HALT
+      // ======================================================
+
+      halt: {
+        type: String,
+
+        default: "",
+
+        trim: true,
+
+        maxlength: 20,
+      },
+
+
+      // ======================================================
+      // PLATFORM
+      // ======================================================
+
+      pf: {
+        type: String,
+
+        default: "",
+
+        trim: true,
+
+        maxlength: 20,
+      },
+
+
+      // ======================================================
+      // DAY
+      // ======================================================
+
+      day: {
+        type: String,
+
+        default: "",
+
+        trim: true,
+
+        maxlength: 10,
+      },
+
+
+      // ======================================================
+      // DISTANCE
+      // ======================================================
+
+      km: {
+        type: String,
+
+        default: "",
+
+        trim: true,
+
+        maxlength: 20,
+      },
+
+
+      // ======================================================
+      // SPEED
+      // ======================================================
+
+      speed: {
+        type: String,
+
+        default: "",
+
+        trim: true,
+
+        maxlength: 20,
+      },
+
+
+      // ======================================================
+      // ELEVATION
+      // ======================================================
+
+      elevation: {
+        type: String,
+
+        default: "",
+
+        trim: true,
+
+        maxlength: 20,
+      },
+
+
+      // ======================================================
+      // ZONE
+      // ======================================================
+
+      zone: {
+        type: String,
+
+        default: "",
+
+        trim: true,
+
+        maxlength: 20,
+      },
+
+
+      // ======================================================
+      // ADDRESS
+      // ======================================================
+
+      address: {
+        type: String,
+
+        default: "",
+
+        trim: true,
+
+        maxlength: 300,
+      },
     },
 
-    no: {
-      type: String,
-      default: "",
-    },
+    {
+      timestamps: true,
 
-    track: {
-      type: String,
-      default: "",
-    },
+      collection:
+        "trainStops",
 
-    code: {
-      type: String,
-      required: true,
-      trim: true,
-      index: true,
-    },
+      strict: true,
 
-    station: {
-      type: String,
-      required: true,
-      trim: true,
-    },
+      strictQuery: true,
+    }
+  );
 
-    xo: {
-      type: String,
-      default: "",
-    },
-
-    note: {
-      type: String,
-      default: "",
-    },
-
-    arrival: {
-      type: String,
-      default: "",
-    },
-
-    arrivalAvg: {
-      type: String,
-      default: "",
-    },
-
-    departure: {
-      type: String,
-      default: "",
-    },
-
-    departureAvg: {
-      type: String,
-      default: "",
-    },
-
-    halt: {
-      type: String,
-      default: "",
-    },
-
-    pf: {
-      type: String,
-      default: "",
-    },
-
-    day: {
-      type: String,
-      default: "",
-    },
-
-    km: {
-      type: String,
-      default: "",
-    },
-
-    speed: {
-      type: String,
-      default: "",
-    },
-
-    elevation: {
-      type: String,
-      default: "",
-    },
-
-    zone: {
-      type: String,
-      default: "",
-    },
-
-    address: {
-      type: String,
-      default: "",
-    },
-  },
-  {
-    timestamps: true,
-    collection: "trainStops",
-  }
-);
 
 // ============================================================
 // INDEXES
 // ============================================================
 
-// Fast lookup by train + station
+// Fast train timetable lookup
+trainStopSchema.index({
+  trainNumber: 1,
+  no: 1,
+});
+
+
+// Fast train + station lookup
 trainStopSchema.index({
   trainNumber: 1,
   code: 1,
 });
 
-module.exports = mongoose.model("TrainStop", trainStopSchema);
+
+// ============================================================
+// EXPORT
+// ============================================================
+
+module.exports =
+  mongoose.model(
+    "TrainStop",
+    trainStopSchema
+  );

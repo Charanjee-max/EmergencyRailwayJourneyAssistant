@@ -35,14 +35,18 @@ console.log(
 // SEARCH STATIONS
 // =========================================================
 
-const searchStationService = async (query) => {
+const searchStationService = async (query = {}) => {
 
-    const search = String(
-        query.search || ""
-    )
-        .trim()
-        .toLowerCase();
+    const rawSearch =
+        typeof query.search === "string"
+            ? query.search
+            : "";
 
+    const search =
+        rawSearch
+            .trim()
+            .toLowerCase()
+            .slice(0, 50);
 
     if (search.length < 2) {
         return [];

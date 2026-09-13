@@ -9,79 +9,192 @@ const {
   syncNtesTrainStopsService,
 } = require("./ntes.service");
 
+
+// ============================================================
+// NTES SYNC LOCK
+//
+// Prevents multiple simultaneous requests for the same train.
+//
+// Example:
+//
+// Request A:
+//   Train 12745 timetable missing
+//   -> starts NTES sync
+//
+// Request B:
+//   Train 12745 timetable missing
+//   -> does NOT start another NTES request
+//   -> waits for Request A
+//
+// This protects NTES from duplicate concurrent calls.
+// ============================================================
+
+const ntesSyncLocks = new Map();
+
+const withNtesSyncLock = async (
+  trainNumber,
+  trainStartDate
+) => {
+
+  const key =
+    String(trainNumber).trim();
+
+  // ----------------------------------------------------------
+  // Existing sync already running
+  // ----------------------------------------------------------
+
+  if (ntesSyncLocks.has(key)) {
+
+    console.log(
+      `⏳ NTES sync already running for ${key}. Waiting...`
+    );
+
+    return ntesSyncLocks.get(key);
+  }
+
+
+  // ----------------------------------------------------------
+  // Start new sync
+  // ----------------------------------------------------------
+
+  const syncPromise =
+    syncNtesTrainStopsService(
+      key,
+      trainStartDate
+    )
+      .finally(() => {
+
+        ntesSyncLocks.delete(key);
+
+      });
+
+
+  // ----------------------------------------------------------
+  // Store active sync
+  // ----------------------------------------------------------
+
+  ntesSyncLocks.set(
+    key,
+    syncPromise
+  );
+
+
+  return syncPromise;
+};
+
+
 // ============================================================
 // Search Train Details
 // ============================================================
 
 const searchTrainService = async (query) => {
-  const { trainNumber } = query;
+
+  const {
+    trainNumber
+  } = query;
 
   if (!trainNumber) {
-    throw new Error("Train number is required.");
+
+    throw new Error(
+      "Train number is required."
+    );
+
   }
 
   try {
-    const response = await axios.get(
-      `${process.env.RAILRADAR_BASE_URL}/trains/${trainNumber}?haltsOnly=true`,
-      {
-        headers: {
-          Authorization: `Bearer ${process.env.RAILRADAR_API_KEY}`,
-        },
-      }
-    );
+
+    const response =
+      await axios.get(
+        `${process.env.RAILRADAR_BASE_URL}/trains/${trainNumber}?haltsOnly=true`,
+        {
+          headers: {
+            Authorization:
+              `Bearer ${process.env.RAILRADAR_API_KEY}`,
+          },
+        }
+      );
 
     return response.data;
+
   } catch (error) {
+
     if (error.response) {
+
       throw new Error(
         error.response.data?.message ||
-          `RailRadar API Error (${error.response.status})`
+        `RailRadar API Error (${error.response.status})`
       );
+
     }
 
-    throw new Error("Unable to connect to RailRadar API.");
+    throw new Error(
+      "Unable to connect to RailRadar API."
+    );
+
   }
+
 };
+
 
 // ============================================================
 // Live Train Running Status
 // ============================================================
 
 const getLiveTrainStatusService = async (query) => {
-  const { trainNumber } = query;
+
+  const {
+    trainNumber
+  } = query;
 
   if (!trainNumber) {
-    throw new Error("Train number is required.");
+
+    throw new Error(
+      "Train number is required."
+    );
+
   }
 
   try {
-    const response = await axios.get(
-      `${process.env.RAILRADAR_BASE_URL}/trains/${trainNumber}/live`,
-      {
-        headers: {
-          Authorization: `Bearer ${process.env.RAILRADAR_API_KEY}`,
-        },
-      }
-    );
+
+    const response =
+      await axios.get(
+        `${process.env.RAILRADAR_BASE_URL}/trains/${trainNumber}/live`,
+        {
+          headers: {
+            Authorization:
+              `Bearer ${process.env.RAILRADAR_API_KEY}`,
+          },
+        }
+      );
 
     return response.data;
+
   } catch (error) {
+
     if (error.response) {
+
       throw new Error(
         error.response.data?.message ||
-          `RailRadar API Error (${error.response.status})`
+        `RailRadar API Error (${error.response.status})`
       );
+
     }
 
-    throw new Error("Unable to connect to RailRadar API.");
+    throw new Error(
+      "Unable to connect to RailRadar API."
+    );
+
   }
+
 };
+
 
 // ============================================================
 // Seat Availability Forecast
 // ============================================================
 
 const getSeatAvailabilityService = async (query) => {
+
   const {
     trainNumber,
     journeyDate,
@@ -91,6 +204,7 @@ const getSeatAvailabilityService = async (query) => {
     quotaCode,
   } = query;
 
+
   if (
     !trainNumber ||
     !journeyDate ||
@@ -99,107 +213,176 @@ const getSeatAvailabilityService = async (query) => {
     !classCode ||
     !quotaCode
   ) {
+
     throw new Error(
       "trainNumber, journeyDate, source, destination, classCode and quotaCode are required."
     );
+
   }
+
 
   try {
-    const response = await axios.get(
-      `${process.env.RAILRADAR_BASE_URL}/trains/${trainNumber}/seats`,
-      {
-        headers: {
-          Authorization: `Bearer ${process.env.RAILRADAR_API_KEY}`,
-        },
-        params: {
-          journeyDate,
-          source,
-          destination,
-          classCode,
-          quotaCode,
-        },
-      }
-    );
+
+    const response =
+      await axios.get(
+        `${process.env.RAILRADAR_BASE_URL}/trains/${trainNumber}/seats`,
+        {
+          headers: {
+            Authorization:
+              `Bearer ${process.env.RAILRADAR_API_KEY}`,
+          },
+
+          params: {
+            journeyDate,
+            source,
+            destination,
+            classCode,
+            quotaCode,
+          },
+
+        }
+      );
 
     return response.data;
+
   } catch (error) {
+
     if (error.response) {
+
       throw new Error(
         error.response.data?.message ||
-          `RailRadar API Error (${error.response.status})`
+        `RailRadar API Error (${error.response.status})`
       );
+
     }
 
-    throw new Error("Unable to connect to RailRadar API.");
+    throw new Error(
+      "Unable to connect to RailRadar API."
+    );
+
   }
+
 };
+
 
 // ============================================================
 // Get Complete Train Timetable
 // ============================================================
 
 const getTrainStopsService = async (query) => {
-  const { trainNumber } = query;
+
+  const {
+    trainNumber
+  } = query;
 
   if (!trainNumber) {
-    throw new Error("Train number is required.");
+
+    throw new Error(
+      "Train number is required."
+    );
+
   }
+
 
   const normalizedTrainNumber =
     String(trainNumber).trim();
 
-  const stops = await TrainStop.find({
-    trainNumber: normalizedTrainNumber,
-  })
-    .sort({ no: 1 })
-    .lean();
+
+  const stops =
+    await TrainStop.find({
+      trainNumber:
+        normalizedTrainNumber,
+    })
+      .sort({
+        no: 1,
+      })
+      .lean();
+
 
   return stops;
+
 };
+
 
 // ============================================================
 // Check Whether a Train Stops at a Station
 // ============================================================
 
 const checkTrainStopService = async (query) => {
-  const { trainNumber, stationCode } = query;
 
-  if (!trainNumber || !stationCode) {
+  const {
+    trainNumber,
+    stationCode,
+  } = query;
+
+
+  if (
+    !trainNumber ||
+    !stationCode
+  ) {
+
     throw new Error(
       "trainNumber and stationCode are required."
     );
+
   }
+
 
   const normalizedTrainNumber =
     String(trainNumber).trim();
+
 
   const normalizedStationCode =
     String(stationCode)
       .trim()
       .toUpperCase();
 
-  const stop = await TrainStop.findOne({
-    trainNumber: normalizedTrainNumber,
-    code: normalizedStationCode,
-  }).lean();
+
+  const stop =
+    await TrainStop.findOne({
+      trainNumber:
+        normalizedTrainNumber,
+
+      code:
+        normalizedStationCode,
+    })
+      .lean();
+
 
   return {
-    trainNumber: normalizedTrainNumber,
-    stationCode: normalizedStationCode,
-    stops: !!stop,
-    station: stop || null,
+
+    trainNumber:
+      normalizedTrainNumber,
+
+    stationCode:
+      normalizedStationCode,
+
+    stops:
+      !!stop,
+
+    station:
+      stop || null,
+
   };
+
 };
+
 
 // ============================================================
 // Get Stops Between Two Stations
 //
 // IMPORTANT:
+//
 // If the timetable is not already present in MongoDB,
 // automatically fetch it from NTES and save it first.
+//
+// NTES sync is protected by withNtesSyncLock() so multiple
+// simultaneous requests for the same train do not create
+// duplicate NTES requests.
 // ============================================================
 
 const getStopsBetweenService = async (query) => {
+
   const {
     trainNumber,
     from,
@@ -207,15 +390,23 @@ const getStopsBetweenService = async (query) => {
     trainStartDate,
   } = query;
 
+
   // ----------------------------------------------------------
   // Validate required input
   // ----------------------------------------------------------
 
-  if (!trainNumber || !from || !to) {
+  if (
+    !trainNumber ||
+    !from ||
+    !to
+  ) {
+
     throw new Error(
       "trainNumber, from and to are required."
     );
+
   }
+
 
   // ----------------------------------------------------------
   // Normalize values
@@ -224,27 +415,40 @@ const getStopsBetweenService = async (query) => {
   const normalizedTrainNumber =
     String(trainNumber).trim();
 
+
   const fromCode =
-    String(from).trim().toUpperCase();
+    String(from)
+      .trim()
+      .toUpperCase();
+
 
   const toCode =
-    String(to).trim().toUpperCase();
+    String(to)
+      .trim()
+      .toUpperCase();
+
 
   // ----------------------------------------------------------
   // First try MongoDB
   // ----------------------------------------------------------
 
-  let stops = await TrainStop.find({
-    trainNumber: normalizedTrainNumber,
-  })
-    .sort({ no: 1 })
-    .lean();
+  let stops =
+    await TrainStop.find({
+      trainNumber:
+        normalizedTrainNumber,
+    })
+      .sort({
+        no: 1,
+      })
+      .lean();
+
 
   // ----------------------------------------------------------
   // If timetable is missing, automatically fetch from NTES
   // ----------------------------------------------------------
 
   if (!stops.length) {
+
     console.log(
       `⚠️ No timetable found for ${normalizedTrainNumber}.`
     );
@@ -253,70 +457,105 @@ const getStopsBetweenService = async (query) => {
       `🚆 Fetching timetable automatically from NTES...`
     );
 
+
     try {
-      await syncNtesTrainStopsService(
+
+      // ------------------------------------------------------
+      // IMPORTANT:
+      // Use the lock instead of directly calling NTES.
+      //
+      // This prevents duplicate simultaneous NTES calls.
+      // ------------------------------------------------------
+
+      await withNtesSyncLock(
         normalizedTrainNumber,
         trainStartDate || new Date()
       );
+
 
       // ------------------------------------------------------
       // Read the newly saved timetable
       // ------------------------------------------------------
 
-      stops = await TrainStop.find({
-        trainNumber: normalizedTrainNumber,
-      })
-        .sort({ no: 1 })
-        .lean();
+      stops =
+        await TrainStop.find({
+          trainNumber:
+            normalizedTrainNumber,
+        })
+          .sort({
+            no: 1,
+          })
+          .lean();
+
 
       console.log(
         `✅ NTES timetable loaded into MongoDB for ${normalizedTrainNumber}`
       );
+
+
     } catch (error) {
+
       console.error(
         "❌ NTES TIMETABLE FETCH FAILED:",
         error.message
       );
 
+
       throw new Error(
         `No timetable found for train ${normalizedTrainNumber}, and NTES timetable could not be loaded.`
       );
+
     }
+
   }
+
 
   // ----------------------------------------------------------
   // Safety check
   // ----------------------------------------------------------
 
   if (!stops.length) {
+
     throw new Error(
       `No timetable found for train ${normalizedTrainNumber}.`
     );
+
   }
+
 
   // ----------------------------------------------------------
   // Convert timetable "no" into numeric route order
   //
   // Examples:
+  //
   // "1"   -> 1
   // "1.1" -> 1.1
   // "1.2" -> 1.2
   // "33"  -> 33
   // ----------------------------------------------------------
 
-  const orderedStops = stops
-    .map((stop) => ({
-      ...stop,
-      routeOrder: Number.parseFloat(stop.no),
-    }))
-    .filter(
-      (stop) =>
-        Number.isFinite(stop.routeOrder)
-    )
-    .sort(
-      (a, b) =>
-        a.routeOrder - b.routeOrder
-    );
+  const orderedStops =
+    stops
+      .map((stop) => ({
+
+        ...stop,
+
+        routeOrder:
+          Number.parseFloat(stop.no),
+
+      }))
+      .filter(
+        (stop) =>
+          Number.isFinite(
+            stop.routeOrder
+          )
+      )
+      .sort(
+        (a, b) =>
+          a.routeOrder -
+          b.routeOrder
+      );
+
 
   // ----------------------------------------------------------
   // Find departure station
@@ -327,8 +566,10 @@ const getStopsBetweenService = async (query) => {
       (stop) =>
         String(stop.code)
           .trim()
-          .toUpperCase() === fromCode
+          .toUpperCase() ===
+        fromCode
     );
+
 
   // ----------------------------------------------------------
   // Find destination station
@@ -339,69 +580,124 @@ const getStopsBetweenService = async (query) => {
       (stop) =>
         String(stop.code)
           .trim()
-          .toUpperCase() === toCode
+          .toUpperCase() ===
+        toCode
     );
+
 
   // ----------------------------------------------------------
   // Departure station not found
   // ----------------------------------------------------------
 
   if (fromIndex === -1) {
+
     return {
-      trainNumber: normalizedTrainNumber,
-      from: fromCode,
-      to: toCode,
-      found: false,
+
+      trainNumber:
+        normalizedTrainNumber,
+
+      from:
+        fromCode,
+
+      to:
+        toCode,
+
+      found:
+        false,
+
       message:
         `Departure station ${fromCode} is not on this train.`,
-      count: 0,
-      stops: [],
+
+      count:
+        0,
+
+      stops:
+        [],
+
     };
+
   }
+
 
   // ----------------------------------------------------------
   // Destination station not found
   // ----------------------------------------------------------
 
   if (toIndex === -1) {
+
     return {
-      trainNumber: normalizedTrainNumber,
-      from: fromCode,
-      to: toCode,
-      found: false,
+
+      trainNumber:
+        normalizedTrainNumber,
+
+      from:
+        fromCode,
+
+      to:
+        toCode,
+
+      found:
+        false,
+
       message:
         `Destination station ${toCode} is not on this train.`,
-      count: 0,
-      stops: [],
+
+      count:
+        0,
+
+      stops:
+        [],
+
     };
+
   }
+
 
   // ----------------------------------------------------------
   // Wrong direction
   //
   // Example:
+  //
   // 12745:
   // SC -> MUGR     VALID
   // MUGR -> SC     INVALID
   // ----------------------------------------------------------
 
   if (fromIndex >= toIndex) {
+
     return {
-      trainNumber: normalizedTrainNumber,
-      from: fromCode,
-      to: toCode,
-      found: false,
+
+      trainNumber:
+        normalizedTrainNumber,
+
+      from:
+        fromCode,
+
+      to:
+        toCode,
+
+      found:
+        false,
+
       message:
         `${fromCode} does not occur before ${toCode} in the timetable.`,
-      count: 0,
-      stops: [],
+
+      count:
+        0,
+
+      stops:
+        [],
+
     };
+
   }
+
 
   // ----------------------------------------------------------
   // Extract complete journey section
   //
   // Includes:
+  //
   // - departure station
   // - intermediate stations
   // - destination station
@@ -413,29 +709,52 @@ const getStopsBetweenService = async (query) => {
       toIndex + 1
     );
 
+
   // ----------------------------------------------------------
   // Successful route
   // ----------------------------------------------------------
 
   return {
-    trainNumber: normalizedTrainNumber,
-    from: fromCode,
-    to: toCode,
-    found: true,
-    count: betweenStops.length,
-    stops: betweenStops,
+
+    trainNumber:
+      normalizedTrainNumber,
+
+    from:
+      fromCode,
+
+    to:
+      toCode,
+
+    found:
+      true,
+
+    count:
+      betweenStops.length,
+
+    stops:
+      betweenStops,
+
   };
+
 };
+
 
 // ============================================================
 // Exports
 // ============================================================
 
 module.exports = {
+
   searchTrainService,
+
   getLiveTrainStatusService,
+
   getSeatAvailabilityService,
+
   getTrainStopsService,
+
   checkTrainStopService,
+
   getStopsBetweenService,
+
 };

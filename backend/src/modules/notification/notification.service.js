@@ -1,159 +1,207 @@
-const Notification = require("./notification.model");
+const transporter =
+    require("../../config/mail");
 
-class NotificationService {
-  // =========================================
-  // CREATE
-  // =========================================
 
-  async createNotification({
-    userId,
-    type = "SYSTEM",
-    title,
-    message,
-    journeyId = null,
-  }) {
-    if (!userId) {
-      throw new Error("userId is required.");
-    }
+// =========================================================
+// EMAIL NOTIFICATION
+// =========================================================
 
-    if (!title || !message) {
-      throw new Error(
-        "Notification title and message are required."
-      );
-    }
+const sendNotification = async (
+    journey,
+    previousStatus,
+    currentStatus
+) => {
 
-    return await Notification.create({
-      userId,
-      type,
-      title,
-      message,
-      journeyId,
-    });
-  }
+    try {
 
-  // =========================================
-  // GET USER NOTIFICATIONS
-  // =========================================
+        // -------------------------------------------------
+        // BASIC VALIDATION
+        // -------------------------------------------------
 
-  async getNotifications(userId, options = {}) {
-    const limit = Math.min(
-      Math.max(Number(options.limit) || 50, 1),
-      100
-    );
+        if (!journey) {
 
-    const notifications = await Notification.find({
-      userId,
-    })
-      .sort({
-        createdAt: -1,
-      })
-      .limit(limit)
-      .lean();
-
-    const unreadCount = await Notification.countDocuments({
-      userId,
-      isRead: false,
-    });
-
-    return {
-      notifications,
-      unreadCount,
-    };
-  }
-
-  // =========================================
-  // MARK ONE AS READ
-  // =========================================
-
-  async markAsRead(notificationId, userId) {
-    const notification =
-      await Notification.findOneAndUpdate(
-        {
-          _id: notificationId,
-          userId,
-        },
-        {
-          $set: {
-            isRead: true,
-          },
-        },
-        {
-          new: true,
+            throw new Error(
+                "Journey information is required."
+            );
         }
-      );
 
-    if (!notification) {
-      const error = new Error(
-        "Notification not found."
-      );
 
-      error.statusCode = 404;
+        const recipient =
+            process.env.MAIL_USER;
 
-      throw error;
+
+        if (
+            !recipient ||
+            typeof recipient !== "string"
+        ) {
+
+            throw new Error(
+                "MAIL_USER is not configured."
+            );
+        }
+
+
+        // -------------------------------------------------
+        // SANITIZE VALUES
+        // -------------------------------------------------
+
+        const trainNumber =
+            String(
+                journey.trainNumber || ""
+            )
+                .trim()
+                .slice(0, 10);
+
+
+        const boardingStation =
+            String(
+                journey.boardingStation || ""
+            )
+                .trim()
+                .slice(0, 20);
+
+
+        const destinationStation =
+            String(
+                journey.destinationStation || ""
+            )
+                .trim()
+                .slice(0, 20);
+
+
+        const safePreviousStatus =
+            String(
+                previousStatus || "UNKNOWN"
+            )
+                .trim()
+                .slice(0, 100);
+
+
+        const safeCurrentStatus =
+            String(
+                currentStatus || "UNKNOWN"
+            )
+                .trim()
+                .slice(0, 100);
+
+
+        let journeyDate = "";
+
+
+        if (journey.journeyDate) {
+
+            const date =
+                new Date(
+                    journey.journeyDate
+                );
+
+
+            if (!Number.isNaN(date.getTime())) {
+
+                journeyDate =
+                    date.toISOString()
+                        .split("T")[0];
+            }
+        }
+
+
+        // -------------------------------------------------
+        // EMAIL
+        // -------------------------------------------------
+
+        const mailOptions = {
+
+            from: recipient,
+
+            to: recipient,
+
+            subject:
+                "ERJA - Journey Update",
+
+            text: `
+Emergency Railway Journey Assistant
+
+Train Number: ${trainNumber}
+
+Journey Date: ${journeyDate}
+
+Route:
+${boardingStation} → ${destinationStation}
+
+Previous Status:
+${safePreviousStatus}
+
+Current Status:
+${safeCurrentStatus}
+
+This email was generated automatically by ERJA.
+            `.trim(),
+
+            html: `
+                <h2>
+                    Emergency Railway Journey Assistant
+                </h2>
+
+                <p>
+                    <strong>Train Number:</strong>
+                    ${trainNumber}
+                </p>
+
+                <p>
+                    <strong>Journey Date:</strong>
+                    ${journeyDate}
+                </p>
+
+                <p>
+                    <strong>Route:</strong>
+                    ${boardingStation}
+                    →
+                    ${destinationStation}
+                </p>
+
+                <hr>
+
+                <p>
+                    <strong>Previous Status:</strong>
+                    ${safePreviousStatus}
+                </p>
+
+                <p>
+                    <strong>Current Status:</strong>
+                    ${safeCurrentStatus}
+                </p>
+
+                <hr>
+
+                <p>
+                    This email was generated automatically by ERJA.
+                </p>
+            `,
+        };
+
+
+        await transporter.sendMail(
+            mailOptions
+        );
+
+
+        console.log(
+            "📧 ERJA notification email sent."
+        );
+
+
+    } catch (error) {
+
+        console.error(
+            "❌ ERJA email notification failed:",
+            error.message
+        );
+
+        // Do NOT expose SMTP details.
     }
+};
 
-    return notification;
-  }
 
-  // =========================================
-  // MARK ALL AS READ
-  // =========================================
-
-  async markAllAsRead(userId) {
-    const result = await Notification.updateMany(
-      {
-        userId,
-        isRead: false,
-      },
-      {
-        $set: {
-          isRead: true,
-        },
-      }
-    );
-
-    return {
-      modifiedCount: result.modifiedCount,
-    };
-  }
-
-  // =========================================
-  // DELETE ONE
-  // =========================================
-
-  async deleteNotification(notificationId, userId) {
-    const notification =
-      await Notification.findOneAndDelete({
-        _id: notificationId,
-        userId,
-      });
-
-    if (!notification) {
-      const error = new Error(
-        "Notification not found."
-      );
-
-      error.statusCode = 404;
-
-      throw error;
-    }
-
-    return notification;
-  }
-
-  // =========================================
-  // DELETE ALL
-  // =========================================
-
-  async deleteAllNotifications(userId) {
-    const result = await Notification.deleteMany({
-      userId,
-    });
-
-    return {
-      deletedCount: result.deletedCount,
-    };
-  }
-}
-
-module.exports = new NotificationService();
+module.exports = {
+    sendNotification,
+};

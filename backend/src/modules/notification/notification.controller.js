@@ -1,207 +1,267 @@
 const notificationService = require(
-  "./notification.service"
+    "./notification.service"
 );
+
 
 class NotificationController {
 
-  // =========================================
-  // GET
-  // =========================================
 
-  async getNotifications(req, res) {
+    // =====================================================
+    // GET
+    // =====================================================
 
-    try {
+    async getNotifications(req, res) {
 
-      const userId = req.user.id;
+        try {
 
-      const result =
-        await notificationService.getNotifications(
-          userId,
-          req.query
-        );
+            const userId =
+                req.user.id;
 
-      return res.status(200).json({
-        success: true,
-        data: result.notifications,
-        unreadCount: result.unreadCount,
-      });
 
-    } catch (error) {
+            const result =
+                await notificationService
+                    .getNotifications(
+                        userId,
+                        req.query
+                    );
 
-      console.error(
-        "Get Notifications Error:",
-        error
-      );
 
-      return res.status(
-        error.statusCode || 500
-      ).json({
-        success: false,
-        message:
-          error.message ||
-          "Failed to get notifications",
-      });
+            return res.status(200).json({
+
+                success: true,
+
+                data:
+                    result.notifications,
+
+                unreadCount:
+                    result.unreadCount,
+            });
+
+
+        } catch (error) {
+
+            console.error(
+                "Get Notifications Error:",
+                error.message
+            );
+
+
+            return res.status(
+                error.statusCode || 500
+            ).json({
+
+                success: false,
+
+                message:
+                    error.statusCode
+                        ? error.message
+                        : "Failed to get notifications.",
+            });
+        }
     }
-  }
 
 
-  // =========================================
-  // MARK ONE READ
-  // =========================================
+    // =====================================================
+    // MARK ONE READ
+    // =====================================================
 
-  async markAsRead(req, res) {
+    async markAsRead(req, res) {
 
-    try {
+        try {
 
-      const userId = req.user.id;
+            const notification =
+                await notificationService
+                    .markAsRead(
+                        req.params.id,
+                        req.user.id
+                    );
 
-      const notification =
-        await notificationService.markAsRead(
-          req.params.id,
-          userId
-        );
 
-      return res.status(200).json({
-        success: true,
-        message:
-          "Notification marked as read.",
-        data: notification,
-      });
+            return res.status(200).json({
 
-    } catch (error) {
+                success: true,
 
-      console.error(
-        "Mark Notification Read Error:",
-        error
-      );
+                message:
+                    "Notification marked as read.",
 
-      return res.status(
-        error.statusCode || 500
-      ).json({
-        success: false,
-        message:
-          error.message ||
-          "Failed to update notification",
-      });
+                data:
+                    notification,
+            });
+
+
+        } catch (error) {
+
+            console.error(
+                "Mark Notification Read Error:",
+                error.message
+            );
+
+
+            return res.status(
+                error.statusCode || 500
+            ).json({
+
+                success: false,
+
+                message:
+                    error.statusCode
+                        ? error.message
+                        : "Failed to update notification.",
+            });
+        }
     }
-  }
 
 
-  // =========================================
-  // MARK ALL READ
-  // =========================================
+    // =====================================================
+    // MARK ALL READ
+    // =====================================================
 
-  async markAllAsRead(req, res) {
+    async markAllAsRead(req, res) {
 
-    try {
+        try {
 
-      const userId = req.user.id;
+            const result =
+                await notificationService
+                    .markAllAsRead(
+                        req.user.id
+                    );
 
-      const result =
-        await notificationService.markAllAsRead(
-          userId
-        );
 
-      return res.status(200).json({
-        success: true,
-        message:
-          "All notifications marked as read.",
-        data: result,
-      });
+            return res.status(200).json({
 
-    } catch (error) {
+                success: true,
 
-      console.error(
-        "Mark All Notifications Error:",
-        error
-      );
+                message:
+                    "All notifications marked as read.",
 
-      return res.status(500).json({
-        success: false,
-        message:
-          "Failed to update notifications",
-      });
+                data:
+                    result,
+            });
+
+
+        } catch (error) {
+
+            console.error(
+                "Mark All Notifications Error:",
+                error.message
+            );
+
+
+            return res.status(
+                error.statusCode || 500
+            ).json({
+
+                success: false,
+
+                message:
+                    error.statusCode
+                        ? error.message
+                        : "Failed to update notifications.",
+            });
+        }
     }
-  }
 
 
-  // =========================================
-  // DELETE ONE
-  // =========================================
+    // =====================================================
+    // DELETE ONE
+    // =====================================================
 
-  async deleteNotification(req, res) {
+    async deleteNotification(req, res) {
 
-    try {
+        try {
 
-      const userId = req.user.id;
+            await notificationService
+                .deleteNotification(
+                    req.params.id,
+                    req.user.id
+                );
 
-      await notificationService.deleteNotification(
-        req.params.id,
-        userId
-      );
 
-      return res.status(200).json({
-        success: true,
-        message:
-          "Notification deleted.",
-      });
+            return res.status(200).json({
 
-    } catch (error) {
+                success: true,
 
-      console.error(
-        "Delete Notification Error:",
-        error
-      );
+                message:
+                    "Notification deleted.",
+            });
 
-      return res.status(
-        error.statusCode || 500
-      ).json({
-        success: false,
-        message:
-          error.message ||
-          "Failed to delete notification",
-      });
+
+        } catch (error) {
+
+            console.error(
+                "Delete Notification Error:",
+                error.message
+            );
+
+
+            return res.status(
+                error.statusCode || 500
+            ).json({
+
+                success: false,
+
+                message:
+                    error.statusCode
+                        ? error.message
+                        : "Failed to delete notification.",
+            });
+        }
     }
-  }
 
 
-  // =========================================
-  // DELETE ALL
-  // =========================================
+    // =====================================================
+    // DELETE ALL
+    // =====================================================
 
-  async deleteAllNotifications(req, res) {
+    async deleteAllNotifications(
+        req,
+        res
+    ) {
 
-    try {
+        try {
 
-      const userId = req.user.id;
+            const result =
+                await notificationService
+                    .deleteAllNotifications(
+                        req.user.id
+                    );
 
-      const result =
-        await notificationService.deleteAllNotifications(
-          userId
-        );
 
-      return res.status(200).json({
-        success: true,
-        message:
-          "All notifications deleted.",
-        data: result,
-      });
+            return res.status(200).json({
 
-    } catch (error) {
+                success: true,
 
-      console.error(
-        "Delete All Notifications Error:",
-        error
-      );
+                message:
+                    "All notifications deleted.",
 
-      return res.status(500).json({
-        success: false,
-        message:
-          "Failed to delete notifications",
-      });
+                data:
+                    result,
+            });
+
+
+        } catch (error) {
+
+            console.error(
+                "Delete All Notifications Error:",
+                error.message
+            );
+
+
+            return res.status(
+                error.statusCode || 500
+            ).json({
+
+                success: false,
+
+                message:
+                    error.statusCode
+                        ? error.message
+                        : "Failed to delete notifications.",
+            });
+        }
     }
-  }
 }
 
+
 module.exports =
-  new NotificationController();
+    new NotificationController();

@@ -97,12 +97,22 @@ const searchTrain = async (
             error.message
         );
 
-        return res.status(500).json({
+        const statusCode =
+            Number(error?.statusCode) >= 400 &&
+            Number(error?.statusCode) < 500
+                ? Number(error.statusCode)
+                : Number(error?.statusCode) === 502
+                    ? 502
+                    : 500;
+
+        return res.status(statusCode).json({
 
             success: false,
 
             message:
-                "Unable to search train.",
+                statusCode === 400
+                    ? error.message
+                    : "Unable to verify train number.",
 
         });
 

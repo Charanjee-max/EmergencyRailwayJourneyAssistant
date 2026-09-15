@@ -1,41 +1,142 @@
+"use strict";
+
 const {
     normalizeCode,
-    edgeCoversJourney
+    edgeCoversJourney,
 } = require("../reservationCoverage");
 
 class DirectSeatStrategy {
-
     execute(graph, journey) {
-
         const solutions = [];
 
-        const source =
-            normalizeCode(journey.source);
+        if (!graph || !journey) {
+            console.log(
+                "❌ DirectSeatStrategy: Missing graph or journey."
+            );
 
-        const destination =
-            normalizeCode(journey.destination);
+            return solutions;
+        }
+
+        const source = normalizeCode(
+            journey.source
+        );
+
+        const destination = normalizeCode(
+            journey.destination
+        );
 
         const preferredClasses =
-            journey.preferredClasses || [];
+            Array.isArray(
+                journey.preferredClasses
+            )
+                ? journey.preferredClasses
+                : [];
 
         console.log(
             "\n========== DIRECT SEAT STRATEGY =========="
         );
 
-        console.log("Source:", source);
-        console.log("Destination:", destination);
+        console.log(
+            "Source:",
+            source
+        );
+
+        console.log(
+            "Destination:",
+            destination
+        );
+
         console.log(
             "Preferred Classes:",
             preferredClasses
         );
 
-        for (const travelClass of preferredClasses) {
+        /*
+         * Basic validation.
+         */
+        if (!source || !destination) {
+            console.log(
+                "❌ Missing source or destination."
+            );
 
+            return solutions;
+        }
+
+        if (source === destination) {
+            console.log(
+                "❌ Source and destination are identical."
+            );
+
+            return solutions;
+        }
+
+        /*
+         * Validate requested route direction
+         * before processing vacancies.
+         */
+        const sourceNode = (
+            graph.nodes || []
+        ).find(
+            (node) =>
+                normalizeCode(node.code) ===
+                source
+        );
+
+        const destinationNode = (
+            graph.nodes || []
+        ).find(
+            (node) =>
+                normalizeCode(node.code) ===
+                destination
+        );
+
+        if (!sourceNode || !destinationNode) {
+            console.log(
+                "❌ Source or destination not found in graph."
+            );
+
+            return solutions;
+        }
+
+        const sourceOrder =
+            Number(sourceNode.order);
+
+        const destinationOrder =
+            Number(destinationNode.order);
+
+        if (
+            !Number.isFinite(sourceOrder) ||
+            !Number.isFinite(destinationOrder) ||
+            sourceOrder >= destinationOrder
+        ) {
+            console.log(
+                `❌ Invalid journey direction: ${source} → ${destination}`
+            );
+
+            return solutions;
+        }
+
+        /*
+         * Process preferred classes one by one.
+         */
+        for (
+            const travelClass of preferredClasses
+        ) {
             const normalizedClass =
                 normalizeCode(travelClass);
 
-            const coveringEdges =
-                graph.edges.filter((edge) =>
+            if (!normalizedClass) {
+                continue;
+            }
+
+            /*
+             * Find graph edges matching the requested
+             * class and covering the requested journey.
+             */
+            const coveringEdges = (
+                graph.edges || []
+            ).filter(
+                (edge) =>
                     normalizeCode(edge.class) ===
                         normalizedClass &&
                     edgeCoversJourney(
@@ -44,60 +145,204 @@ class DirectSeatStrategy {
                         source,
                         destination
                     )
-                );
+            );
 
             if (!coveringEdges.length) {
                 console.log(
                     `❌ No ${normalizedClass} direct coverage`
                 );
+
                 continue;
             }
 
             /*
-             * Find the edge with the largest availability.
+             * Prefer edges with the highest number
+             * of available berths.
              */
             coveringEdges.sort(
                 (a, b) =>
-                    (b.totalAvailable || 0) -
-                    (a.totalAvailable || 0)
+                    Number(
+                        b.totalAvailable || 0
+                    ) -
+                    Number(
+                        a.totalAvailable || 0
+                    )
             );
 
-            const bestEdge =
-                coveringEdges[0];
-
-            let bestOpportunity = null;
+            /*
+             * Find an INDIVIDUAL berth that actually
+             * covers the entire journey.
+             *
+             * This is important because the parent
+             * graph edge can contain multiple berth
+             * intervals.
+             */
+            let selectedEdge = null;
+            let selectedOpportunity = null;
+            let selectedBerth = null;
 
             for (
-                const opportunity
-                of bestEdge.opportunities || []
+                const edge of coveringEdges
             ) {
-
-                if (
-                    !opportunity.berths ||
-                    !opportunity.berths.length
+                for (
+                    const opportunity of
+                        edge.opportunities || []
                 ) {
-                    continue;
+                    if (
+                        !Array.isArray(
+                            opportunity.berths
+                        )
+                    ) {
+                        continue;
+                    }
+
+                    for (
+                        const berth of
+                            opportunity.berths
+                    ) {
+                        if (!berth) {
+                            continue;
+                        }
+
+                        const berthFrom =
+                            normalizeCode(
+                                berth.from
+                            );
+
+                        const berthTo =
+                            normalizeCode(
+                                berth.to
+                            );
+
+                        /*
+                         * A berth without a valid
+                         * vacancy interval cannot
+                         * be recommended.
+                         */
+                        if (
+                            !berthFrom ||
+                            !berthTo
+                        ) {
+                            continue;
+                        }
+
+                        /*
+                         * Validate the ACTUAL berth
+                         * interval.
+                         */
+                        const berthEdge = {
+                            from: berthFrom,
+                            to: berthTo,
+                        };
+
+                        if (
+                            !edgeCoversJourney(
+                                graph,
+                                berthEdge,
+                                source,
+                                destination
+                            )
+                        ) {
+                            continue;
+                        }
+
+                        selectedEdge = edge;
+                        selectedOpportunity =
+                            opportunity;
+                        selectedBerth = berth;
+
+                        break;
+                    }
+
+                    if (selectedBerth) {
+                        break;
+                    }
                 }
 
-                if (
-                    !bestOpportunity ||
-                    opportunity.berths.length >
-                        bestOpportunity.berths.length
-                ) {
-                    bestOpportunity =
-                        opportunity;
+                if (selectedBerth) {
+                    break;
                 }
             }
 
-            if (!bestOpportunity) {
+            /*
+             * No individual berth covers the complete
+             * requested journey.
+             */
+            if (
+                !selectedBerth ||
+                !selectedOpportunity
+            ) {
+                console.log(
+                    `❌ No individual ${normalizedClass} berth covers ` +
+                    `${source} → ${destination}`
+                );
+
                 continue;
             }
 
-            const bestBerth =
-                bestOpportunity.berths[0];
+            /*
+             * Safely extract berth information.
+             *
+             * Never interpolate the whole berth object
+             * into a string.
+             */
+            const berthNumber =
+                selectedBerth.berthNumber ??
+                selectedBerth.berthNo ??
+                "";
 
+            const berthCode =
+                selectedBerth.berthCode ??
+                selectedBerth.berthType ??
+                "";
+
+            const berthLabel =
+                berthNumber !== ""
+                    ? `${berthNumber}${berthCode}`
+                    : berthCode ||
+                      "Available berth";
+
+            const actualFrom =
+                normalizeCode(
+                    selectedBerth.from
+                );
+
+            const actualTo =
+                normalizeCode(
+                    selectedBerth.to
+                );
+
+            const availableCount =
+    Number(
+        selectedEdge.totalAvailable
+    ) || 0;
+
+            /*
+             * Build a clean vacancy summary.
+             */
+            const vacancySummary = [
+                {
+                    coach:
+                        selectedOpportunity.coach ||
+                        selectedBerth.coachName ||
+                        "",
+
+                    class: normalizedClass,
+
+                    berthNumber,
+                    berthCode,
+
+                    from: actualFrom,
+                    to: actualTo,
+
+                    availableCount,
+                },
+            ];
+
+            /*
+             * Build recommendation.
+             */
             const solution = {
-
                 success: true,
 
                 strategy: "DIRECT_SEAT",
@@ -107,36 +352,77 @@ class DirectSeatStrategy {
                 tickets: [
                     {
                         from: source,
+
                         to: destination,
+
                         class: normalizedClass,
+
                         coach:
-                            bestOpportunity.coach,
-                        berth: bestBerth
-                    }
+                            selectedOpportunity.coach ||
+                            selectedBerth.coachName ||
+                            "",
+
+                        berth: selectedBerth,
+                    },
                 ],
 
-                reason:
-                    `${bestEdge.totalAvailable} vacant ` +
-                    `${normalizedClass} berths cover ` +
-                    `${source} → ${destination}. ` +
-                    `Best available option: ` +
-                    `${bestOpportunity.coach}/${bestBerth}.`
+                vacancySummary,
 
+                reason:
+    `${availableCount} vacant ` +
+    `${normalizedClass} berth` +
+    `${
+        availableCount === 1
+            ? ""
+            : "s"
+    } cover ` +
+    `${source} → ${destination}. ` +
+    `Example available berth: ` +
+    `${
+        selectedOpportunity.coach ||
+        selectedBerth.coachName ||
+        "Coach"
+    }/${berthLabel}.`,
             };
 
             console.log(
                 "✅ Direct journey coverage found"
             );
 
+            console.log(
+                "Coach:",
+                selectedOpportunity.coach ||
+                    selectedBerth.coachName ||
+                    ""
+            );
+
+            console.log(
+                "Berth:",
+                berthLabel
+            );
+
+            console.log(
+                "Actual vacancy:",
+                `${actualFrom} → ${actualTo}`
+            );
+
+            console.log(
+                "Passenger journey:",
+                `${source} → ${destination}`
+            );
+
             console.dir(
                 solution,
-                { depth: null }
+                {
+                    depth: null,
+                }
             );
 
             solutions.push(solution);
 
             /*
-             * Only one DIRECT_SEAT recommendation.
+             * Only one direct-seat recommendation
+             * is required.
              */
             break;
         }

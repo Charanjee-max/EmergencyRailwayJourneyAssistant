@@ -10,12 +10,9 @@ const API_BASE_URL =
     import.meta.env.VITE_API_BASE_URL ||
     "http://localhost:5000/api";
 
-// =========================================================
-// AXIOS INSTANCE
-// =========================================================
-
 const API = axios.create({
     baseURL: API_BASE_URL,
+
     timeout: 15000,
 
     headers: {
@@ -24,12 +21,7 @@ const API = axios.create({
 });
 
 // =========================================================
-// REQUEST INTERCEPTOR
-// =========================================================
-//
-// Adds JWT automatically.
-//
-// Never manually pass JWT from every component.
+// AUTH INTERCEPTOR
 // =========================================================
 
 API.interceptors.request.use(
@@ -45,18 +37,12 @@ API.interceptors.request.use(
         return config;
     },
 
-    (error) => {
-        return Promise.reject(error);
-    }
+    (error) =>
+        Promise.reject(error)
 );
 
 // =========================================================
 // RESPONSE INTERCEPTOR
-// =========================================================
-//
-// If JWT expires / becomes invalid,
-// remove it and allow the application
-// routing layer to handle authentication.
 // =========================================================
 
 API.interceptors.response.use(
@@ -66,13 +52,8 @@ API.interceptors.response.use(
         if (
             error?.response?.status === 401
         ) {
-            localStorage.removeItem(
-                "token"
-            );
-
-            localStorage.removeItem(
-                "user"
-            );
+            localStorage.removeItem("token");
+            localStorage.removeItem("user");
         }
 
         return Promise.reject(error);
@@ -80,32 +61,26 @@ API.interceptors.response.use(
 );
 
 // =========================================================
-// HELPER
+// HELPERS
 // =========================================================
 
 const cleanString = (
     value,
     maxLength = 100
-) => {
-    return String(value ?? "")
+) =>
+    String(value ?? "")
         .trim()
         .slice(0, maxLength);
-};
 
 // =========================================================
-// SEARCH STATION
-// =========================================================
-//
-// Used by AddJourney autocomplete.
-//
-// Supports AbortController signal so old
-// requests can be cancelled.
+// STATION SEARCH
 // =========================================================
 
 export const searchStation = (
     search,
     options = {}
 ) => {
+
     const query =
         cleanString(search, 50);
 
@@ -132,20 +107,34 @@ export const searchStation = (
 };
 
 // =========================================================
-// SEARCH TRAIN
+// TRAIN SEARCH
 // =========================================================
+
+/*
+ * Searches one train number.
+ *
+ * Backend currently exposes:
+ *
+ * GET /api/train/search?trainNumber=12796
+ *
+ * The response comes from the existing train
+ * search service.
+ */
 
 export const searchTrain = (
     trainNumber,
     options = {}
 ) => {
+
     const value =
         cleanString(
             trainNumber,
-            6
+            5
         );
 
-    if (!/^\d{4,6}$/.test(value)) {
+    if (
+        !/^\d{4,5}$/.test(value)
+    ) {
         return Promise.reject(
             new Error(
                 "Invalid train number."
@@ -167,17 +156,17 @@ export const searchTrain = (
 };
 
 // =========================================================
-// GET TRAIN CLASSES
+// ACTUAL TRAIN CLASSES
 // =========================================================
-//
-// Fetches actual coach composition from
-// backend → IRCTC.
-//
-// Required:
-// trainNumber
-// journeyDate
-// boardingStation
-// =========================================================
+
+/*
+ * Fetches actual train composition from
+ * the backend.
+ *
+ * Backend:
+ *
+ * GET /api/chart/classes
+ */
 
 export const getTrainClasses = ({
     trainNumber,
@@ -185,10 +174,11 @@ export const getTrainClasses = ({
     boardingStation,
     signal,
 }) => {
+
     const cleanTrainNumber =
         cleanString(
             trainNumber,
-            6
+            5
         );
 
     const cleanJourneyDate =
@@ -203,12 +193,8 @@ export const getTrainClasses = ({
             10
         ).toUpperCase();
 
-    // -----------------------------------------------------
-    // Client-side validation
-    // -----------------------------------------------------
-
     if (
-        !/^\d{4,6}$/.test(
+        !/^\d{4,5}$/.test(
             cleanTrainNumber
         )
     ) {
@@ -261,9 +247,5 @@ export const getTrainClasses = ({
         }
     );
 };
-
-// =========================================================
-// DEFAULT EXPORT
-// =========================================================
 
 export default API;

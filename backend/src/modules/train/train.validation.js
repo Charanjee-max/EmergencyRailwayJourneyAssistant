@@ -211,7 +211,9 @@ const seatAvailabilityValidation = (data) => {
                     "3A",
                     "3E",
                     "SL",
-                    "2S"
+                    "2S",
+                    "CC",
+                    "EC"
                 )
                 .required()
                 .messages({

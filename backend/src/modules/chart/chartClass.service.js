@@ -1,197 +1,456 @@
-const chartService = require("./chart.service");
+"use strict";
+
+const chartService =
+    require("./chart.service");
+
+// =========================================================
+// CLASS INFORMATION
+// =========================================================
 
 const CLASS_INFO = {
     "1A": {
         name: "First AC",
-        coaches: ["H"],
     },
 
     "2A": {
         name: "AC 2 Tier",
-        coaches: ["A"],
     },
 
     "3A": {
         name: "AC 3 Tier",
-        coaches: ["B"],
     },
 
     "3E": {
         name: "AC 3 Economy",
-        coaches: ["M"],
     },
 
     SL: {
         name: "Sleeper",
-        coaches: ["S"],
     },
 
     "2S": {
         name: "Second Sitting",
-        coaches: ["D"],
     },
 
     CC: {
         name: "Chair Car",
-        coaches: ["C"],
     },
 
     EC: {
         name: "Executive Chair Car",
-        coaches: ["E"],
     },
 };
 
-// ---------------------------------------------------------
-// Extract coach codes from IRCTC cdd
-// ---------------------------------------------------------
+// =========================================================
+// NORMALIZE CLASS
+// =========================================================
 
-const extractCoachCodes = (cdd = []) => {
-    const coachCodes = new Set();
+const normalizeClass =
+    (value) => {
 
-    const addCoach = (value) => {
-        if (!value) return;
+        const code =
+            String(
+                value || ""
+            )
+                .trim()
+                .toUpperCase();
 
-        const text = String(value)
-            .trim()
-            .toUpperCase();
+        return CLASS_INFO[code]
+            ? code
+            : null;
+    };
+
+// =========================================================
+// EXTRACT FROM COACH OBJECTS
+// =========================================================
+
+const extractFromCoaches = (
+    coaches
+) => {
+
+    const classes =
+        new Set();
+
+    const coachCodes =
+        new Set();
+
+    if (
+        !Array.isArray(
+            coaches
+        )
+    ) {
+        return {
+            classes,
+            coachCodes,
+        };
+    }
+
+    for (
+        const coach of coaches
+    ) {
+
+        if (!coach) {
+            continue;
+        }
+
+        const coachName =
+            String(
+                coach.coachName ||
+                coach.coach ||
+                coach.coachCode ||
+                coach.code ||
+                ""
+            )
+                .trim()
+                .toUpperCase();
+
+        if (coachName) {
+            coachCodes.add(
+                coachName
+            );
+        }
 
         /*
-         * Examples:
-         * A1
-         * B1
-         * M1
-         * S1
-         * D1
-         * C1
-         * E1
-         * H1
+         * BEST SOURCE:
+         *
+         * IRCTC composition provides classCode.
          */
+        const explicitClass =
+            normalizeClass(
+                coach.classCode ||
+                coach.class ||
+                coach.classCodeName
+            );
 
-        const matches = text.match(
-            /\b(?:H|A|B|M|S|D|C|E)\d{1,2}\b/g
-        );
+        if (explicitClass) {
+            classes.add(
+                explicitClass
+            );
 
-        if (!matches) return;
-
-        matches.forEach((coach) => {
-            coachCodes.add(coach);
-        });
-    };
-
-    const scan = (item) => {
-        if (!item) return;
-
-        if (typeof item === "string") {
-            addCoach(item);
-            return;
+            continue;
         }
 
-        if (typeof item !== "object") {
-            return;
-        }
+        /*
+         * Fallback coach-prefix mapping.
+         */
+        const prefix =
+            coachName.charAt(0);
 
-        const possibleFields = [
-            "coachName",
-            "coach",
-            "coachCode",
-            "code",
-            "name",
-            "coachNumber",
-        ];
+        const prefixMap = {
+            H: "1A",
+            A: "2A",
+            B: "3A",
+            M: "3E",
+            S: "SL",
+            D: "2S",
+            C: "CC",
+            E: "EC",
+        };
 
-        for (const field of possibleFields) {
-            if (item[field]) {
-                addCoach(item[field]);
-            }
-        }
-    };
+        const inferred =
+            prefixMap[prefix];
 
-    if (Array.isArray(cdd)) {
-        cdd.forEach(scan);
-    }
-
-    return Array.from(coachCodes);
-};
-
-// ---------------------------------------------------------
-// Convert coaches → classes
-// ---------------------------------------------------------
-
-const getClassesFromCoaches = (coachCodes) => {
-    const availableClasses = new Set();
-
-    for (const coach of coachCodes) {
-        const prefix = coach.charAt(0);
-
-        for (const [classCode, info] of Object.entries(CLASS_INFO)) {
-            if (info.coaches.includes(prefix)) {
-                availableClasses.add(classCode);
-            }
+        if (inferred) {
+            classes.add(
+                inferred
+            );
         }
     }
-
-    return Object.keys(CLASS_INFO)
-        .filter((classCode) =>
-            availableClasses.has(classCode)
-        )
-        .map((classCode) => ({
-            code: classCode,
-            name: CLASS_INFO[classCode].name,
-        }));
-};
-
-// ---------------------------------------------------------
-// Main
-// ---------------------------------------------------------
-
-const getAvailableTrainClasses = async ({
-    trainNumber,
-    journeyDate,
-    boardingStation,
-}) => {
-    if (!trainNumber) {
-        throw new Error("Train number is required.");
-    }
-
-    if (!journeyDate) {
-        throw new Error("Journey date is required.");
-    }
-
-    if (!boardingStation) {
-        throw new Error(
-            "Boarding station is required to check train composition."
-        );
-    }
-
-    const chart = await chartService.fetchAndCacheChart(
-        trainNumber,
-        journeyDate,
-        boardingStation
-    );
-
-    const cdd = Array.isArray(chart?.cdd)
-        ? chart.cdd
-        : [];
-
-    const coachCodes = extractCoachCodes(cdd);
-
-    const classes = getClassesFromCoaches(
-        coachCodes
-    );
 
     return {
-        trainNumber: String(trainNumber),
-        journeyDate,
-        boardingStation,
-        chartPrepared:
-            chart?.chartPrepared === true,
         classes,
         coachCodes,
-        compositionAvailable:
-            coachCodes.length > 0,
     };
 };
+
+// =========================================================
+// EXTRACT FROM CDD
+// =========================================================
+
+const extractFromCDD = (
+    cdd
+) => {
+
+    const classes =
+        new Set();
+
+    const coachCodes =
+        new Set();
+
+    if (
+        !Array.isArray(
+            cdd
+        )
+    ) {
+        return {
+            classes,
+            coachCodes,
+        };
+    }
+
+    const scan =
+        (item) => {
+
+            if (!item) {
+                return;
+            }
+
+            if (
+                typeof item ===
+                "string"
+            ) {
+
+                const text =
+                    item
+                        .trim()
+                        .toUpperCase();
+
+                const matches =
+                    text.match(
+                        /\b(?:H|A|B|M|S|D|C|E)\d{1,2}\b/g
+                    );
+
+                if (matches) {
+
+                    matches.forEach(
+                        (coach) => {
+
+                            coachCodes.add(
+                                coach
+                            );
+
+                            const prefix =
+                                coach.charAt(0);
+
+                            const prefixMap = {
+                                H: "1A",
+                                A: "2A",
+                                B: "3A",
+                                M: "3E",
+                                S: "SL",
+                                D: "2S",
+                                C: "CC",
+                                E: "EC",
+                            };
+
+                            if (
+                                prefixMap[prefix]
+                            ) {
+                                classes.add(
+                                    prefixMap[prefix]
+                                );
+                            }
+                        }
+                    );
+                }
+
+                return;
+            }
+
+            if (
+                typeof item !==
+                "object"
+            ) {
+                return;
+            }
+
+            const explicitClass =
+                normalizeClass(
+                    item.classCode ||
+                    item.class ||
+                    item.className
+                );
+
+            if (
+                explicitClass
+            ) {
+                classes.add(
+                    explicitClass
+                );
+            }
+
+            const coachName =
+                String(
+                    item.coachName ||
+                    item.coach ||
+                    item.coachCode ||
+                    item.code ||
+                    ""
+                )
+                    .trim()
+                    .toUpperCase();
+
+            if (
+                coachName
+            ) {
+
+                const matches =
+                    coachName.match(
+                        /\b(?:H|A|B|M|S|D|C|E)\d{1,2}\b/g
+                    );
+
+                if (
+                    matches
+                ) {
+
+                    matches.forEach(
+                        (coach) =>
+                            coachCodes.add(
+                                coach
+                            )
+                    );
+                }
+            }
+        };
+
+    cdd.forEach(scan);
+
+    return {
+        classes,
+        coachCodes,
+    };
+};
+
+// =========================================================
+// ORDER CLASSES
+// =========================================================
+
+const CLASS_ORDER = [
+    "1A",
+    "2A",
+    "3A",
+    "3E",
+    "SL",
+    "2S",
+    "CC",
+    "EC",
+];
+
+// =========================================================
+// GET AVAILABLE CLASSES
+// =========================================================
+
+const getAvailableTrainClasses =
+    async ({
+        trainNumber,
+        journeyDate,
+        boardingStation,
+    }) => {
+
+        if (!trainNumber) {
+            throw new Error(
+                "Train number is required."
+            );
+        }
+
+        if (!journeyDate) {
+            throw new Error(
+                "Journey date is required."
+            );
+        }
+
+        if (!boardingStation) {
+            throw new Error(
+                "Boarding station is required."
+            );
+        }
+
+        // =====================================================
+        // FETCH REAL IRCTC COMPOSITION
+        // =====================================================
+
+        const chart =
+            await chartService.fetchAndCacheChart(
+                trainNumber,
+                journeyDate,
+                boardingStation
+            );
+
+        // =====================================================
+        // EXTRACT
+        // =====================================================
+
+        const coachResult =
+            extractFromCoaches(
+                chart?.coaches
+            );
+
+        const cddResult =
+            extractFromCDD(
+                chart?.cdd
+            );
+
+        // =====================================================
+        // MERGE
+        // =====================================================
+
+        const classSet =
+            new Set([
+                ...coachResult.classes,
+                ...cddResult.classes,
+            ]);
+
+        const coachCodes =
+            new Set([
+                ...coachResult.coachCodes,
+                ...cddResult.coachCodes,
+            ]);
+
+        // =====================================================
+        // BUILD RESULT
+        // =====================================================
+
+        const classes =
+            CLASS_ORDER
+                .filter(
+                    (code) =>
+                        classSet.has(code)
+                )
+                .map(
+                    (code) => ({
+                        code,
+
+                        name:
+                            CLASS_INFO[
+                                code
+                            ].name,
+                    })
+                );
+
+        return {
+            trainNumber:
+                String(
+                    trainNumber
+                ),
+
+            journeyDate,
+
+            boardingStation:
+                String(
+                    boardingStation
+                )
+                    .trim()
+                    .toUpperCase(),
+
+            chartPrepared:
+                chart?.chartPrepared ===
+                true,
+
+            classes,
+
+            coachCodes:
+                Array.from(
+                    coachCodes
+                ),
+
+            compositionAvailable:
+                classes.length > 0,
+        };
+    };
+
+// =========================================================
+// EXPORT
+// =========================================================
 
 module.exports = {
     getAvailableTrainClasses,

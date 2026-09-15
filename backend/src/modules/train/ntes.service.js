@@ -133,7 +133,120 @@ const extractTimeValues = (html) => {
     .filter(Boolean);
 };
 
-const parseNtesSchedule = (html, trainNumber) => {
+
+const extractTrainName = (html = "", trainNumber = "") => {
+  const source = String(html || "");
+
+  const cleanCandidate = (value) => {
+    const cleaned = stripHtml(value)
+      .replace(/\s+/g, " ")
+      .trim();
+
+    if (!cleaned) return "";
+
+    const blocked = [
+      "train service schedule",
+      "train schedule",
+      "train details",
+      "service schedule",
+      "train number",
+      "train no",
+      "date of journey",
+    ];
+
+    if (blocked.some((item) => cleaned.toLowerCase() === item)) {
+      return "";
+    }
+
+    return cleaned
+      .replace(/^(?:train\s*(?:name|no\.?|number)\s*[:\-]?\s*)/i, "")
+      .trim()
+      .slice(0, 200);
+  };
+
+  // Common label/value HTML structures.
+  const htmlPatterns = [
+    /(?:Train\s*Name|Train\s*name)\s*[:\-]?\s*(?:<\/?[^>]+>\s*){0,3}([^<]{3,200})/i,
+    /(?:Train\s*Name|Train\s*name)\s*[:\-]?\s*<[^>]+>([\s\S]{3,300}?)<\/[^>]+>/i,
+    /<[^>]*>\s*(?:Train\s*Name|Train\s*name)\s*<\/[^>]+>\s*<[^>]*>([\s\S]{3,300}?)<\/[^>]+>/i,
+  ];
+
+  for (const pattern of htmlPatterns) {
+    const match = source.match(pattern);
+    if (match?.[1]) {
+      const candidate = cleanCandidate(match[1]);
+      if (candidate) return candidate;
+    }
+  }
+
+  const text = stripHtml(source);
+
+  // Plain-text label/value structure.
+  const textPatterns = [
+    /(?:Train\s*Name)\s*[:\-]\s*([^\n]{3,200})/i,
+    /(?:Train\s*Name)\s+([^\n]{3,200})/i,
+  ];
+
+  for (const pattern of textPatterns) {
+    const match = text.match(pattern);
+    if (match?.[1]) {
+      const candidate = cleanCandidate(match[1]);
+      if (candidate) return candidate;
+    }
+  }
+
+  // Header/title patterns such as "12796 - TRAIN NAME".
+  const number = String(trainNumber || "").trim();
+  if (number) {
+    const headerPatterns = [
+      new RegExp(
+        `\\b${number}\\b\\s*[-:]\\s*([^\\n|]{3,200})`,
+        "i"
+      ),
+      new RegExp(
+        `([^\\n|]{3,200})\\s*[-:]\\s*\\b${number}\\b`,
+        "i"
+      ),
+    ];
+
+    for (const pattern of headerPatterns) {
+      const match = text.match(pattern);
+      if (match?.[1]) {
+        const candidate = cleanCandidate(match[1]);
+        if (candidate && !/^\\d+$/.test(candidate)) {
+          return candidate;
+        }
+      }
+    }
+  }
+
+  // Last-resort heading/title extraction.
+  const headings = [
+    ...source.matchAll(/<(?:title|h1|h2|h3)\b[^>]*>([\s\S]*?)<\/(?:title|h1|h2|h3)>/gi),
+  ];
+
+  for (const match of headings) {
+    const candidate = cleanCandidate(match[1]);
+    if (
+      candidate &&
+      (!number || candidate.includes(number)) &&
+      !/schedule|service/i.test(candidate)
+    ) {
+      const withoutNumber = candidate
+        .replace(new RegExp(`\\b${number}\\b`, "g"), "")
+        .replace(/\s*[-:|]\s*/g, " ")
+        .trim();
+
+      if (withoutNumber.length >= 3) {
+        return withoutNumber.slice(0, 200);
+      }
+    }
+  }
+
+  return "";
+};
+
+const parseNtesSchedule = (html, trainNumber, trainName = "") => {
   const rows = [
     ...String(html).matchAll(
       /<tr\b[^>]*>([\s\S]*?)<\/tr>/gi
@@ -213,6 +326,7 @@ const parseNtesSchedule = (html, trainNumber) => {
 
     stops.push({
       trainNumber: String(trainNumber).trim(),
+      trainName: String(trainName || "").trim().slice(0, 200),
       no: String(no),
       track: "",
       code: stationInfo.code,
@@ -476,9 +590,15 @@ const fetchNtesTrainSchedule = async (
     );
   }
 
-  const stops = parseNtesSchedule(
+  const trainName = extractTrainName(
     html,
     normalizedTrainNumber
+  );
+
+  const stops = parseNtesSchedule(
+    html,
+    normalizedTrainNumber,
+    trainName
   );
 
   if (!stops.length) {
@@ -493,6 +613,7 @@ const fetchNtesTrainSchedule = async (
 
   return {
     trainNumber: normalizedTrainNumber,
+    trainName,
     trainStartDate: formattedDate,
     stops,
     html,
@@ -511,6 +632,7 @@ const syncNtesTrainStopsService = async (
 
   const {
     trainNumber: normalizedTrainNumber,
+    trainName,
     stops,
   } = result;
 
@@ -562,4 +684,5 @@ module.exports = {
   fetchNtesTrainSchedule,
   syncNtesTrainStopsService,
   formatNtesDate,
+  extractTrainName,
 };

@@ -355,6 +355,42 @@ function Recommendation() {
                                             {recommendation.reason ||
                                                 "This strategy provides a suitable booking option based on current availability."}
                                         </p>
+                                        {recommendation.vacancySummary &&
+    recommendation.vacancySummary.length > 0 && (
+
+        <div className="availability-summary">
+
+            {recommendation.vacancySummary.map(
+                (summary, summaryIndex) => (
+
+                    <div
+                        className="availability-item"
+                        key={summaryIndex}
+                    >
+
+                        <div className="availability-count">
+                            {summary.count}
+                        </div>
+
+                        <div className="availability-details">
+
+                            <strong>
+                                {summary.class} direct berths available
+                            </strong>
+
+                            <span>
+                                Current IRCTC availability
+                            </span>
+
+                        </div>
+
+                    </div>
+
+                )
+            )}
+
+        </div>
+    )}
 
                                     </section>
 

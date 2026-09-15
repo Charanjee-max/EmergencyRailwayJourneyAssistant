@@ -1,3 +1,5 @@
+"use strict";
+
 const {
     createJourney,
     getUserJourneys,
@@ -8,494 +10,299 @@ const {
 
 const {
     createJourneyValidation,
+    journeyIdValidation,
 } = require("./journey.validation");
 
 const workflowManager =
     require("../../workflows/workflowManager");
 
-
 // =========================================================
 // CREATE JOURNEY
 // =========================================================
 
-const create = async (
-    req,
-    res
-) => {
-
+const create = async (req, res) => {
     try {
-
         // -------------------------------------------------
         // Validate request
         // -------------------------------------------------
 
-        const {
-            error,
-            value,
-        } = createJourneyValidation(
-            req.body
-        );
+        const validation =
+            createJourneyValidation(req.body);
 
-
-        if (error) {
-
-            return res
-                .status(400)
-                .json({
-
-                    success: false,
-
-                    message:
-                        "Validation failed.",
-
-                    errors:
-                        error.details.map(
-                            (err) => ({
-
-                                field:
-                                    err.path.join("."),
-
-                                message:
-                                    err.message,
-
-                            })
-                        ),
-
-                });
-
+        if (validation.error) {
+            return res.status(400).json({
+                success: false,
+                message: "Validation failed.",
+                errors:
+                    validation.error.details.map(
+                        (err) => ({
+                            field:
+                                err.path.join("."),
+                            message:
+                                err.message,
+                        })
+                    ),
+            });
         }
 
-
-        // -------------------------------------------------
-        // Create journey using VALIDATED data
-        // -------------------------------------------------
-
+        // IMPORTANT:
+        // Use Joi-validated data, NOT req.body.
         const journey =
             await createJourney(
-                value,
+                validation.value,
                 req.user.id
             );
 
+        return res.status(201).json({
+            success: true,
+            message:
+                "Journey request created successfully.",
+            data: journey,
+        });
 
-        return res
-            .status(201)
-            .json({
-
-                success: true,
-
-                message:
-                    "Journey request created successfully.",
-
-                data:
-                    journey,
-
-            });
-
-    }
-
-    catch (err) {
-
+    } catch (err) {
         console.error(
             "\n❌ CREATE JOURNEY ERROR:",
             err.message
         );
 
-        return res
-            .status(
-                err.statusCode || 500
-            )
-            .json({
-
-                success: false,
-
-                message:
-                    err.message ||
-                    "Unable to create journey.",
-
-            });
-
+        return res.status(
+            err.statusCode || 500
+        ).json({
+            success: false,
+            message:
+                err.message ||
+                "Unable to create journey.",
+        });
     }
-
 };
-
 
 // =========================================================
 // GET ACTIVE JOURNEYS
 // =========================================================
 
-const getAll = async (
-    req,
-    res
-) => {
-
+const getAll = async (req, res) => {
     try {
-
         const journeys =
             await getUserJourneys(
                 req.user.id
             );
 
+        return res.status(200).json({
+            success: true,
+            message:
+                "Active journeys fetched successfully.",
+            data: journeys,
+        });
 
-        return res
-            .status(200)
-            .json({
-
-                success: true,
-
-                message:
-                    "Active journeys fetched successfully.",
-
-                data:
-                    journeys,
-
-            });
-
-    }
-
-    catch (err) {
-
+    } catch (err) {
         console.error(
             "❌ GET JOURNEYS ERROR:",
             err.message
         );
 
-        return res
-            .status(
-                err.statusCode || 500
-            )
-            .json({
-
-                success: false,
-
-                message:
-                    err.message ||
-                    "Unable to fetch journeys.",
-
-            });
-
+        return res.status(
+            err.statusCode || 500
+        ).json({
+            success: false,
+            message:
+                err.message ||
+                "Unable to fetch journeys.",
+        });
     }
-
 };
-
 
 // =========================================================
 // GET JOURNEY HISTORY
 // =========================================================
 
-const getHistory = async (
-    req,
-    res
-) => {
-
+const getHistory = async (req, res) => {
     try {
-
         const journeys =
             await getJourneyHistory(
                 req.user.id
             );
 
+        return res.status(200).json({
+            success: true,
+            message:
+                "Journey history fetched successfully.",
+            data: journeys,
+        });
 
-        return res
-            .status(200)
-            .json({
-
-                success: true,
-
-                message:
-                    "Journey history fetched successfully.",
-
-                data:
-                    journeys,
-
-            });
-
-    }
-
-    catch (err) {
-
+    } catch (err) {
         console.error(
             "❌ GET JOURNEY HISTORY ERROR:",
             err.message
         );
 
-        return res
-            .status(
-                err.statusCode || 500
-            )
-            .json({
-
-                success: false,
-
-                message:
-                    err.message ||
-                    "Unable to fetch journey history.",
-
-            });
-
+        return res.status(
+            err.statusCode || 500
+        ).json({
+            success: false,
+            message:
+                err.message ||
+                "Unable to fetch journey history.",
+        });
     }
-
 };
-
 
 // =========================================================
 // GET JOURNEY BY ID
 // =========================================================
 
-const getById = async (
-    req,
-    res
-) => {
-
+const getById = async (req, res) => {
     try {
+        const validation =
+            journeyIdValidation(
+                req.params.id
+            );
+
+        if (validation.error) {
+            return res.status(400).json({
+                success: false,
+                message:
+                    validation.error.message,
+            });
+        }
 
         const journey =
             await getJourneyById(
-                req.params.id,
+                validation.value,
                 req.user.id
             );
 
+        return res.status(200).json({
+            success: true,
+            message:
+                "Journey request fetched successfully.",
+            data: journey,
+        });
 
-        return res
-            .status(200)
-            .json({
-
-                success: true,
-
-                message:
-                    "Journey request fetched successfully.",
-
-                data:
-                    journey,
-
-            });
-
-    }
-
-    catch (err) {
-
+    } catch (err) {
         console.error(
             "❌ GET JOURNEY ERROR:",
             err.message
         );
 
-        return res
-            .status(
-                err.statusCode || 404
-            )
-            .json({
-
-                success: false,
-
-                message:
-                    err.message ||
-                    "Journey request not found.",
-
-            });
-
+        return res.status(
+            err.statusCode || 404
+        ).json({
+            success: false,
+            message:
+                err.message ||
+                "Journey request not found.",
+        });
     }
-
 };
-
 
 // =========================================================
 // DELETE JOURNEY
 // =========================================================
 
-const remove = async (
-    req,
-    res
-) => {
-
+const remove = async (req, res) => {
     try {
+        const validation =
+            journeyIdValidation(
+                req.params.id
+            );
 
-        await deleteJourney(
-            req.params.id,
-            req.user.id
-        );
-
-
-        return res
-            .status(200)
-            .json({
-
-                success: true,
-
+        if (validation.error) {
+            return res.status(400).json({
+                success: false,
                 message:
-                    "Journey deleted successfully.",
-
+                    validation.error.message,
             });
+        }
 
-    }
+        const journey =
+            await deleteJourney(
+                validation.value,
+                req.user.id
+            );
 
-    catch (err) {
+        return res.status(200).json({
+            success: true,
+            message:
+                "Journey deleted successfully.",
+            data: journey,
+        });
 
+    } catch (err) {
         console.error(
             "❌ DELETE JOURNEY ERROR:",
             err.message
         );
 
-        return res
-            .status(
-                err.statusCode || 500
-            )
-            .json({
-
-                success: false,
-
-                message:
-                    err.message ||
-                    "Unable to delete journey.",
-
-            });
-
+        return res.status(
+            err.statusCode || 404
+        ).json({
+            success: false,
+            message:
+                err.message ||
+                "Unable to delete journey.",
+        });
     }
-
 };
 
-
 // =========================================================
-// MANUAL WORKFLOW TEST
+// RUN WORKFLOW
 // =========================================================
 
-const runWorkflow =
-    async (
-        req,
-        res
-    ) => {
-
-        try {
-
-            console.log(
-                "\n========================================"
+const runWorkflow = async (req, res) => {
+    try {
+        const validation =
+            journeyIdValidation(
+                req.params.id
             );
 
-            console.log(
-                "🧪 MANUAL JOURNEY WORKFLOW TRIGGERED"
-            );
-
-            console.log(
-                "========================================"
-            );
-
-
-            const journey =
-                await getJourneyById(
-                    req.params.id,
-                    req.user.id
-                );
-
-
-            console.log(
-                "Journey ID:",
-                journey._id
-            );
-
-            console.log(
-                "Train:",
-                journey.trainNumber
-            );
-
-            console.log(
-                "Source:",
-                journey.boardingStation
-            );
-
-            console.log(
-                "Destination:",
-                journey.destinationStation
-            );
-
-
-            console.log(
-                "\n🚆 Starting Workflow Manager..."
-            );
-
-
-            await workflowManager.processJourney(
-                journey
-            );
-
-
-            console.log(
-                "✅ Manual Workflow Completed"
-            );
-
-            console.log(
-                "========================================\n"
-            );
-
-
-            return res
-                .status(200)
-                .json({
-
-                    success: true,
-
-                    message:
-                        "Journey workflow executed successfully.",
-
-                    data: {
-
-                        journeyId:
-                            journey._id,
-
-                        trainNumber:
-                            journey.trainNumber,
-
-                        source:
-                            journey.boardingStation,
-
-                        destination:
-                            journey.destinationStation,
-
-                    },
-
-                });
-
+        if (validation.error) {
+            return res.status(400).json({
+                success: false,
+                message:
+                    validation.error.message,
+            });
         }
 
-        catch (err) {
-
-            console.error(
-                "❌ Manual Workflow Failed:",
-                err.message
+        const result =
+            await workflowManager.processJourneyById(
+                validation.value,
+                req.user.id
             );
 
-            return res
-                .status(
-                    err.statusCode || 500
-                )
-                .json({
+        return res.status(200).json({
+            success: true,
+            message:
+                "Journey workflow processed successfully.",
+            data: result,
+        });
 
-                    success: false,
+    } catch (err) {
+        console.error(
+            "❌ WORKFLOW ERROR:",
+            err.message
+        );
 
-                    message:
-                        err.message ||
-                        "Journey workflow failed.",
-
-                });
-
-        }
-
-    };
-
+        return res.status(
+            err.statusCode || 500
+        ).json({
+            success: false,
+            message:
+                err.message ||
+                "Unable to process journey workflow.",
+        });
+    }
+};
 
 // =========================================================
 // EXPORT
 // =========================================================
 
 module.exports = {
-
     create,
-
     getAll,
-
     getHistory,
-
     getById,
-
-    runWorkflow,
-
     remove,
-
+    runWorkflow,
 };

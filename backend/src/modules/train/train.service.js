@@ -88,51 +88,107 @@ const withNtesSyncLock = async (
 // ============================================================
 
 const searchTrainService = async (query) => {
+  const trainNumber = String(query?.trainNumber || "").trim();
 
-  const {
-    trainNumber
-  } = query;
-
-  if (!trainNumber) {
-
-    throw new Error(
-      "Train number is required."
-    );
-
+  if (!/^\d{4,5}$/.test(trainNumber)) {
+    const error = new Error("Valid train number is required.");
+    error.statusCode = 400;
+    throw error;
   }
+
+  // ----------------------------------------------------------
+  // 1. FAST PATH: MongoDB timetable cache
+  // ----------------------------------------------------------
+
+  const cachedStops = await TrainStop.find({
+    trainNumber,
+  })
+    .sort({ no: 1 })
+    .lean();
+
+  if (cachedStops.length) {
+    const cachedTrainName =
+      cachedStops.find(
+        (stop) =>
+          typeof stop.trainName === "string" &&
+          stop.trainName.trim()
+      )?.trainName?.trim() || "";
+
+    return {
+      trainNumber,
+      trainName:
+        cachedTrainName || "Train name unavailable.",
+      source: "MONGODB_CACHE",
+      verified: true,
+      stops: cachedStops,
+    };
+  }
+
+  // ----------------------------------------------------------
+  // 2. NTES FALLBACK
+  // ----------------------------------------------------------
 
   try {
+    const {
+      fetchNtesTrainSchedule,
+    } = require("./ntes.service");
 
-    const response =
-      await axios.get(
-        `${process.env.RAILRADAR_BASE_URL}/trains/${trainNumber}?haltsOnly=true`,
-        {
-          headers: {
-            Authorization:
-              `Bearer ${process.env.RAILRADAR_API_KEY}`,
-          },
-        }
-      );
-
-    return response.data;
-
-  } catch (error) {
-
-    if (error.response) {
-
-      throw new Error(
-        error.response.data?.message ||
-        `RailRadar API Error (${error.response.status})`
-      );
-
-    }
-
-    throw new Error(
-      "Unable to connect to RailRadar API."
+    const result = await fetchNtesTrainSchedule(
+      trainNumber,
+      new Date()
     );
 
-  }
+    const trainName =
+      String(result?.trainName || "").trim();
 
+    // Save the timetable immediately so future searches
+    // do not repeatedly call NTES.
+    if (Array.isArray(result?.stops) && result.stops.length) {
+      const operations = result.stops.map((stop) => ({
+        updateOne: {
+          filter: {
+            trainNumber,
+            code: stop.code,
+          },
+          update: {
+            $set: {
+              ...stop,
+              trainName:
+                trainName ||
+                String(stop.trainName || "").trim(),
+            },
+          },
+          upsert: true,
+        },
+      }));
+
+      await TrainStop.bulkWrite(
+        operations,
+        { ordered: false }
+      );
+    }
+
+    return {
+      trainNumber,
+      trainName:
+        trainName || "Train name unavailable.",
+      source: "NTES",
+      verified: true,
+      stops: result?.stops || [],
+    };
+  } catch (error) {
+    console.error(
+      "❌ NTES TRAIN SEARCH ERROR:",
+      error.message
+    );
+
+    const serviceError = new Error(
+      "Unable to verify this train number from NTES."
+    );
+
+    serviceError.statusCode = 502;
+    throw serviceError;
+  }
 };
 
 

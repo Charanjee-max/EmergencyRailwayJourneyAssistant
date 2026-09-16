@@ -1,688 +1,752 @@
 const axios = require("axios");
-const TrainStop = require("./trainStop.model");
+const cheerio = require("cheerio");
+const fs = require("fs");
+const path = require("path");
 
-const NTES_BASE_URL =
-  "https://enquiry.indianrail.gov.in/mntes";
+const BASE_URL =
+    "https://enquiry.indianrail.gov.in/mntes";
 
-const http = axios.create({
-  baseURL: NTES_BASE_URL,
-  timeout: 20000,
-  maxRedirects: 5,
-  headers: {
-    "User-Agent":
-      "Mozilla/5.0 (Windows NT 10.0; Win64; x64) " +
-      "AppleWebKit/537.36 (KHTML, like Gecko) " +
-      "Chrome/140.0.0.0 Safari/537.36",
-    Accept:
-      "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-  },
-});
+const ntesParser =
+    require("../../services/ntesParser");
 
-class CookieJar {
-  constructor() {
-    this.cookies = new Map();
-  }
 
-  absorb(setCookieHeaders = []) {
-    for (const header of setCookieHeaders) {
-      const firstPart = String(header).split(";")[0];
-      const index = firstPart.indexOf("=");
+// ============================================================
+// COOKIE HELPERS
+// ============================================================
 
-      if (index === -1) continue;
+function updateCookies(
+    cookieJar,
+    setCookieHeaders = []
+) {
+    for (const setCookie of setCookieHeaders) {
 
-      const name = firstPart.slice(0, index).trim();
-      const value = firstPart.slice(index + 1).trim();
+        if (!setCookie) {
+            continue;
+        }
 
-      if (name) {
-        this.cookies.set(name, value);
-      }
+        const firstPart =
+            setCookie.split(";")[0];
+
+        const separatorIndex =
+            firstPart.indexOf("=");
+
+        if (separatorIndex === -1) {
+            continue;
+        }
+
+        const name =
+            firstPart
+                .slice(0, separatorIndex)
+                .trim();
+
+        const value =
+            firstPart
+                .slice(separatorIndex + 1)
+                .trim();
+
+        if (name) {
+            cookieJar[name] = value;
+        }
     }
-  }
-
-  getHeader() {
-    return Array.from(this.cookies.entries())
-      .map(([name, value]) => `${name}=${value}`)
-      .join("; ");
-  }
 }
 
-const decodeHtml = (value = "") => {
-  return String(value)
-    .replace(/&nbsp;/gi, " ")
-    .replace(/&#x20;/gi, " ")
-    .replace(/&#160;/gi, " ")
-    .replace(/&amp;/gi, "&")
-    .replace(/&lt;/gi, "<")
-    .replace(/&gt;/gi, ">")
-    .replace(/&quot;/gi, '"')
-    .replace(/&#39;/gi, "'")
-    .replace(/&#(\d+);/g, (_, code) =>
-      String.fromCharCode(Number(code))
-    )
-    .replace(/&#x([0-9a-f]+);/gi, (_, code) =>
-      String.fromCharCode(parseInt(code, 16))
+
+function buildCookieHeader(
+    cookieJar
+) {
+    return Object.entries(cookieJar)
+        .map(
+            ([name, value]) =>
+                `${name}=${value}`
+        )
+        .join("; ");
+}
+
+
+// ============================================================
+// COMMON HEADERS
+// ============================================================
+
+function getBrowserHeaders() {
+    return {
+        "User-Agent":
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/139.0.0.0 Safari/537.36",
+
+        "Accept":
+            "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
+
+        "Accept-Language":
+            "en-US,en;q=0.9",
+
+        "Cache-Control":
+            "no-cache",
+
+        "Pragma":
+            "no-cache",
+    };
+}
+
+
+// ============================================================
+// GET NTES HOME PAGE
+// ============================================================
+
+async function getNtesSession() {
+
+    const cookieJar = {};
+
+    const response =
+        await axios.get(
+            `${BASE_URL}/`,
+            {
+                timeout: 30000,
+
+                headers:
+                    getBrowserHeaders(),
+
+                validateStatus:
+                    (status) =>
+                        status >= 200 &&
+                        status < 400,
+            }
+        );
+
+    updateCookies(
+        cookieJar,
+        response.headers["set-cookie"] || []
     );
-};
 
-const stripHtml = (html = "") => {
-  return decodeHtml(
-    String(html)
-      .replace(/<br\s*\/?>/gi, "\n")
-      .replace(/<[^>]*>/g, "")
-  )
-    .replace(/\r/g, "")
-    .split("\n")
-    .map((line) => line.trim())
-    .filter(Boolean)
-    .join("\n")
-    .trim();
-};
+    return {
+        html:
+            String(
+                response.data || ""
+            ),
 
-const extractCells = (rowHtml) => {
-  return [
-    ...String(rowHtml).matchAll(
-      /<td\b[^>]*>([\s\S]*?)<\/td>/gi
-    ),
-  ].map((match) => match[1]);
-};
-
-const extractStation = (stationHtml) => {
-  const text = stripHtml(stationHtml);
-
-  const lines = text
-    .split("\n")
-    .map((line) => line.trim())
-    .filter(Boolean);
-
-  const station = lines[0] || "";
-
-  /*
-   * Example:
-   *
-   * SECUNDERABAD JN
-   * SC
-   *
-   * or:
-   *
-   * BHADRACHALAM RD
-   * BDCR Train Reversal Point(1)
-   */
-
-  const remaining = lines.slice(1).join(" ");
-
-  const codeMatch = remaining.match(
-    /\b([A-Z0-9]{2,6})\b/
-  );
-
-  const code = codeMatch
-    ? codeMatch[1].toUpperCase()
-    : "";
-
-  return {
-    station,
-    code,
-  };
-};
-
-const extractTimeValues = (html) => {
-  const text = stripHtml(html);
-
-  return text
-    .split("\n")
-    .map((value) => value.trim())
-    .filter(Boolean);
-};
+        cookies:
+            cookieJar,
+    };
+}
 
 
-const extractTrainName = (html = "", trainNumber = "") => {
-  const source = String(html || "");
+// ============================================================
+// GET CSRF TOKEN
+// ============================================================
 
-  const cleanCandidate = (value) => {
-    const cleaned = stripHtml(value)
-      .replace(/\s+/g, " ")
-      .trim();
+async function getCsrfToken(
+    cookieJar
+) {
 
-    if (!cleaned) return "";
+    const timestamp =
+        Date.now();
 
-    const blocked = [
-      "train service schedule",
-      "train schedule",
-      "train details",
-      "service schedule",
-      "train number",
-      "train no",
-      "date of journey",
-    ];
+    const cookieHeader =
+        buildCookieHeader(
+            cookieJar
+        );
 
-    if (blocked.some((item) => cleaned.toLowerCase() === item)) {
-      return "";
+    const response =
+        await axios.get(
+            `${BASE_URL}/GetCSRFToken?t=${timestamp}`,
+            {
+                timeout: 30000,
+
+                headers: {
+                    ...getBrowserHeaders(),
+
+                    "Accept":
+                        "*/*",
+
+                    ...(cookieHeader
+                        ? {
+                            Cookie:
+                                cookieHeader
+                        }
+                        : {}),
+                },
+
+                validateStatus:
+                    (status) =>
+                        status >= 200 &&
+                        status < 400,
+            }
+        );
+
+    updateCookies(
+        cookieJar,
+        response.headers["set-cookie"] || []
+    );
+
+    const csrfHtml =
+        String(
+            response.data || ""
+        ).trim();
+
+    if (!csrfHtml) {
+        throw new Error(
+            "NTES did not return a CSRF token."
+        );
     }
 
-    return cleaned
-      .replace(/^(?:train\s*(?:name|no\.?|number)\s*[:\-]?\s*)/i, "")
-      .trim()
-      .slice(0, 200);
-  };
+    const $ =
+        cheerio.load(
+            `<div>${csrfHtml}</div>`
+        );
 
-  // Common label/value HTML structures.
-  const htmlPatterns = [
-    /(?:Train\s*Name|Train\s*name)\s*[:\-]?\s*(?:<\/?[^>]+>\s*){0,3}([^<]{3,200})/i,
-    /(?:Train\s*Name|Train\s*name)\s*[:\-]?\s*<[^>]+>([\s\S]{3,300}?)<\/[^>]+>/i,
-    /<[^>]*>\s*(?:Train\s*Name|Train\s*name)\s*<\/[^>]+>\s*<[^>]*>([\s\S]{3,300}?)<\/[^>]+>/i,
-  ];
+    const csrfInput =
+        $("input[type='hidden']")
+            .first();
 
-  for (const pattern of htmlPatterns) {
-    const match = source.match(pattern);
-    if (match?.[1]) {
-      const candidate = cleanCandidate(match[1]);
-      if (candidate) return candidate;
+    if (!csrfInput.length) {
+        throw new Error(
+            "NTES CSRF response did not contain a hidden input."
+        );
     }
-  }
 
-  const text = stripHtml(source);
+    const csrfName =
+        csrfInput.attr("name");
 
-  // Plain-text label/value structure.
-  const textPatterns = [
-    /(?:Train\s*Name)\s*[:\-]\s*([^\n]{3,200})/i,
-    /(?:Train\s*Name)\s+([^\n]{3,200})/i,
-  ];
+    const csrfValue =
+        csrfInput.attr("value");
 
-  for (const pattern of textPatterns) {
-    const match = text.match(pattern);
-    if (match?.[1]) {
-      const candidate = cleanCandidate(match[1]);
-      if (candidate) return candidate;
-    }
-  }
-
-  // Header/title patterns such as "12796 - TRAIN NAME".
-  const number = String(trainNumber || "").trim();
-  if (number) {
-    const headerPatterns = [
-      new RegExp(
-        `\\b${number}\\b\\s*[-:]\\s*([^\\n|]{3,200})`,
-        "i"
-      ),
-      new RegExp(
-        `([^\\n|]{3,200})\\s*[-:]\\s*\\b${number}\\b`,
-        "i"
-      ),
-    ];
-
-    for (const pattern of headerPatterns) {
-      const match = text.match(pattern);
-      if (match?.[1]) {
-        const candidate = cleanCandidate(match[1]);
-        if (candidate && !/^\\d+$/.test(candidate)) {
-          return candidate;
-        }
-      }
-    }
-  }
-
-  // Last-resort heading/title extraction.
-  const headings = [
-    ...source.matchAll(/<(?:title|h1|h2|h3)\b[^>]*>([\s\S]*?)<\/(?:title|h1|h2|h3)>/gi),
-  ];
-
-  for (const match of headings) {
-    const candidate = cleanCandidate(match[1]);
     if (
-      candidate &&
-      (!number || candidate.includes(number)) &&
-      !/schedule|service/i.test(candidate)
+        !csrfName ||
+        csrfValue === undefined
     ) {
-      const withoutNumber = candidate
-        .replace(new RegExp(`\\b${number}\\b`, "g"), "")
-        .replace(/\s*[-:|]\s*/g, " ")
-        .trim();
-
-      if (withoutNumber.length >= 3) {
-        return withoutNumber.slice(0, 200);
-      }
-    }
-  }
-
-  return "";
-};
-
-const parseNtesSchedule = (html, trainNumber, trainName = "") => {
-  const rows = [
-    ...String(html).matchAll(
-      /<tr\b[^>]*>([\s\S]*?)<\/tr>/gi
-    ),
-  ];
-
-  const stops = [];
-
-  for (const rowMatch of rows) {
-    const rowHtml = rowMatch[1];
-
-    const cells = extractCells(rowHtml);
-
-    // Timetable data rows contain 6 cells:
-    //
-    // Sr | Station | Day | Arr/Dep | Halt | Distance
-    //
-    if (cells.length < 6) {
-      continue;
+        throw new Error(
+            "Invalid NTES CSRF token response."
+        );
     }
 
-    const serialText = stripHtml(cells[0]);
-    const serialMatch = serialText.match(/\d+/);
+    console.log(
+        "✅ NTES CSRF token received."
+    );
 
-    if (!serialMatch) {
-      continue;
+    return {
+        name:
+            csrfName,
+
+        value:
+            csrfValue,
+    };
+}
+
+
+// ============================================================
+// SAVE DEBUG HTML
+// ============================================================
+
+function saveDebugHtml(
+    html
+) {
+    try {
+
+        const debugPath =
+            path.join(
+                process.cwd(),
+                "ntes-debug-response.html"
+            );
+
+        fs.writeFileSync(
+            debugPath,
+            html,
+            "utf8"
+        );
+
+        console.log(
+            "💾 NTES response saved:"
+        );
+
+        console.log(
+            debugPath
+        );
+
+        return debugPath;
+
+    } catch (error) {
+
+        console.warn(
+            "⚠️ Could not save NTES debug HTML:",
+            error.message
+        );
+
+        return null;
+    }
+}
+
+
+// ============================================================
+// FETCH TRAIN RUNNING HTML
+// ============================================================
+
+async function fetchTrainRunningHtml(
+    trainNumber,
+    journeyDate
+) {
+
+    const normalizedTrainNumber =
+        String(trainNumber)
+            .trim();
+
+    const normalizedJourneyDate =
+        String(journeyDate)
+            .trim();
+
+    if (
+        !/^\d{5}$/.test(
+            normalizedTrainNumber
+        )
+    ) {
+        throw new Error(
+            `Invalid NTES train number: ${normalizedTrainNumber}`
+        );
     }
 
-    const no = serialMatch[0];
-
-    const stationInfo = extractStation(cells[1]);
-
-    if (!stationInfo.code || !stationInfo.station) {
-      continue;
+    if (!normalizedJourneyDate) {
+        throw new Error(
+            "NTES journey date is required."
+        );
     }
 
-    const day = stripHtml(cells[2]);
 
-    const times = extractTimeValues(cells[3]);
+    console.log(
+        "\n========================================"
+    );
 
-    let arrival = "";
-    let departure = "";
+    console.log(
+        "🚆 NTES REQUEST"
+    );
 
-    if (times.length >= 2) {
-      arrival = times[0];
-      departure = times[1];
-    } else if (times.length === 1) {
-      departure = times[0];
-    }
+    console.log(
+        "========================================"
+    );
+
+    console.log(
+        "Train:",
+        normalizedTrainNumber
+    );
+
+    console.log(
+        "Journey Date:",
+        normalizedJourneyDate
+    );
+
+
+    // ========================================================
+    // STEP 1 - CREATE SESSION
+    // ========================================================
+
+    const session =
+        await getNtesSession();
+
+    const cookieJar =
+        session.cookies;
+
+    console.log(
+        "✅ NTES session initialized."
+    );
+
+
+    // ========================================================
+    // STEP 2 - GET CSRF
+    // ========================================================
+
+    const csrf =
+        await getCsrfToken(
+            cookieJar
+        );
+
+
+    // ========================================================
+    // STEP 3 - BUILD FORM
+    // ========================================================
+
+    const form =
+        new URLSearchParams();
 
     /*
-     * NTES uses:
+     * frmTRN contains:
      *
-     * SRC  -> source departure marker
-     * DSTN -> destination departure marker
+     * lan
+     * jDate
+     * trainNo
+     *
+     * submitForm() appends the dynamically
+     * generated CSRF hidden field.
      */
 
-    if (arrival === "SRC") {
-      arrival = "";
+    form.append(
+        "lan",
+        "en"
+    );
+
+    form.append(
+        "jDate",
+        normalizedJourneyDate
+    );
+
+    form.append(
+        "trainNo",
+        normalizedTrainNumber
+    );
+
+    form.append(
+        csrf.name,
+        csrf.value
+    );
+
+
+    // ========================================================
+    // STEP 4 - BUILD NTES ENDPOINT
+    // ========================================================
+
+    const endpoint =
+        `${BASE_URL}/tr` +
+        `?opt=TrainRunning` +
+        `&subOpt=FindRunningInstancePop` +
+        `&trainNo=${encodeURIComponent(
+            normalizedTrainNumber
+        )}` +
+        `&refDate=${encodeURIComponent(
+            normalizedJourneyDate
+        )}`;
+
+
+    console.log(
+        "NTES endpoint:",
+        endpoint
+    );
+
+    console.log(
+        "HTTP method: POST"
+    );
+
+
+    const cookieHeader =
+        buildCookieHeader(
+            cookieJar
+        );
+
+
+    // ========================================================
+    // STEP 5 - POST TO NTES
+    // ========================================================
+
+    const response =
+        await axios.post(
+            endpoint,
+            form.toString(),
+            {
+                timeout: 60000,
+
+                maxRedirects: 5,
+
+                headers: {
+                    ...getBrowserHeaders(),
+
+                    "Content-Type":
+                        "application/x-www-form-urlencoded",
+
+                    "Referer":
+                        `${BASE_URL}/`,
+
+                    "Origin":
+                        "https://enquiry.indianrail.gov.in",
+
+                    ...(cookieHeader
+                        ? {
+                            Cookie:
+                                cookieHeader
+                        }
+                        : {}),
+                },
+
+                validateStatus:
+                    (status) =>
+                        status >= 200 &&
+                        status < 400,
+            }
+        );
+
+
+    // ========================================================
+    // STEP 6 - RESPONSE HTML
+    // ========================================================
+
+    const html =
+        String(
+            response.data || ""
+        );
+
+
+    if (
+        !html ||
+        html.length < 100
+    ) {
+        throw new Error(
+            "NTES returned an empty or invalid HTML response."
+        );
     }
 
-    if (departure === "DSTN") {
-      departure = "";
+
+    console.log(
+        "✅ NTES running page received."
+    );
+
+    console.log(
+        "HTML size:",
+        html.length,
+        "characters"
+    );
+
+
+    // ========================================================
+    // SAVE REAL RESPONSE FOR PARSER DEBUGGING
+    // ========================================================
+
+    const debugPath =
+        saveDebugHtml(
+            html
+        );
+
+
+    return {
+        html,
+
+        statusCode:
+            response.status,
+
+        cookies:
+            cookieJar,
+
+        csrf,
+
+        debugPath,
+    };
+}
+
+
+// ============================================================
+// FETCH + PARSE
+// ============================================================
+
+async function getTrainRunningStatus(
+    trainNumber,
+    journeyDate
+) {
+
+    const result =
+        await fetchTrainRunningHtml(
+            trainNumber,
+            journeyDate
+        );
+
+
+    const parsed =
+        ntesParser.parse(
+            result.html,
+            {
+                journeyDate,
+            }
+        );
+
+
+    return {
+        ...parsed,
+
+        rawHtmlSize:
+            result.html.length,
+
+        httpStatus:
+            result.statusCode,
+
+        debugPath:
+            result.debugPath,
+    };
+}
+
+
+// ============================================================
+// SYNC NTES STOPS TO MONGODB
+// ============================================================
+
+async function syncNtesTrainStopsService(
+    trainNumber,
+    journeyDate
+) {
+
+    const TrainStop =
+        require("./trainStop.model");
+
+
+    const result =
+        await getTrainRunningStatus(
+            trainNumber,
+            journeyDate
+        );
+
+
+    if (
+        !result.stops ||
+        result.stops.length === 0
+    ) {
+
+        throw new Error(
+            `NTES returned no stops for train ${trainNumber}. ` +
+            `Debug HTML: ${result.debugPath || "not saved"}`
+        );
     }
 
-    const halt = stripHtml(cells[4]);
 
-    const distanceText = stripHtml(cells[5]);
+    const normalizedTrainNumber =
+        String(trainNumber)
+            .trim();
 
-    const distanceMatch = distanceText.match(
-      /[\d.]+/
+
+    console.log(
+        `🚆 NTES parsed ${result.stops.length} stops for train ${normalizedTrainNumber}`
     );
 
-    const km = distanceMatch
-      ? distanceMatch[0]
-      : "";
 
-    stops.push({
-      trainNumber: String(trainNumber).trim(),
-      trainName: String(trainName || "").trim().slice(0, 200),
-      no: String(no),
-      track: "",
-      code: stationInfo.code,
-      station: stationInfo.station,
-      xo: "",
-      note: "",
-      arrival,
-      arrivalAvg: "",
-      departure,
-      departureAvg: "",
-      halt,
-      pf: "",
-      day,
-      km,
-      speed: "",
-      elevation: "",
-      zone: "",
-      address: "",
-    });
-  }
+    const operations =
+        result.stops
+            .filter(
+                (stop) =>
+                    stop.code
+            )
+            .map(
+                (stop, index) => ({
 
-  /*
-   * Remove accidental duplicate rows.
-   */
-  const uniqueStops = [];
-  const seen = new Set();
+                    updateOne: {
 
-  for (const stop of stops) {
-    const key = `${stop.trainNumber}:${stop.code}`;
+                        filter: {
 
-    if (seen.has(key)) {
-      continue;
+                            trainNumber:
+                                normalizedTrainNumber,
+
+                            code:
+                                String(
+                                    stop.code
+                                )
+                                    .trim()
+                                    .toUpperCase(),
+                        },
+
+                        update: {
+
+                            $set: {
+
+                                trainNumber:
+                                    normalizedTrainNumber,
+
+                                no:
+                                    String(
+                                        stop.routeOrder ||
+                                        index + 1
+                                    ),
+
+                                code:
+                                    String(
+                                        stop.code
+                                    )
+                                        .trim()
+                                        .toUpperCase(),
+
+                                station:
+                                    stop.name || "",
+
+                                arrival:
+                                    stop.scheduledArrival || "",
+
+                                arrivalAvg:
+                                    stop.actualArrival || "",
+
+                                departure:
+                                    stop.scheduledDeparture || "",
+
+                                departureAvg:
+                                    stop.actualDeparture || "",
+
+                                halt:
+                                    stop.halt || "",
+
+                                pf:
+                                    stop.platform || "",
+
+                                day:
+                                    stop.day || "",
+
+                                km:
+                                    stop.distanceKm != null
+                                        ? String(
+                                            stop.distanceKm
+                                        )
+                                        : "",
+
+                                zone:
+                                    stop.zone || "",
+
+                                address:
+                                    stop.address || "",
+                            },
+                        },
+
+                        upsert:
+                            true,
+                    },
+                })
+            );
+
+
+    if (
+        operations.length === 0
+    ) {
+        throw new Error(
+            "No valid NTES station codes were available for MongoDB sync."
+        );
     }
 
-    seen.add(key);
-    uniqueStops.push(stop);
-  }
 
-  uniqueStops.sort(
-    (a, b) =>
-      Number.parseFloat(a.no) -
-      Number.parseFloat(b.no)
-  );
+    const resultWrite =
+        await TrainStop.bulkWrite(
+            operations
+        );
 
-  return uniqueStops;
-};
 
-const getNtesCsrf = async () => {
-  const jar = new CookieJar();
-
-  // ---------------------------------------------------------
-  // 1. Establish NTES session
-  // ---------------------------------------------------------
-
-  const pageResponse = await http.get("/", {
-    validateStatus: () => true,
-  });
-
-  jar.absorb(
-    pageResponse.headers["set-cookie"] || []
-  );
-
-  if (
-    pageResponse.status < 200 ||
-    pageResponse.status >= 400
-  ) {
-    throw new Error(
-      `NTES initial page failed: ${pageResponse.status}`
-    );
-  }
-
-  // ---------------------------------------------------------
-  // 2. Get dynamic CSRF hidden input
-  // ---------------------------------------------------------
-
-  const csrfResponse = await http.get(
-    `/GetCSRFToken?t=${Date.now()}`,
-    {
-      headers: {
-        Cookie: jar.getHeader(),
-        Referer: `${NTES_BASE_URL}/`,
-        "X-Requested-With": "XMLHttpRequest",
-        Accept: "*/*",
-      },
-      validateStatus: () => true,
-    }
-  );
-
-  jar.absorb(
-    csrfResponse.headers["set-cookie"] || []
-  );
-
-  if (csrfResponse.status !== 200) {
-    throw new Error(
-      `NTES CSRF request failed: ${csrfResponse.status}`
-    );
-  }
-
-  const csrfHtml = String(
-    csrfResponse.data || ""
-  );
-
-  /*
-   * NTES returns a hidden input such as:
-   *
-   * <input type="hidden"
-   *        name="dynamicName"
-   *        value="dynamicValue">
-   */
-
-  const inputMatch = csrfHtml.match(
-    /<input\b[^>]*type\s*=\s*["']hidden["'][^>]*>/i
-  );
-
-  if (!inputMatch) {
-    throw new Error(
-      "NTES CSRF response did not contain a hidden input."
-    );
-  }
-
-  const hiddenInput = inputMatch[0];
-
-  const nameMatch = hiddenInput.match(
-    /\bname\s*=\s*["']([^"']+)["']/i
-  );
-
-  const valueMatch = hiddenInput.match(
-    /\bvalue\s*=\s*["']([^"']*)["']/i
-  );
-
-  if (!nameMatch || !valueMatch) {
-    throw new Error(
-      "Unable to extract NTES dynamic CSRF name/value."
-    );
-  }
-
-  const csrf = {
-    name: nameMatch[1],
-    value: valueMatch[1],
-  };
-
-  console.log(
-    `🔐 NTES CSRF field received: ${csrf.name}`
-  );
-
-  return {
-    jar,
-    csrf,
-  };
-};
-
-const formatNtesDate = (inputDate = new Date()) => {
-  const date = new Date(inputDate);
-
-  if (Number.isNaN(date.getTime())) {
-    throw new Error("Invalid train start date.");
-  }
-
-  const months = [
-    "Jan",
-    "Feb",
-    "Mar",
-    "Apr",
-    "May",
-    "Jun",
-    "Jul",
-    "Aug",
-    "Sep",
-    "Oct",
-    "Nov",
-    "Dec",
-  ];
-
-  const day = String(
-    date.getDate()
-  ).padStart(2, "0");
-
-  return `${day}-${months[date.getMonth()]}-${date.getFullYear()}`;
-};
-
-const fetchNtesTrainSchedule = async (
-  trainNumber,
-  trainStartDate = new Date()
-) => {
-  const normalizedTrainNumber = String(
-    trainNumber || ""
-  ).trim();
-
-  if (!normalizedTrainNumber) {
-    throw new Error(
-      "Train number is required."
-    );
-  }
-
-  const { jar, csrf } =
-    await getNtesCsrf();
-
-  const formattedDate =
-    formatNtesDate(trainStartDate);
-
-  const form = new URLSearchParams();
-
-  /*
-   * These are the same fields NTES submits.
-   */
-  form.append("lan", "en");
-  form.append(
-    "trainNo",
-    normalizedTrainNumber
-  );
-  form.append(
-    "trainStartDate",
-    formattedDate
-  );
-
-  /*
-   * Dynamic CSRF field.
-   */
-  form.append(
-    csrf.name,
-    csrf.value
-  );
-
-  console.log(
-    `🚆 Fetching NTES timetable for ${normalizedTrainNumber}`
-  );
-
-  const response = await http.post(
-    `/q?opt=TrainServiceSchedule&subOpt=show&trainNo=${encodeURIComponent(
-      normalizedTrainNumber
-    )}`,
-    form.toString(),
-    {
-      headers: {
-        Cookie: jar.getHeader(),
-        Referer: `${NTES_BASE_URL}/`,
-        Origin:
-          "https://enquiry.indianrail.gov.in",
-        "Content-Type":
-          "application/x-www-form-urlencoded",
-        Accept:
-          "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-      },
-      validateStatus: () => true,
-    }
-  );
-
-  if (response.status !== 200) {
-    throw new Error(
-      `NTES timetable request failed: ${response.status}`
-    );
-  }
-
-  const html = String(
-    response.data || ""
-  );
-
-  if (!html.trim()) {
-    throw new Error(
-      `NTES returned empty timetable for train ${normalizedTrainNumber}.`
-    );
-  }
-
-  const trainName = extractTrainName(
-    html,
-    normalizedTrainNumber
-  );
-
-  const stops = parseNtesSchedule(
-    html,
-    normalizedTrainNumber,
-    trainName
-  );
-
-  if (!stops.length) {
-    throw new Error(
-      `NTES timetable parser found no stations for train ${normalizedTrainNumber}.`
-    );
-  }
-
-  console.log(
-    `✅ NTES returned ${stops.length} stops for ${normalizedTrainNumber}`
-  );
-
-  return {
-    trainNumber: normalizedTrainNumber,
-    trainName,
-    trainStartDate: formattedDate,
-    stops,
-    html,
-  };
-};
-
-const syncNtesTrainStopsService = async (
-  trainNumber,
-  trainStartDate = new Date()
-) => {
-  const result =
-    await fetchNtesTrainSchedule(
-      trainNumber,
-      trainStartDate
+    console.log(
+        `✅ NTES timetable synced to MongoDB: ${operations.length} stops`
     );
 
-  const {
-    trainNumber: normalizedTrainNumber,
-    trainName,
-    stops,
-  } = result;
 
-  const operations = stops.map(
-    (stop) => ({
-      updateOne: {
-        filter: {
-          trainNumber:
-            normalizedTrainNumber,
-          code: stop.code,
+    return {
+        ...result,
+
+        mongoSync: {
+            matchedCount:
+                resultWrite.matchedCount,
+
+            modifiedCount:
+                resultWrite.modifiedCount,
+
+            upsertedCount:
+                resultWrite.upsertedCount,
         },
-        update: {
-          $set: stop,
-        },
-        upsert: true,
-      },
-    })
-  );
+    };
+}
 
-  await TrainStop.bulkWrite(
-    operations,
-    {
-      ordered: false,
-    }
-  );
 
-  /*
-   * Remove stations that no longer exist in
-   * the latest NTES timetable.
-   */
-  await TrainStop.deleteMany({
-    trainNumber:
-      normalizedTrainNumber,
-    code: {
-      $nin: stops.map(
-        (stop) => stop.code
-      ),
-    },
-  });
-
-  console.log(
-    `💾 NTES timetable saved to TrainStop: ${normalizedTrainNumber}`
-  );
-
-  return stops;
-};
+// ============================================================
+// EXPORTS
+// ============================================================
 
 module.exports = {
-  fetchNtesTrainSchedule,
-  syncNtesTrainStopsService,
-  formatNtesDate,
-  extractTrainName,
+
+    getNtesSession,
+
+    getCsrfToken,
+
+    fetchTrainRunningHtml,
+
+    getTrainRunningStatus,
+
+    syncNtesTrainStopsService,
 };

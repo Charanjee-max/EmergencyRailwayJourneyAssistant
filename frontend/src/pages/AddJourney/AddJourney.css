@@ -386,6 +386,21 @@
     }
 }
 
+.trainSuggestionsDropdown {
+    position: absolute;
+    top: calc(100% + 5px);
+    left: 0;
+    right: 0;
+    max-height: 240px;
+    overflow-y: auto;
+    padding: 4px;
+    background: #ffffff;
+    border: 1px solid #dbe5f0;
+    border-radius: 8px;
+    box-shadow: 0 12px 28px rgba(30, 70, 110, 0.16);
+    z-index: 150;
+}
+
 .trainSuggestion {
     width: 100%;
     margin-top: 5px;
@@ -403,9 +418,10 @@
 }
 
 .trainSuggestion:hover {
-    transform: translateY(-1px);
-    border-color: #2c82d6;
-    box-shadow: 0 12px 27px rgba(30, 70, 110, 0.18);
+    transform: none;
+    background: #f1f7fc;
+    border-color: #dbe5f0;
+    box-shadow: none;
 }
 
 .trainSuggestionIcon {

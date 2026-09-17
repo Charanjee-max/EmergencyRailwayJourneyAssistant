@@ -19,6 +19,7 @@ import {
     searchTrain,
     getTrainClasses,
 } from "../../api/trainAPI";
+import trainList from "../../data/train_data.js";
 
 // =========================================================
 // CLASS INFORMATION
@@ -224,6 +225,46 @@ const normalizeTrain = (
 };
 
 // =========================================================
+// LOCAL TRAIN LIST
+// =========================================================
+
+const LOCAL_TRAINS = trainList
+    .map((item) => {
+        const value =
+            String(item || "").trim();
+
+        const separatorIndex =
+            value.indexOf("-");
+
+        if (separatorIndex === -1) {
+            return null;
+        }
+
+        const trainNumber =
+            value
+                .slice(0, separatorIndex)
+                .trim();
+
+        const trainName =
+            value
+                .slice(separatorIndex + 1)
+                .trim();
+
+        if (
+            !/^\d{1,5}$/.test(trainNumber) ||
+            !trainName
+        ) {
+            return null;
+        }
+
+        return {
+            trainNumber,
+            trainName,
+        };
+    })
+    .filter(Boolean);
+
+// =========================================================
 // COMPONENT
 // =========================================================
 
@@ -270,6 +311,11 @@ export default function AddJourney() {
         trainInfo,
         setTrainInfo,
     ] = useState(null);
+
+    const [
+    trainSuggestions,
+    setTrainSuggestions,
+] = useState([]);
 
     const [
         trainLoading,
@@ -468,214 +514,312 @@ export default function AddJourney() {
     };
 
     // =====================================================
-    // TRAIN SEARCH
-    // =====================================================
+// TRAIN AUTOCOMPLETE + API VERIFICATION
+// =====================================================
 
-    useEffect(() => {
+useEffect(() => {
 
-        const value =
-            formData.trainNumber.trim();
+    const value =
+        formData.trainNumber
+            .trim();
 
-        trainRequestId.current += 1;
+    trainRequestId.current += 1;
 
-        const requestId =
-            trainRequestId.current;
+    const requestId =
+        trainRequestId.current;
 
-        /*
-         * Cancel previous request.
-         */
-        if (
-            trainAbortController.current
-        ) {
-            trainAbortController.current.abort();
-        }
+    if (
+        trainAbortController.current
+    ) {
+        trainAbortController.current.abort();
+    }
 
-        /*
-         * Reset.
-         */
-        if (
-            value.length < 4
-        ) {
-            setTrainInfo(null);
-            setTrainLoading(false);
-            setTrainError("");
-            setTrainSuggestionVisible(false);
-            return;
-        }
+    // -------------------------------------------------
+    // EMPTY / SHORT INPUT
+    // -------------------------------------------------
 
-        /*
-         * Only valid train number lengths.
-         */
-        if (
-            !/^\d{4,5}$/.test(value)
-        ) {
-            return;
-        }
+    if (!value) {
 
-        const controller =
-            new AbortController();
+        setTrainSuggestions([]);
+        setTrainInfo(null);
+        setTrainLoading(false);
+        setTrainError("");
+        setTrainSuggestionVisible(false);
 
-        trainAbortController.current =
-            controller;
+        return;
+    }
 
-        /*
-         * Small debounce prevents API spam.
-         */
-        const timer =
-            setTimeout(
-                async () => {
+    // -------------------------------------------------
+    // FIND LOCAL TRAINS
+    // -------------------------------------------------
 
-                    setTrainLoading(true);
-                    setTrainError("");
+    const matches =
+        LOCAL_TRAINS
+            .filter(
+                (train) =>
+                    train.trainNumber
+                        .startsWith(value)
+            )
+            .slice(0, 8);
 
-                    try {
+    setTrainSuggestions(matches);
 
-                        const response =
-                            await searchTrain(
-                                value,
-                                {
-                                    signal:
-                                        controller.signal,
-                                }
-                            );
+    setTrainSuggestionVisible(
+        matches.length > 0
+    );
+
+    // -------------------------------------------------
+    // LESS THAN 5 DIGITS
+    // -------------------------------------------------
+
+    if (
+        value.length < 5
+    ) {
+
+        setTrainInfo(null);
+        setTrainLoading(false);
+        setTrainError("");
+
+        return;
+    }
+
+    // -------------------------------------------------
+    // INVALID TRAIN NUMBER
+    // -------------------------------------------------
+
+    if (
+        !/^\d{5}$/.test(value)
+    ) {
+
+        setTrainInfo(null);
+        setTrainLoading(false);
+
+        return;
+    }
+
+    // -------------------------------------------------
+    // CHECK LOCAL DATA
+    // -------------------------------------------------
+
+    const localTrain =
+        LOCAL_TRAINS.find(
+            (train) =>
+                train.trainNumber ===
+                value
+        );
+
+    if (!localTrain) {
+
+        setTrainInfo(null);
+        setTrainLoading(false);
+
+        setTrainError(
+            "Train not found."
+        );
+
+        return;
+    }
+
+    // -------------------------------------------------
+    // API VERIFICATION
+    // -------------------------------------------------
+
+    const controller =
+        new AbortController();
+
+    trainAbortController.current =
+        controller;
+
+    const timer =
+        setTimeout(
+            async () => {
+
+                setTrainLoading(true);
+                setTrainError("");
+
+                try {
+
+                    const response =
+                        await searchTrain(
+                            value,
+                            {
+                                signal:
+                                    controller.signal,
+                            }
+                        );
+
+                    if (
+                        requestId !==
+                        trainRequestId.current
+                    ) {
+                        return;
+                    }
+
+                    const normalized =
+                        normalizeTrain(
+                            response
+                        );
+
+                    // ---------------------------------
+                    // API DID NOT RETURN TRAIN
+                    // ---------------------------------
+
+                    if (!normalized) {
 
                         /*
-                         * Ignore stale response.
+                         * We still know the train name
+                         * from the local railway list.
                          */
-                        if (
-                            requestId !==
-                            trainRequestId.current
-                        ) {
-                            return;
-                        }
-
-                        const normalized =
-                            normalizeTrain(
-                                response
-                            );
-
-                        if (!normalized) {
-
-                            setTrainInfo(null);
-
-                            setTrainError(
-                                "Train not found."
-                            );
-
-                            return;
-                        }
-
-                        /*
-                         * Make sure returned train number
-                         * matches what the user typed.
-                         */
-                        if (
-                            normalized.trainNumber &&
-                            normalized.trainNumber !==
-                                value
-                        ) {
-                            /*
-                             * If API returned another train,
-                             * do not silently select it.
-                             */
-                            setTrainInfo(null);
-
-                            setTrainError(
-                                "Train number could not be verified."
-                            );
-
-                            return;
-                        }
-
                         setTrainInfo(
-                            normalized
+                            localTrain
                         );
 
-                        setTrainSuggestionVisible(
-                            true
+                        setTrainError(
+                            ""
                         );
 
-                    } catch (searchError) {
+                        return;
+                    }
 
-                        /*
-                         * Abort is expected when user
-                         * continues typing.
-                         */
-                        if (
-                            searchError?.code ===
-                                "ERR_CANCELED" ||
-                            searchError?.name ===
-                                "CanceledError" ||
-                            controller.signal.aborted
-                        ) {
-                            return;
-                        }
+                    // ---------------------------------
+                    // SAFETY CHECK
+                    // ---------------------------------
 
-                        if (
-                            requestId !==
-                            trainRequestId.current
-                        ) {
-                            return;
-                        }
-
-                        console.error(
-                            "TRAIN SEARCH ERROR:",
-                            searchError
-                        );
+                    if (
+                        normalized.trainNumber &&
+                        normalized.trainNumber !==
+                            value
+                    ) {
 
                         setTrainInfo(null);
 
                         setTrainError(
-                            "Unable to verify train number."
+                            "Train number could not be verified."
                         );
 
-                    } finally {
-
-                        if (
-                            requestId ===
-                            trainRequestId.current
-                        ) {
-                            setTrainLoading(
-                                false
-                            );
-                        }
+                        return;
                     }
-                },
-                500
-            );
 
-        return () => {
-            clearTimeout(timer);
-            controller.abort();
-        };
+                    // ---------------------------------
+                    // USE API NAME WHEN AVAILABLE
+                    // OTHERWISE LOCAL NAME
+                    // ---------------------------------
 
-    }, [
-        formData.trainNumber,
-    ]);
+                    setTrainInfo({
+                        trainNumber:
+                            value,
+
+                        trainName:
+                            normalized.trainName &&
+                            normalized.trainName !==
+                                "Train name unavailable."
+                                ? normalized.trainName
+                                : localTrain.trainName,
+                    });
+
+                } catch (
+                    searchError
+                ) {
+
+                    if (
+                        searchError?.code ===
+                            "ERR_CANCELED" ||
+                        searchError?.name ===
+                            "CanceledError" ||
+                        controller.signal.aborted
+                    ) {
+                        return;
+                    }
+
+                    if (
+                        requestId !==
+                        trainRequestId.current
+                    ) {
+                        return;
+                    }
+
+                    console.error(
+                        "TRAIN SEARCH ERROR:",
+                        searchError
+                    );
+
+                    /*
+                     * Local train data is still useful
+                     * for displaying the train name.
+                     */
+                    setTrainInfo(
+                        localTrain
+                    );
+
+                    setTrainError("");
+                } finally {
+
+                    if (
+                        requestId ===
+                        trainRequestId.current
+                    ) {
+
+                        setTrainLoading(
+                            false
+                        );
+                    }
+                }
+
+            },
+            300
+        );
+
+    return () => {
+
+        clearTimeout(timer);
+
+        controller.abort();
+    };
+
+}, [
+    formData.trainNumber,
+]);
 
     // =====================================================
     // SELECT TRAIN
     // =====================================================
 
-    const selectTrain = () => {
+    const selectTrain = (
+    train
+) => {
 
-        if (!trainInfo) {
-            return;
-        }
+    if (!train) {
+        return;
+    }
 
-        setFormData((prev) => ({
-            ...prev,
-            trainNumber:
-                trainInfo.trainNumber,
-        }));
+    setFormData((prev) => ({
+        ...prev,
+        trainNumber:
+            train.trainNumber,
+    }));
 
-        setTrainSuggestionVisible(
-            false
-        );
+    setTrainInfo({
+        trainNumber:
+            train.trainNumber,
 
-        setTrainError("");
-        setError("");
-    };
+        trainName:
+            train.trainName,
+    });
+
+    setTrainSuggestions([]);
+
+    setTrainSuggestionVisible(
+        false
+    );
+
+    setTrainError("");
+    setError("");
+
+    /*
+     * Classes will be reloaded by the
+     * existing class-loading effect.
+     */
+};
 
     // =====================================================
     // LOAD ACTUAL TRAIN CLASSES
@@ -1672,13 +1816,7 @@ export default function AddJourney() {
                             TRAIN NUMBER
                         ================================================= */}
 
-                        <div className="formGroup">
-
-                            <label htmlFor="trainNumber">
-                                Train Number
-                            </label>
-
-                            <div className="trainAutocompleteWrapper">
+                        <div className="trainAutocompleteWrapper">
 
                                 <div className="inputWrapper trainInputWrapper">
 
@@ -1697,16 +1835,23 @@ export default function AddJourney() {
                                             handleChange
                                         }
                                         onFocus={() => {
-                                            if (
-                                                formData
-                                                    .trainNumber
-                                                    .length >=
-                                                4
-                                            ) {
-                                                setTrainSuggestionVisible(
-                                                    true
-                                                );
-                                            }
+                                            const value =
+                                                formData.trainNumber.trim();
+
+                                            const matches =
+                                                LOCAL_TRAINS
+                                                    .filter((train) =>
+                                                        train.trainNumber.startsWith(
+                                                            value
+                                                        )
+                                                    )
+                                                    .slice(0, 8);
+
+                                            setTrainSuggestions(matches);
+
+                                            setTrainSuggestionVisible(
+                                                matches.length > 0
+                                            );
                                         }}
                                         placeholder="Enter train number"
                                         inputMode="numeric"
@@ -1739,63 +1884,56 @@ export default function AddJourney() {
                                 {/* TRAIN SUGGESTION */}
 
                                 {trainSuggestionVisible &&
-                                    trainInfo && (
-                                        <button
-                                            type="button"
-                                            className="trainSuggestion"
-                                            onMouseDown={(e) =>
-                                                e.preventDefault()
-                                            }
-                                            onClick={
-                                                selectTrain
-                                            }
-                                        >
+    trainSuggestions.length > 0 && (
+        <div className="trainSuggestionsDropdown">
 
-                                            <div className="trainSuggestionIcon">
-                                                🚆
-                                            </div>
+            {trainSuggestions.map(
+                (train) => (
+                    <button
+                        type="button"
+                        key={
+                            train.trainNumber
+                        }
+                        className="trainSuggestion"
+                        onMouseDown={(e) =>
+                            e.preventDefault()
+                        }
+                        onClick={() =>
+                            selectTrain(
+                                train
+                            )
+                        }
+                    >
 
-                                            <div className="trainSuggestionContent">
+                        <div className="trainSuggestionIcon">
+                            🚆
+                        </div>
 
-                                                <strong>
-                                                    {
-                                                        trainInfo.trainNumber
-                                                    }
-                                                </strong>
+                        <div className="trainSuggestionContent">
 
-                                                <span>
-                                                    {
-                                                        trainInfo.trainName
-                                                    }
-                                                </span>
+                            <strong>
+                                {
+                                    train.trainNumber
+                                }
+                            </strong>
 
-                                            </div>
-
-                                            <span className="trainSuggestionArrow">
-                                                →
-                                            </span>
-
-                                        </button>
-                                    )}
-
-                            </div>
-
-                            {trainError ? (
-                                <small className="fieldError">
-                                    {trainError}
-                                </small>
-                            ) : trainInfo ? (
-                                <small className="trainVerified">
-                                    ✓ Train verified
-                                </small>
-                            ) : (
-                                <small>
-                                    Enter the Indian Railways
-                                    train number.
-                                </small>
-                            )}
+                            <span>
+                                {
+                                    train.trainName
+                                }
+                            </span>
 
                         </div>
+
+                         <span className="trainSuggestionArrow">
+                            →
+                        </span>
+                    </button>
+                ))}
+            </div>
+        )}
+
+</div>
 
                         {/* =================================================
                             DATE

@@ -14,6 +14,12 @@ const recommendationService =
 const TrainStop =
     require("../../train/trainStop.model");
 
+const Journey =
+    require("../../journey/journey.model");
+
+const notificationService =
+    require("../../notification/notification.service");
+
 
 // =========================================================
 // NTES TIMETABLE SYNC
@@ -258,9 +264,11 @@ class ChartWorkflowService {
             "\n========================================"
         );
 
+
         console.log(
             "🚆 NTES TIMETABLE FALLBACK"
         );
+
 
         console.log(
             "========================================"
@@ -375,9 +383,11 @@ class ChartWorkflowService {
                 "\n========================================"
             );
 
+
             console.log(
                 "🚆 CHART WORKFLOW STARTED"
             );
+
 
             console.log(
                 "========================================"
@@ -504,6 +514,7 @@ class ChartWorkflowService {
 
                 const vacantBerths =
                     mockVacancies.generateVacancies({
+
                         source:
                             journey.boardingStation,
 
@@ -561,9 +572,11 @@ class ChartWorkflowService {
                 "\n========================================"
             );
 
+
             console.log(
                 "🚆 REAL IRCTC CHART WORKFLOW"
             );
+
 
             console.log(
                 "========================================"
@@ -734,50 +747,59 @@ class ChartWorkflowService {
             }
 
 
-           // =================================================
-// BEFORE EXPECTED CHART
-// =================================================
+            // =================================================
+            // BEFORE EXPECTED CHART
+            // =================================================
 
-if (
-    chartTiming &&
-    !chartTiming.shouldCheckChart
-) {
+            if (
+                chartTiming &&
+                !chartTiming.shouldCheckChart
+            ) {
 
-    console.log(
-        "\n========================================"
-    );
+                console.log(
+                    "\n========================================"
+                );
 
-    console.log(
-        "⏳ TOO EARLY FOR CHART CHECK"
-    );
 
-    console.log(
-        "========================================"
-    );
+                console.log(
+                    "⏳ TOO EARLY FOR CHART CHECK"
+                );
 
-    console.log(
-        "Expected First Chart:",
-        chartTiming.firstChartTime
-    );
 
-    console.log(
-        "No IRCTC chart API call will be made yet."
-    );
+                console.log(
+                    "========================================"
+                );
 
-    console.log(
-        "No vacant berth API call will be made."
-    );
 
-    console.log(
-        "🛑 Journey Optimizer will NOT run."
-    );
+                console.log(
+                    "Expected First Chart:",
+                    chartTiming.firstChartTime
+                );
 
-    await this.clearRecommendations(
-        journey._id
-    );
 
-    return null;
-}
+                console.log(
+                    "No IRCTC chart API call will be made yet."
+                );
+
+
+                console.log(
+                    "No vacant berth API call will be made."
+                );
+
+
+                console.log(
+                    "🛑 Journey Optimizer will NOT run."
+                );
+
+
+                await this.clearRecommendations(
+                    journey._id
+                );
+
+
+                return null;
+            }
+
 
             // =================================================
             // CALL IRCTC CHART API
@@ -899,47 +921,56 @@ if (
 
 
             // =================================================
-// CHART NOT PREPARED
-// =================================================
+            // CHART NOT PREPARED
+            // =================================================
 
-if (
-    !chart.chartPrepared
-) {
+            if (
+                !chart.chartPrepared
+            ) {
 
-    console.log(
-        "\n========================================"
-    );
+                console.log(
+                    "\n========================================"
+                );
 
-    console.log(
-        "🟡 IRCTC CHART NOT PREPARED"
-    );
 
-    console.log(
-        "========================================"
-    );
+                console.log(
+                    "🟡 IRCTC CHART NOT PREPARED"
+                );
 
-    console.log(
-        "Expected chart window has been reached."
-    );
 
-    console.log(
-        "But IRCTC says the chart is still not prepared."
-    );
+                console.log(
+                    "========================================"
+                );
 
-    console.log(
-        "No vacancy API call will be made."
-    );
 
-    console.log(
-        "🛑 Journey Optimizer will NOT run."
-    );
+                console.log(
+                    "Expected chart window has been reached."
+                );
 
-    await this.clearRecommendations(
-        journey._id
-    );
 
-    return null;
-}
+                console.log(
+                    "But IRCTC says the chart is still not prepared."
+                );
+
+
+                console.log(
+                    "No vacancy API call will be made."
+                );
+
+
+                console.log(
+                    "🛑 Journey Optimizer will NOT run."
+                );
+
+
+                await this.clearRecommendations(
+                    journey._id
+                );
+
+
+                return null;
+            }
+
 
             // =================================================
             // CHART PREPARED
@@ -958,6 +989,163 @@ if (
             console.log(
                 "========================================"
             );
+
+
+            // =================================================
+            // UPDATE JOURNEY STATUS + CREATE ALERT
+            // =================================================
+            //
+            // The database update is atomic.
+            //
+            // Only the first monitoring cycle that changes
+            // the journey from a non-prepared state to
+            // CHART_PREPARED will create the notification.
+            //
+            // Repeated monitoring cycles will NOT create
+            // duplicate chart-prepared notifications.
+            // =================================================
+
+            let chartPreparedTransition =
+                false;
+
+
+            try {
+
+                const updatedJourney =
+                    await Journey.findOneAndUpdate(
+                        {
+                            _id:
+                                journey._id,
+
+                            status: {
+                                $ne:
+                                    "CHART_PREPARED",
+                            },
+                        },
+
+                        {
+                            $set: {
+
+                                status:
+                                    "CHART_PREPARED",
+
+                                lastCheckedAt:
+                                    new Date(),
+                            },
+                        },
+
+                        {
+                            new: true,
+                        }
+                    ).lean();
+
+
+                if (updatedJourney) {
+
+                    chartPreparedTransition =
+                        true;
+
+
+                    journey.status =
+                        "CHART_PREPARED";
+
+
+                    journey.lastCheckedAt =
+                        updatedJourney.lastCheckedAt;
+
+
+                    console.log(
+                        "🔔 Chart-prepared transition detected."
+                    );
+
+
+                    // =================================================
+                    // CREATE IN-APP NOTIFICATION
+                    // =================================================
+
+                    try {
+
+                        const trainNumber =
+                            String(
+                                journey.trainNumber ||
+                                ""
+                            )
+                                .trim();
+
+
+                        const boardingStation =
+                            String(
+                                journey.boardingStation ||
+                                ""
+                            )
+                                .trim()
+                                .toUpperCase();
+
+
+                        const destinationStation =
+                            String(
+                                journey.destinationStation ||
+                                ""
+                            )
+                                .trim()
+                                .toUpperCase();
+
+
+                        await notificationService
+                            .createNotification({
+
+                                userId:
+                                    journey.userId,
+
+                                type:
+                                    "CHART_UPDATE",
+
+                                title:
+                                    "Chart Prepared",
+
+                                message:
+                                    `Chart is prepared for train ${trainNumber}. ` +
+                                    `${boardingStation} → ${destinationStation}. ` +
+                                    `ERJA is now checking seat availability.`,
+
+                                journeyId:
+                                    journey._id,
+                            });
+
+
+                        console.log(
+                            "🔔 In-app chart-prepared notification created."
+                        );
+
+
+                    } catch (
+                        notificationError
+                    ) {
+
+                        console.log(
+                            "⚠️ Could not create chart-prepared notification:",
+                            notificationError.message
+                        );
+                    }
+
+
+                } else {
+
+                    console.log(
+                        "ℹ️ Chart was already marked as prepared. No duplicate alert created."
+                    );
+                }
+
+
+            } catch (
+                statusError
+            ) {
+
+                console.log(
+                    "⚠️ Could not update journey chart-prepared status:",
+                    statusError.message
+                );
+            }
 
 
             // =================================================

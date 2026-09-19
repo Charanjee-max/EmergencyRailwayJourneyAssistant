@@ -1,696 +1,995 @@
 /* =========================================================
-   ERJA - ADD JOURNEY PAGE
-   Complete responsive styling
+   ERJA - ADD JOURNEY PAGE UI
+   PART 5
    ========================================================= */
 
-* {
-    box-sizing: border-box;
-}
+/* ---------- PAGE ---------- */
 
 .addJourneyPage {
-    min-height: 100vh;
-    width: 100%;
-    padding: 28px 42px 48px;
-    background:
-        radial-gradient(circle at 15% 20%, rgba(53, 132, 210, 0.10), transparent 34%),
-        radial-gradient(circle at 85% 75%, rgba(95, 177, 235, 0.08), transparent 32%),
-        linear-gradient(135deg, #f7fbff 0%, #edf6fd 48%, #f8fbfe 100%);
-    color: #102a43;
-    overflow-x: hidden;
+  min-height: 100vh;
+  padding: 28px 40px 50px;
+  background: #f5f7fb;
+  color: #172033;
+  box-sizing: border-box;
 }
 
 .backButton {
-    border: 1px solid #d9e7f4;
-    background: rgba(255, 255, 255, 0.94);
-    color: #1768ad;
-    border-radius: 8px;
-    padding: 9px 14px;
-    font-size: 12px;
-    font-weight: 700;
-    cursor: pointer;
-    box-shadow: 0 4px 14px rgba(30, 75, 115, 0.08);
-    transition: 0.2s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  border: none;
+  background: transparent;
+  color: #526071;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 8px 4px;
+  margin-bottom: 22px;
 }
 
 .backButton:hover {
-    transform: translateY(-1px);
-    border-color: #a9cde9;
-    box-shadow: 0 7px 18px rgba(30, 75, 115, 0.12);
+  color: #172033;
 }
+
+
+/* ---------- MAIN LAYOUT ---------- */
 
 .addJourneyLayout {
-    width: min(100%, 1020px);
-    margin: 34px auto 0;
-    display: grid;
-    grid-template-columns: minmax(330px, 1fr) 390px;
-    align-items: center;
-    gap: 70px;
+  width: 100%;
+  max-width: 1250px;
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: 330px minmax(0, 1fr);
+  gap: 28px;
+  align-items: start;
 }
 
+
+/* ---------- LEFT INFORMATION PANEL ---------- */
+
 .journeyInfo {
-    max-width: 470px;
-    justify-self: center;
+  background: #ffffff;
+  border: 1px solid #e5e9f0;
+  border-radius: 18px;
+  padding: 28px;
+  box-shadow: 0 8px 30px rgba(20, 35, 60, 0.06);
+  position: sticky;
+  top: 24px;
 }
 
 .infoBadge {
-    display: inline-flex;
-    align-items: center;
-    border: 1px solid #cce3f7;
-    border-radius: 999px;
-    padding: 6px 10px;
-    background: rgba(245, 250, 255, 0.9);
-    color: #1471c6;
-    font-size: 11px;
-    line-height: 1;
-    font-weight: 800;
-    letter-spacing: 0.8px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 7px 12px;
+  border-radius: 999px;
+  background: #eef4ff;
+  color: #315ec9;
+  font-size: 12px;
+  font-weight: 700;
+  margin-bottom: 16px;
 }
 
 .journeyInfo h1 {
-    margin: 14px 0 12px;
-    color: #102b45;
-    font-size: clamp(34px, 4vw, 48px);
-    line-height: 0.98;
-    letter-spacing: -1.8px;
-    font-weight: 900;
-}
-
-.journeyInfo h1 span {
-    display: block;
-    color: #1478ca;
+  margin: 0 0 12px;
+  font-size: 28px;
+  line-height: 1.2;
+  font-weight: 750;
+  color: #172033;
 }
 
 .infoDescription {
-    margin: 0;
-    max-width: 410px;
-    color: #6a8096;
-    font-size: 14px;
-    line-height: 1.8;
+  margin: 0;
+  color: #667085;
+  font-size: 14px;
+  line-height: 1.65;
 }
 
 .journeySteps {
-    margin-top: 28px;
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
+  margin-top: 28px;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
 }
 
 .journeyStep {
-    display: flex;
-    align-items: center;
-    gap: 12px;
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
 }
 
 .stepIcon {
-    width: 32px;
-    height: 32px;
-    flex: 0 0 32px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    background: #ffffff;
-    border: 1px solid #e2edf7;
-    border-radius: 8px;
-    box-shadow: 0 4px 12px rgba(35, 86, 125, 0.10);
-    font-size: 15px;
+  width: 34px;
+  height: 34px;
+  min-width: 34px;
+  border-radius: 10px;
+  background: #f0f4fa;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
 }
 
 .journeyStep strong {
-    display: block;
-    color: #153652;
-    font-size: 13px;
-    font-weight: 800;
-    line-height: 1.2;
+  display: block;
+  color: #273449;
+  font-size: 14px;
+  margin-bottom: 3px;
 }
 
 .journeyStep span {
-    display: block;
-    margin-top: 2px;
-    color: #7a8fa3;
-    font-size: 11px;
-    line-height: 1.4;
+  display: block;
+  color: #7a8596;
+  font-size: 12px;
+  line-height: 1.45;
 }
 
+
+/* ---------- FORM CARD ---------- */
+
 .journeyCard {
-    position: relative;
-    z-index: 60;
-    width: 100%;
-    padding: 21px 20px 18px;
-    background: rgba(255, 255, 255, 0.97);
-    border: 1px solid #e1eaf2;
-    border-top: 2px solid #1478d0;
-    border-radius: 0 0 15px 15px;
-    box-shadow: 0 18px 38px rgba(42, 79, 111, 0.15);
+  background: #ffffff;
+  border: 1px solid #e5e9f0;
+  border-radius: 18px;
+  padding: 32px;
+  box-shadow: 0 8px 30px rgba(20, 35, 60, 0.06);
 }
 
 .cardHeader {
-    display: flex;
-    align-items: flex-start;
-    justify-content: space-between;
-    gap: 14px;
-    margin-bottom: 14px;
-}
-
-.cardLabel {
-    display: block;
-    margin-bottom: 5px;
-    color: #778da2;
-    font-size: 11px;
-    font-weight: 800;
-    letter-spacing: 1px;
-}
-
-.cardHeader h2 {
-    margin: 0;
-    color: #122c45;
-    font-size: 17px;
-    line-height: 1.2;
-    font-weight: 850;
-}
-
-.cardHeader p {
-    margin: 5px 0 0;
-    color: #8295a7;
-    font-size: 11px;
-    line-height: 1.45;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 30px;
 }
 
 .cardTrainIcon {
-    width: 38px;
-    height: 38px;
-    flex: 0 0 38px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    border-radius: 10px;
-    background: #f3f8fd;
-    box-shadow: 0 7px 17px rgba(45, 104, 155, 0.10);
-    font-size: 18px;
+  width: 46px;
+  height: 46px;
+  min-width: 46px;
+  border-radius: 13px;
+  background: #edf3ff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 22px;
 }
+
+.cardLabel {
+  margin: 0;
+  color: #172033;
+  font-size: 22px;
+  font-weight: 750;
+}
+
+.cardHeader p {
+  margin: 4px 0 0;
+  color: #788396;
+  font-size: 13px;
+}
+
+
+/* ---------- FORM GROUP ---------- */
 
 .formGroup {
-    position: relative;
-    margin-bottom: 12px;
+  margin-bottom: 24px;
 }
 
-.formGroup label {
-    display: block;
-    margin-bottom: 5px;
-    color: #173650;
-    font-size: 12px;
-    font-weight: 800;
+.formGroup > label {
+  display: block;
+  margin-bottom: 9px;
+  color: #273449;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.formGroup > label span {
+  color: #e25555;
 }
 
 .inputWrapper {
-    position: relative;
-    display: flex;
-    align-items: center;
-    width: 100%;
-}
-
-.inputWrapper > span:first-child {
-    position: absolute;
-    left: 11px;
-    z-index: 2;
-    pointer-events: none;
-    font-size: 12px;
+  position: relative;
 }
 
 .inputWrapper input,
-.inputWrapper select {
-    width: 100%;
-    height: 35px;
-    min-width: 0;
-    border: 1px solid #d6e2ed;
-    border-radius: 7px;
-    background: #ffffff;
-    color: #193a58;
-    outline: none;
-    font-size: 12px;
-    transition: border-color 0.18s ease, box-shadow 0.18s ease;
-}
-
-.inputWrapper input {
-    padding: 0 11px 0 34px;
-}
-
-.inputWrapper select {
-    padding: 0 30px 0 34px;
-    cursor: pointer;
+.inputWrapper select,
+.formGroup input,
+.formGroup select {
+  width: 100%;
+  min-height: 48px;
+  box-sizing: border-box;
+  border: 1px solid #d8dee8;
+  border-radius: 10px;
+  padding: 0 14px;
+  background: #ffffff;
+  color: #172033;
+  font-size: 14px;
+  outline: none;
+  transition:
+    border-color 0.2s ease,
+    box-shadow 0.2s ease;
 }
 
 .inputWrapper input:focus,
-.inputWrapper select:focus {
-    border-color: #4c9bd8;
-    box-shadow: 0 0 0 3px rgba(53, 139, 211, 0.10);
+.inputWrapper select:focus,
+.formGroup input:focus,
+.formGroup select:focus {
+  border-color: #4675d8;
+  box-shadow: 0 0 0 3px rgba(70, 117, 216, 0.1);
 }
 
-.inputWrapper input::placeholder {
-    color: #a0afbd;
+.inputWrapper input::placeholder,
+.formGroup input::placeholder {
+  color: #a0a9b7;
 }
 
-.formGroup small {
-    display: block;
-    margin-top: 5px;
-    color: #8296aa;
-    font-size: 10px;
-    line-height: 1.4;
-}
 
-.routeRow {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) 22px minmax(0, 1fr);
-    align-items: start;
-    gap: 5px;
-}
-
-.routeArrow {
-    align-self: center;
-    margin-top: 19px;
-    color: #2a80d0;
-    text-align: center;
-    font-size: 15px;
-    font-weight: 800;
-}
-
-.autocompleteWrapper {
-    position: relative;
-    z-index: 70;
-}
-
-.autocompleteDropdown {
-    position: absolute;
-    top: calc(100% + 4px);
-    left: 0;
-    right: 0;
-    max-height: 190px;
-    overflow-y: auto;
-    padding: 4px;
-    background: #ffffff;
-    border: 1px solid #d8e5ef;
-    border-radius: 8px;
-    box-shadow: 0 12px 28px rgba(26, 71, 108, 0.16);
-    z-index: 100;
-}
-
-.stationSuggestion {
-    width: 100%;
-    display: flex;
-    align-items: center;
-    gap: 9px;
-    padding: 8px 9px;
-    border: 0;
-    border-radius: 6px;
-    background: transparent;
-    text-align: left;
-    cursor: pointer;
-}
-
-.stationSuggestion:hover {
-    background: #f1f7fc;
-}
-
-.stationSuggestion strong {
-    min-width: 42px;
-    color: #1b6fb2;
-    font-size: 11px;
-}
-
-.stationSuggestion span {
-    min-width: 0;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    color: #60788e;
-    font-size: 11px;
-}
-
-.stationSearchSpinner {
-    position: absolute !important;
-    left: auto !important;
-    right: 10px;
-    top: 50%;
-    transform: translateY(-50%);
-    color: #2580cc;
-    animation: erjaSpin 0.8s linear infinite;
-}
-
-@keyframes erjaSpin {
-    to {
-        transform: translateY(-50%) rotate(360deg);
-    }
-}
+/* ---------- TRAIN SEARCH ---------- */
 
 .trainAutocompleteWrapper {
-    position: relative;
-    width: 100%;
-    z-index: 80;
-}
-
-.trainInputWrapper {
-    position: relative;
-}
-
-.trainInputWrapper input {
-    padding-right: 42px;
-}
-
-.trainInlineName {
-    position: absolute;
-    right: 30px;
-    max-width: 52%;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    color: #668097;
-    font-size: 10px;
-    font-weight: 700;
-    pointer-events: none;
+  position: relative;
 }
 
 .trainSearchSpinner {
-    position: absolute !important;
-    left: auto !important;
-    right: 11px;
-    top: 50%;
-    transform: translateY(-50%);
-    color: #2b83ce;
-    font-size: 15px;
-    pointer-events: none;
-    animation: trainSpin 0.8s linear infinite;
-}
-
-@keyframes trainSpin {
-    to {
-        transform: translateY(-50%) rotate(360deg);
-    }
+  position: absolute;
+  right: 15px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 17px;
+  height: 17px;
+  border: 2px solid #dbe2ee;
+  border-top-color: #4675d8;
+  border-radius: 50%;
+  animation: erjaSpin 0.7s linear infinite;
 }
 
 .trainSuggestionsDropdown {
-    position: absolute;
-    top: calc(100% + 5px);
-    left: 0;
-    right: 0;
-    max-height: 240px;
-    overflow-y: auto;
-    padding: 4px;
-    background: #ffffff;
-    border: 1px solid #dbe5f0;
-    border-radius: 8px;
-    box-shadow: 0 12px 28px rgba(30, 70, 110, 0.16);
-    z-index: 150;
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: calc(100% + 6px);
+  z-index: 100;
+  background: #ffffff;
+  border: 1px solid #dce2eb;
+  border-radius: 12px;
+  box-shadow: 0 14px 35px rgba(20, 35, 60, 0.14);
+  max-height: 280px;
+  overflow-y: auto;
 }
 
 .trainSuggestion {
-    width: 100%;
-    margin-top: 5px;
-    display: flex;
-    align-items: center;
-    gap: 9px;
-    padding: 9px 10px;
-    background: #ffffff;
-    border: 1px solid #dbe5f0;
-    border-radius: 8px;
-    box-shadow: 0 10px 24px rgba(30, 70, 110, 0.14);
-    cursor: pointer;
-    text-align: left;
-    transition: 0.15s ease;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 13px 15px;
+  border: none;
+  background: #ffffff;
+  cursor: pointer;
+  text-align: left;
+  transition: background 0.15s ease;
 }
 
 .trainSuggestion:hover {
-    transform: none;
-    background: #f1f7fc;
-    border-color: #dbe5f0;
-    box-shadow: none;
+  background: #f5f8fd;
 }
 
 .trainSuggestionIcon {
-    width: 30px;
-    height: 30px;
-    flex: 0 0 30px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    background: #eef6ff;
-    border-radius: 7px;
-    font-size: 14px;
+  width: 34px;
+  height: 34px;
+  min-width: 34px;
+  border-radius: 9px;
+  background: #eef4ff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
 }
 
 .trainSuggestionContent {
-    min-width: 0;
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
+  flex: 1;
+  min-width: 0;
 }
 
 .trainSuggestionContent strong {
-    color: #123d68;
-    font-size: 13px;
-    font-weight: 800;
+  display: block;
+  color: #172033;
+  font-size: 14px;
+  margin-bottom: 3px;
 }
 
 .trainSuggestionContent span {
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    color: #6e8196;
-    font-size: 11px;
+  display: block;
+  color: #778397;
+  font-size: 12px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .trainSuggestionArrow {
-    color: #2478c9;
-    font-size: 17px;
-    font-weight: 800;
+  color: #9aa4b3;
+  font-size: 16px;
 }
 
-.trainVerified {
-    color: #16834b !important;
-    font-weight: 600;
+
+/* ---------- TRAIN VERIFIED ---------- */
+
+.classVerified {
+  margin-top: 10px;
+  padding: 12px 14px;
+  border: 1px solid #d9e8dc;
+  background: #f3faf4;
+  border-radius: 10px;
+  color: #27733a;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.classVerified strong {
+  color: #1f6631;
+}
+
+
+/* ---------- ERROR / SUCCESS ---------- */
+
+.formError {
+  margin-bottom: 20px;
+  padding: 12px 14px;
+  border-radius: 10px;
+  background: #fff2f2;
+  border: 1px solid #f1cccc;
+  color: #c53f3f;
+  font-size: 13px;
+  line-height: 1.5;
 }
 
 .fieldError {
-    color: #c43e3e !important;
-    font-weight: 600;
+  margin-top: 7px;
+  color: #c53f3f;
+  font-size: 12px;
 }
+
+.fieldSuccess {
+  margin-top: 7px;
+  color: #278044;
+  font-size: 12px;
+}
+
+
+/* ---------- ROUTE ROW ---------- */
+
+.routeRow {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 42px minmax(0, 1fr);
+  align-items: center;
+  gap: 12px;
+}
+
+.routeArrow {
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  background: #f0f4fa;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #64748b;
+  font-size: 17px;
+}
+
+
+/* ---------- STATION AUTOCOMPLETE ---------- */
+
+.autocompleteWrapper {
+  position: relative;
+}
+
+.autocompleteDropdown {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: calc(100% + 6px);
+  z-index: 100;
+  max-height: 280px;
+  overflow-y: auto;
+  background: #ffffff;
+  border: 1px solid #dce2eb;
+  border-radius: 12px;
+  box-shadow: 0 14px 35px rgba(20, 35, 60, 0.14);
+}
+
+.stationSuggestion {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  border: none;
+  background: #ffffff;
+  text-align: left;
+  cursor: pointer;
+}
+
+.stationSuggestion:hover {
+  background: #f5f8fd;
+}
+
+.stationSuggestion strong {
+  display: block;
+  color: #263247;
+  font-size: 14px;
+}
+
+.stationSuggestion span {
+  display: block;
+  color: #7a8596;
+  font-size: 12px;
+  margin-top: 2px;
+}
+
+.stationSearchSpinner {
+  position: absolute;
+  right: 15px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 17px;
+  height: 17px;
+  border: 2px solid #dbe2ee;
+  border-top-color: #4675d8;
+  border-radius: 50%;
+  animation: erjaSpin 0.7s linear infinite;
+}
+
+
+/* ---------- CLASS SELECT ---------- */
 
 .classLoadingText {
-    color: #71869c !important;
-}
-
-.classVerified {
-    color: #16834b !important;
-    font-weight: 600;
-}
-
-.formError {
-    margin: 0 0 10px;
-    padding: 8px 9px;
-    border: 1px solid #f2c4c4;
-    border-radius: 6px;
-    background: #fff5f5;
-    color: #bd4141;
-    font-size: 11px;
-    line-height: 1.4;
+  min-height: 48px;
+  display: flex;
+  align-items: center;
+  padding: 0 14px;
+  border: 1px solid #d8dee8;
+  border-radius: 10px;
+  color: #778397;
+  background: #fafbfc;
+  font-size: 14px;
 }
 
 .mixedClassOption {
-    position: relative;
-    display: flex;
-    align-items: flex-start;
-    gap: 8px;
-    margin: 3px 0 12px;
-    padding: 9px;
-    border: 1px solid #d9e6f1;
-    border-radius: 7px;
-    background: #fbfdff;
-    cursor: pointer;
-}
-
-.mixedClassOption.selected {
-    border-color: #b8d8ef;
-    background: #f6fbff;
-}
-
-.mixedClassOption input {
-    position: absolute;
-    opacity: 0;
-    pointer-events: none;
+  margin-top: 14px;
 }
 
 .customCheckbox {
-    width: 15px;
-    height: 15px;
-    flex: 0 0 15px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    margin-top: 1px;
-    border: 1px solid #b9cddd;
-    border-radius: 4px;
-    background: #ffffff;
-    color: #ffffff;
-    font-size: 10px;
-    font-weight: 900;
+  display: flex;
+  align-items: flex-start;
+  gap: 11px;
+  cursor: pointer;
+  user-select: none;
 }
 
-.mixedClassOption.selected .customCheckbox {
-    border-color: #2c82d1;
-    background: #2c82d1;
-}
-
-.mixedClassText {
-    min-width: 0;
+.customCheckbox input {
+  width: 18px;
+  height: 18px;
+  min-width: 18px;
+  margin: 1px 0 0;
+  cursor: pointer;
+  accent-color: #4675d8;
 }
 
 .mixedClassText strong {
-    display: block;
-    color: #173b5b;
-    font-size: 12px;
-    line-height: 1.3;
+  display: block;
+  color: #273449;
+  font-size: 14px;
+  margin-bottom: 3px;
 }
 
 .mixedClassText span {
-    display: block;
-    margin-top: 2px;
-    color: #7d92a7;
-    font-size: 10px;
-    line-height: 1.45;
+  display: block;
+  color: #7b8697;
+  font-size: 12px;
+  line-height: 1.5;
 }
 
+
+/* ---------- SUBMIT BUTTON ---------- */
+
 .saveJourneyButton {
-    width: 100%;
-    height: 36px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 7px;
-    border: 0;
-    border-radius: 7px;
-    background: linear-gradient(135deg, #2f86d3, #176bb9);
-    color: #ffffff;
-    font-size: 12px;
-    font-weight: 800;
-    cursor: pointer;
-    box-shadow: 0 7px 16px rgba(29, 112, 184, 0.22);
-    transition: 0.2s ease;
+  width: 100%;
+  min-height: 50px;
+  margin-top: 8px;
+  border: none;
+  border-radius: 11px;
+  background: #315fc9;
+  color: #ffffff;
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+  transition:
+    background 0.2s ease,
+    transform 0.15s ease,
+    box-shadow 0.2s ease;
 }
 
 .saveJourneyButton:hover:not(:disabled) {
-    transform: translateY(-1px);
-    box-shadow: 0 10px 20px rgba(29, 112, 184, 0.28);
+  background: #274fae;
+  box-shadow: 0 7px 18px rgba(49, 95, 201, 0.2);
+}
+
+.saveJourneyButton:active:not(:disabled) {
+  transform: translateY(1px);
 }
 
 .saveJourneyButton:disabled {
-    opacity: 0.55;
-    cursor: not-allowed;
-    box-shadow: none;
+  opacity: 0.55;
+  cursor: not-allowed;
 }
 
 .spinner {
-    width: 13px;
-    height: 13px;
-    border: 2px solid rgba(255, 255, 255, 0.45);
-    border-top-color: #ffffff;
-    border-radius: 50%;
-    animation: buttonSpin 0.7s linear infinite;
+  display: inline-block;
+  width: 17px;
+  height: 17px;
+  border: 2px solid rgba(255, 255, 255, 0.45);
+  border-top-color: #ffffff;
+  border-radius: 50%;
+  vertical-align: middle;
+  animation: erjaSpin 0.7s linear infinite;
 }
 
-@keyframes buttonSpin {
-    to {
-        transform: rotate(360deg);
-    }
-}
+
+/* ---------- SECURITY NOTE ---------- */
 
 .secureNote {
-    margin-top: 8px;
-    color: #7890a5;
-    font-size: 10px;
-    line-height: 1.45;
-    text-align: center;
+  margin-top: 16px;
+  text-align: center;
+  color: #8a94a4;
+  font-size: 12px;
+  line-height: 1.5;
 }
 
+
+/* ---------- TRAIN OVERLAY ---------- */
+
 .trainOverlay {
-    position: fixed;
-    inset: 0;
-    z-index: 40;
-    background: transparent;
-    pointer-events: none;
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  background: rgba(15, 23, 42, 0.08);
+  pointer-events: none;
 }
+
+
+/* =========================================================
+   TIMETABLE MODAL
+   ========================================================= */
+
+.timetableModalOverlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: rgba(15, 23, 42, 0.58);
+  backdrop-filter: blur(3px);
+}
+
+.timetableModal {
+  width: min(1050px, 100%);
+  max-height: min(88vh, 850px);
+  display: flex;
+  flex-direction: column;
+  background: #ffffff;
+  border-radius: 18px;
+  overflow: hidden;
+  box-shadow: 0 25px 70px rgba(0, 0, 0, 0.25);
+}
+
+
+/* ---------- MODAL HEADER ---------- */
+
+.timetableModalHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 22px 25px;
+  border-bottom: 1px solid #e7ebf1;
+}
+
+.timetableEyebrow {
+  margin: 0 0 5px;
+  color: #5271b5;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+}
+
+.timetableModalHeader h2 {
+  margin: 0;
+  color: #172033;
+  font-size: 22px;
+  font-weight: 750;
+}
+
+.timetableModalHeader p {
+  margin: 5px 0 0;
+  color: #7b8697;
+  font-size: 13px;
+}
+
+.timetableCloseButton {
+  width: 38px;
+  height: 38px;
+  min-width: 38px;
+  border: none;
+  border-radius: 10px;
+  background: #f2f4f7;
+  color: #5f6b7b;
+  font-size: 21px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.timetableCloseButton:hover {
+  background: #e8ebf0;
+  color: #172033;
+}
+
+
+/* ---------- ROUTE SUMMARY ---------- */
+
+.timetableRouteSummary {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 18px;
+  padding: 18px 24px;
+  background: #f8fafc;
+  border-bottom: 1px solid #edf0f4;
+}
+
+.timetableRouteSummary > div {
+  min-width: 150px;
+  text-align: center;
+}
+
+.timetableRouteSummary strong {
+  display: block;
+  color: #172033;
+  font-size: 15px;
+}
+
+.timetableRouteSummary span {
+  display: block;
+  margin-top: 3px;
+  color: #7b8697;
+  font-size: 12px;
+}
+
+.timetableRouteArrow {
+  color: #718096;
+  font-size: 20px;
+}
+
+
+/* ---------- TABLE ---------- */
+
+.timetableTableWrapper {
+  flex: 1;
+  overflow: auto;
+  padding: 0;
+}
+
+.timetableTable {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 760px;
+}
+
+.timetableTable thead th {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  padding: 13px 16px;
+  background: #f7f9fc;
+  border-bottom: 1px solid #dfe5ed;
+  color: #657184;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  text-align: left;
+}
+
+.timetableTable tbody td {
+  padding: 14px 16px;
+  border-bottom: 1px solid #edf0f4;
+  color: #364152;
+  font-size: 13px;
+  vertical-align: middle;
+}
+
+.timetableTable tbody tr:hover {
+  background: #fafbfc;
+}
+
+.stationNumber {
+  width: 55px;
+  color: #8b95a5 !important;
+  font-weight: 600;
+}
+
+.timetableStationCell {
+  min-width: 230px;
+}
+
+.stationCode {
+  display: inline-block;
+  min-width: 42px;
+  padding: 4px 7px;
+  border-radius: 6px;
+  background: #edf2fa;
+  color: #3c5f9c;
+  font-size: 11px;
+  font-weight: 800;
+  text-align: center;
+  margin-right: 9px;
+}
+
+.stationName {
+  color: #273449;
+  font-weight: 650;
+}
+
+.stationMarker {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-left: 8px;
+  padding: 3px 7px;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 800;
+  vertical-align: middle;
+}
+
+.sourceMarker {
+  background: #eaf7ee;
+  color: #287641;
+}
+
+.destinationMarker {
+  background: #fff0f0;
+  color: #bd4545;
+}
+
+.timetableSourceRow {
+  background: #f3faf5 !important;
+}
+
+.timetableDestinationRow {
+  background: #fff7f7 !important;
+}
+
+.timetableSourceRow td {
+  border-bottom-color: #dcecdf;
+}
+
+.timetableDestinationRow td {
+  border-bottom-color: #f0dddd;
+}
+
+
+/* ---------- EMPTY STATE ---------- */
+
+.timetableEmptyState {
+  padding: 55px 25px;
+  text-align: center;
+  color: #7a8596;
+}
+
+.timetableEmptyIcon {
+  font-size: 34px;
+  margin-bottom: 12px;
+}
+
+.timetableEmptyState strong {
+  display: block;
+  color: #364152;
+  font-size: 15px;
+  margin-bottom: 5px;
+}
+
+.timetableEmptyState span {
+  font-size: 13px;
+}
+
+
+/* ---------- MODAL FOOTER ---------- */
+
+.timetableModalFooter {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 15px;
+  padding: 15px 24px;
+  border-top: 1px solid #e7ebf1;
+  background: #fafbfc;
+}
+
+.timetableModalFooter span {
+  color: #7b8697;
+  font-size: 12px;
+}
+
+.timetableModalFooter strong {
+  color: #3d4a5c;
+}
+
+
+/* =========================================================
+   ANIMATION
+   ========================================================= */
+
+@keyframes erjaSpin {
+  from {
+    transform: rotate(0deg);
+  }
+
+  to {
+    transform: rotate(360deg);
+  }
+}
+
 
 /* =========================================================
    RESPONSIVE
    ========================================================= */
 
-@media (max-width: 900px) {
-    .addJourneyPage {
-        padding: 22px 24px 40px;
-    }
+@media (max-width: 1000px) {
+  .addJourneyPage {
+    padding: 24px 22px 40px;
+  }
 
-    .addJourneyLayout {
-        grid-template-columns: 1fr 390px;
-        gap: 36px;
-    }
+  .addJourneyLayout {
+    grid-template-columns: 1fr;
+  }
 
-    .journeyInfo {
-        max-width: 390px;
-    }
+  .journeyInfo {
+    position: static;
+  }
+
+  .journeySteps {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+  }
 }
 
-@media (max-width: 760px) {
-    .addJourneyPage {
-        padding: 18px 16px 34px;
-    }
 
-    .addJourneyLayout {
-        width: min(100%, 430px);
-        margin-top: 26px;
-        grid-template-columns: 1fr;
-        gap: 30px;
-    }
+@media (max-width: 700px) {
+  .addJourneyPage {
+    padding: 18px 14px 30px;
+  }
 
-    .journeyInfo {
-        max-width: 100%;
-        order: 1;
-    }
+  .journeyCard {
+    padding: 22px 18px;
+  }
 
-    .journeyCard {
-        order: 2;
-    }
+  .journeyInfo {
+    padding: 22px 18px;
+  }
 
-    .journeyInfo h1 {
-        font-size: 36px;
-    }
+  .journeyInfo h1 {
+    font-size: 24px;
+  }
 
-    .infoDescription {
-        max-width: 100%;
-    }
+  .journeySteps {
+    display: flex;
+  }
+
+  .routeRow {
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+
+  .routeArrow {
+    margin: 0 auto;
+    transform: rotate(90deg);
+  }
+
+  .timetableModalOverlay {
+    padding: 10px;
+  }
+
+  .timetableModal {
+    max-height: 94vh;
+    border-radius: 14px;
+  }
+
+  .timetableModalHeader {
+    padding: 18px;
+  }
+
+  .timetableModalHeader h2 {
+    font-size: 19px;
+  }
+
+  .timetableRouteSummary {
+    padding: 15px 12px;
+    gap: 9px;
+  }
+
+  .timetableRouteSummary > div {
+    min-width: 0;
+    flex: 1;
+  }
+
+  .timetableRouteArrow {
+    font-size: 17px;
+  }
+
+  .timetableModalFooter {
+    padding: 13px 16px;
+  }
 }
 
-@media (max-width: 430px) {
-    .addJourneyPage {
-        padding: 14px 11px 28px;
-    }
 
-    .backButton {
-        padding: 8px 11px;
-        font-size: 11px;
-    }
+@media (max-width: 480px) {
+  .addJourneyPage {
+    padding: 14px 10px 25px;
+  }
 
-    .addJourneyLayout {
-        margin-top: 20px;
-    }
+  .backButton {
+    margin-bottom: 15px;
+    font-size: 14px;
+  }
 
-    .journeyCard {
-        padding: 18px 15px 16px;
-    }
+  .journeyInfo {
+    border-radius: 14px;
+  }
 
-    .routeRow {
-        grid-template-columns: minmax(0, 1fr) 18px minmax(0, 1fr);
-        gap: 3px;
-    }
+  .journeyCard {
+    border-radius: 14px;
+    padding: 18px 14px;
+  }
 
-    .journeySteps {
-        gap: 10px;
-    }
+  .cardHeader {
+    margin-bottom: 22px;
+  }
+
+  .cardLabel {
+    font-size: 19px;
+  }
+
+  .cardTrainIcon {
+    width: 40px;
+    height: 40px;
+    min-width: 40px;
+  }
+
+  .timetableModalHeader {
+    gap: 10px;
+  }
+
+  .timetableModalHeader p {
+    font-size: 12px;
+  }
+
+  .timetableCloseButton {
+    width: 34px;
+    height: 34px;
+    min-width: 34px;
+  }
+
+  .timetableRouteSummary strong {
+    font-size: 13px;
+  }
+
+  .timetableRouteSummary span {
+    font-size: 10px;
+  }
 }

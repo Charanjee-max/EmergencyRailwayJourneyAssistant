@@ -22,6 +22,7 @@ import {
 
 import trainList from "../../data/train_data.js";
 
+
 // =========================================================
 // CLASS INFORMATION
 // =========================================================
@@ -61,6 +62,7 @@ const FALLBACK_CLASSES = [
     },
 ];
 
+
 // =========================================================
 // CLASS NAME
 // =========================================================
@@ -76,12 +78,15 @@ const CLASS_NAMES = {
     EC: "Executive Chair Car",
 };
 
+
 // =========================================================
 // TODAY
 // =========================================================
 
 const getTodayDate = () => {
-    const now = new Date();
+
+    const now =
+        new Date();
 
     const year =
         now.getFullYear();
@@ -89,15 +94,22 @@ const getTodayDate = () => {
     const month =
         String(
             now.getMonth() + 1
-        ).padStart(2, "0");
+        ).padStart(
+            2,
+            "0"
+        );
 
     const day =
         String(
             now.getDate()
-        ).padStart(2, "0");
+        ).padStart(
+            2,
+            "0"
+        );
 
     return `${year}-${month}-${day}`;
 };
+
 
 // =========================================================
 // NORMALIZE STATION
@@ -129,18 +141,24 @@ const normalizeStation = (
             ""
         ).trim();
 
-    if (!code || !name) {
+    if (
+        !code ||
+        !name
+    ) {
         return null;
     }
 
     return {
         code,
+
         name,
+
         city:
             station.city ||
             "",
     };
 };
+
 
 // =========================================================
 // NORMALIZE TRAIN RESPONSE
@@ -154,13 +172,6 @@ const normalizeTrain = (
         response?.data ||
         response ||
         {};
-
-    /*
-     * Different train APIs may put train information
-     * at different levels.
-     *
-     * Try the most common structures safely.
-     */
 
     const candidates = [
         root,
@@ -211,7 +222,10 @@ const normalizeTrain = (
             ""
         ).trim();
 
-    if (!number && !name) {
+    if (
+        !number &&
+        !name
+    ) {
         return null;
     }
 
@@ -225,45 +239,66 @@ const normalizeTrain = (
     };
 };
 
+
 // =========================================================
 // LOCAL TRAIN LIST
 // =========================================================
 
-const LOCAL_TRAINS = trainList
-    .map((item) => {
-        const value =
-            String(item || "").trim();
+const LOCAL_TRAINS =
+    trainList
+        .map(
+            (item) => {
 
-        const separatorIndex =
-            value.indexOf("-");
+                const value =
+                    String(
+                        item ||
+                        ""
+                    ).trim();
 
-        if (separatorIndex === -1) {
-            return null;
-        }
+                const separatorIndex =
+                    value.indexOf(
+                        "-"
+                    );
 
-        const trainNumber =
-            value
-                .slice(0, separatorIndex)
-                .trim();
+                if (
+                    separatorIndex ===
+                    -1
+                ) {
+                    return null;
+                }
 
-        const trainName =
-            value
-                .slice(separatorIndex + 1)
-                .trim();
+                const trainNumber =
+                    value
+                        .slice(
+                            0,
+                            separatorIndex
+                        )
+                        .trim();
 
-        if (
-            !/^\d{1,5}$/.test(trainNumber) ||
-            !trainName
-        ) {
-            return null;
-        }
+                const trainName =
+                    value
+                        .slice(
+                            separatorIndex + 1
+                        )
+                        .trim();
 
-        return {
-            trainNumber,
-            trainName,
-        };
-    })
-    .filter(Boolean);
+                if (
+                    !/^\d{1,5}$/.test(
+                        trainNumber
+                    ) ||
+                    !trainName
+                ) {
+                    return null;
+                }
+
+                return {
+                    trainNumber,
+                    trainName,
+                };
+            }
+        )
+        .filter(Boolean);
+
 
 // =========================================================
 // COMPONENT
@@ -274,6 +309,7 @@ export default function AddJourney() {
     const navigate =
         useNavigate();
 
+
     // =====================================================
     // FORM
     // =====================================================
@@ -282,16 +318,29 @@ export default function AddJourney() {
         formData,
         setFormData,
     ] = useState({
-        trainNumber: "",
-        journeyDate: "",
-        boardingStation: "",
-        destinationStation: "",
-        preferredClass: "",
-        allowMixedClass: false,
+
+        trainNumber:
+            "",
+
+        journeyDate:
+            "",
+
+        boardingStation:
+            "",
+
+        destinationStation:
+            "",
+
+        preferredClass:
+            "",
+
+        allowMixedClass:
+            false,
     });
 
+
     // =====================================================
-    // UI
+    // UI STATE
     // =====================================================
 
     const [
@@ -303,6 +352,7 @@ export default function AddJourney() {
         error,
         setError,
     ] = useState("");
+
 
     // =====================================================
     // TRAIN STATE
@@ -333,6 +383,7 @@ export default function AddJourney() {
         setTrainError,
     ] = useState("");
 
+
     // =====================================================
     // CLASS STATE
     // =====================================================
@@ -351,6 +402,22 @@ export default function AddJourney() {
         classError,
         setClassError,
     ] = useState("");
+
+
+    // =====================================================
+    // TIMETABLE STATE
+    // =====================================================
+
+    const [
+        timetableStations,
+        setTimetableStations,
+    ] = useState([]);
+
+    const [
+        showTimetable,
+        setShowTimetable,
+    ] = useState(false);
+
 
     // =====================================================
     // STATION STATE
@@ -376,6 +443,7 @@ export default function AddJourney() {
         setStationLoadingField,
     ] = useState(null);
 
+
     // =====================================================
     // REQUEST IDS
     // =====================================================
@@ -392,6 +460,7 @@ export default function AddJourney() {
     const destinationSearchId =
         useRef(0);
 
+
     // =====================================================
     // ABORT CONTROLLERS
     // =====================================================
@@ -402,6 +471,7 @@ export default function AddJourney() {
     const classAbortController =
         useRef(null);
 
+
     // =====================================================
     // TODAY
     // =====================================================
@@ -409,11 +479,14 @@ export default function AddJourney() {
     const today =
         getTodayDate();
 
+
     // =====================================================
     // FORM CHANGE
     // =====================================================
 
-    const handleChange = (e) => {
+    const handleChange = (
+        e
+    ) => {
 
         const {
             name,
@@ -427,6 +500,7 @@ export default function AddJourney() {
                 ? checked
                 : value;
 
+
         // -------------------------------------------------
         // TRAIN NUMBER
         // -------------------------------------------------
@@ -435,28 +509,53 @@ export default function AddJourney() {
             name ===
             "trainNumber"
         ) {
+
             updatedValue =
                 value
-                    .replace(/\D/g, "")
-                    .slice(0, 5);
+                    .replace(
+                        /\D/g,
+                        ""
+                    )
+                    .slice(
+                        0,
+                        5
+                    );
 
-            setTrainInfo(null);
-            setTrainError("");
-
-            setTrainSuggestionVisible(
-                updatedValue.length >= 4
+            setTrainInfo(
+                null
             );
 
-            /*
-             * Changing train invalidates classes.
-             */
-            setAvailableClasses([]);
+            setTrainError(
+                ""
+            );
 
-            setFormData((prev) => ({
-                ...prev,
-                preferredClass: "",
-            }));
+            setTrainSuggestionVisible(
+                updatedValue.length >=
+                    4
+            );
+
+            setAvailableClasses(
+                []
+            );
+
+            setTimetableStations(
+                []
+            );
+
+            setShowTimetable(
+                false
+            );
+
+            setFormData(
+                (prev) => ({
+                    ...prev,
+
+                    preferredClass:
+                        "",
+                })
+            );
         }
+
 
         // -------------------------------------------------
         // STATIONS
@@ -468,11 +567,16 @@ export default function AddJourney() {
             name ===
                 "destinationStation"
         ) {
+
             updatedValue =
                 value
                     .toUpperCase()
-                    .slice(0, 10);
+                    .slice(
+                        0,
+                        10
+                    );
         }
+
 
         // -------------------------------------------------
         // DATE
@@ -482,180 +586,339 @@ export default function AddJourney() {
             name ===
             "journeyDate"
         ) {
-            setAvailableClasses([]);
-            setClassError("");
 
-            setFormData((prev) => ({
-                ...prev,
-                preferredClass: "",
-            }));
+            setAvailableClasses(
+                []
+            );
+
+            setClassError(
+                ""
+            );
+
+            setTimetableStations(
+                []
+            );
+
+            setShowTimetable(
+                false
+            );
+
+            setFormData(
+                (prev) => ({
+                    ...prev,
+
+                    preferredClass:
+                        "",
+                })
+            );
         }
 
-        setFormData((prev) => ({
-            ...prev,
-            [name]: updatedValue,
-        }));
 
-        setError("");
+        setFormData(
+            (prev) => ({
+                ...prev,
+
+                [name]:
+                    updatedValue,
+            })
+        );
+
+        setError(
+            ""
+        );
     };
+
 
     // =====================================================
     // TRAIN AUTOCOMPLETE + API VERIFICATION
     // =====================================================
 
-    useEffect(() => {
+    useEffect(
+        () => {
 
-        const value =
-            formData.trainNumber
-                .trim();
+            const value =
+                formData.trainNumber
+                    .trim();
 
-        trainRequestId.current += 1;
+            trainRequestId.current += 1;
 
-        const requestId =
-            trainRequestId.current;
+            const requestId =
+                trainRequestId.current;
 
-        if (
-            trainAbortController.current
-        ) {
-            trainAbortController.current.abort();
-        }
 
-        // -------------------------------------------------
-        // EMPTY / SHORT INPUT
-        // -------------------------------------------------
+            if (
+                trainAbortController.current
+            ) {
 
-        if (!value) {
+                trainAbortController.current
+                    .abort();
+            }
 
-            setTrainSuggestions([]);
-            setTrainInfo(null);
-            setTrainLoading(false);
-            setTrainError("");
-            setTrainSuggestionVisible(false);
 
-            return;
-        }
+            // -------------------------------------------------
+            // EMPTY INPUT
+            // -------------------------------------------------
 
-        // -------------------------------------------------
-        // FIND LOCAL TRAINS
-        // -------------------------------------------------
+            if (!value) {
 
-        const matches =
-            LOCAL_TRAINS
-                .filter(
-                    (train) =>
-                        train.trainNumber
-                            .startsWith(value)
-                )
-                .slice(0, 8);
+                setTrainSuggestions(
+                    []
+                );
 
-        setTrainSuggestions(matches);
+                setTrainInfo(
+                    null
+                );
 
-        setTrainSuggestionVisible(
-            matches.length > 0
-        );
+                setTrainLoading(
+                    false
+                );
 
-        // -------------------------------------------------
-        // LESS THAN 5 DIGITS
-        // -------------------------------------------------
+                setTrainError(
+                    ""
+                );
 
-        if (
-            value.length < 5
-        ) {
+                setTrainSuggestionVisible(
+                    false
+                );
 
-            setTrainInfo(null);
-            setTrainLoading(false);
-            setTrainError("");
+                setTimetableStations(
+                    []
+                );
 
-            return;
-        }
+                return;
+            }
 
-        // -------------------------------------------------
-        // INVALID TRAIN NUMBER
-        // -------------------------------------------------
 
-        if (
-            !/^\d{5}$/.test(value)
-        ) {
+            // -------------------------------------------------
+            // LOCAL TRAIN MATCHES
+            // -------------------------------------------------
 
-            setTrainInfo(null);
-            setTrainLoading(false);
+            const matches =
+                LOCAL_TRAINS
+                    .filter(
+                        (train) =>
+                            train.trainNumber
+                                .startsWith(
+                                    value
+                                )
+                    )
+                    .slice(
+                        0,
+                        8
+                    );
 
-            return;
-        }
+            setTrainSuggestions(
+                matches
+            );
 
-        // -------------------------------------------------
-        // CHECK LOCAL DATA
-        // -------------------------------------------------
+            setTrainSuggestionVisible(
+                matches.length >
+                    0
+            );
 
-        const localTrain =
-            LOCAL_TRAINS.find(
-                (train) =>
-                    train.trainNumber ===
+
+            // -------------------------------------------------
+            // LESS THAN 5 DIGITS
+            // -------------------------------------------------
+
+            if (
+                value.length <
+                5
+            ) {
+
+                setTrainInfo(
+                    null
+                );
+
+                setTrainLoading(
+                    false
+                );
+
+                setTrainError(
+                    ""
+                );
+
+                return;
+            }
+
+
+            // -------------------------------------------------
+            // INVALID TRAIN NUMBER
+            // -------------------------------------------------
+
+            if (
+                !/^\d{5}$/.test(
                     value
-            );
+                )
+            ) {
 
-        if (!localTrain) {
+                setTrainInfo(
+                    null
+                );
 
-            setTrainInfo(null);
-            setTrainLoading(false);
+                setTrainLoading(
+                    false
+                );
 
-            setTrainError(
-                "Train not found."
-            );
+                return;
+            }
 
-            return;
-        }
 
-        // -------------------------------------------------
-        // API VERIFICATION
-        // -------------------------------------------------
+            // -------------------------------------------------
+            // FIND LOCAL TRAIN
+            // -------------------------------------------------
 
-        const controller =
-            new AbortController();
+            const localTrain =
+                LOCAL_TRAINS.find(
+                    (train) =>
+                        train.trainNumber ===
+                        value
+                );
 
-        trainAbortController.current =
-            controller;
 
-        const timer =
-            setTimeout(
-                async () => {
+            if (!localTrain) {
 
-                    setTrainLoading(true);
-                    setTrainError("");
+                setTrainInfo(
+                    null
+                );
 
-                    try {
+                setTrainLoading(
+                    false
+                );
 
-                        const response =
-                            await searchTrain(
-                                value,
-                                {
-                                    signal:
-                                        controller.signal,
-                                }
-                            );
+                setTrainError(
+                    "Train not found."
+                );
 
-                        if (
-                            requestId !==
-                            trainRequestId.current
+                return;
+            }
+
+
+            // -------------------------------------------------
+            // API VERIFICATION
+            // -------------------------------------------------
+
+            const controller =
+                new AbortController();
+
+            trainAbortController.current =
+                controller;
+
+
+            const timer =
+                setTimeout(
+                    async () => {
+
+                        setTrainLoading(
+                            true
+                        );
+
+                        setTrainError(
+                            ""
+                        );
+
+
+                        try {
+
+                            const response =
+                                await searchTrain(
+                                    value,
+                                    {
+                                        signal:
+                                            controller.signal,
+                                    }
+                                );
+
+
+                            if (
+                                requestId !==
+                                trainRequestId.current
+                            ) {
+                                return;
+                            }
+
+
+                            const normalized =
+                                normalizeTrain(
+                                    response
+                                );
+
+
+                            if (!normalized) {
+
+                                setTrainInfo(
+                                    localTrain
+                                );
+
+                                setTrainError(
+                                    ""
+                                );
+
+                                return;
+                            }
+
+
+                            if (
+                                normalized.trainNumber &&
+                                normalized.trainNumber !==
+                                    value
+                            ) {
+
+                                setTrainInfo(
+                                    null
+                                );
+
+                                setTrainError(
+                                    "Train number could not be verified."
+                                );
+
+                                return;
+                            }
+
+
+                            setTrainInfo({
+
+                                trainNumber:
+                                    value,
+
+                                trainName:
+                                    normalized.trainName &&
+                                    normalized.trainName !==
+                                        "Train name unavailable."
+                                        ? normalized.trainName
+                                        : localTrain.trainName,
+                            });
+
+
+                        } catch (
+                            searchError
                         ) {
-                            return;
-                        }
 
-                        const normalized =
-                            normalizeTrain(
-                                response
+                            if (
+                                searchError?.code ===
+                                    "ERR_CANCELED" ||
+                                searchError?.name ===
+                                    "CanceledError" ||
+                                controller.signal.aborted
+                            ) {
+                                return;
+                            }
+
+
+                            if (
+                                requestId !==
+                                trainRequestId.current
+                            ) {
+                                return;
+                            }
+
+
+                            console.error(
+                                "TRAIN SEARCH ERROR:",
+                                searchError
                             );
 
-                        // ---------------------------------
-                        // API DID NOT RETURN TRAIN
-                        // ---------------------------------
 
-                        if (!normalized) {
-
-                            /*
-                             * We still know the train name
-                             * from the local railway list.
-                             */
                             setTrainInfo(
                                 localTrain
                             );
@@ -664,108 +927,40 @@ export default function AddJourney() {
                                 ""
                             );
 
-                            return;
+
+                        } finally {
+
+                            if (
+                                requestId ===
+                                trainRequestId.current
+                            ) {
+
+                                setTrainLoading(
+                                    false
+                                );
+                            }
                         }
 
-                        // ---------------------------------
-                        // SAFETY CHECK
-                        // ---------------------------------
+                    },
+                    300
+                );
 
-                        if (
-                            normalized.trainNumber &&
-                            normalized.trainNumber !==
-                                value
-                        ) {
 
-                            setTrainInfo(null);
+            return () => {
 
-                            setTrainError(
-                                "Train number could not be verified."
-                            );
+                clearTimeout(
+                    timer
+                );
 
-                            return;
-                        }
+                controller.abort();
+            };
 
-                        // ---------------------------------
-                        // USE API NAME WHEN AVAILABLE
-                        // OTHERWISE LOCAL NAME
-                        // ---------------------------------
+        },
+        [
+            formData.trainNumber,
+        ]
+    );
 
-                        setTrainInfo({
-                            trainNumber:
-                                value,
-
-                            trainName:
-                                normalized.trainName &&
-                                normalized.trainName !==
-                                    "Train name unavailable."
-                                    ? normalized.trainName
-                                    : localTrain.trainName,
-                        });
-
-                    } catch (
-                        searchError
-                    ) {
-
-                        if (
-                            searchError?.code ===
-                                "ERR_CANCELED" ||
-                            searchError?.name ===
-                                "CanceledError" ||
-                            controller.signal.aborted
-                        ) {
-                            return;
-                        }
-
-                        if (
-                            requestId !==
-                            trainRequestId.current
-                        ) {
-                            return;
-                        }
-
-                        console.error(
-                            "TRAIN SEARCH ERROR:",
-                            searchError
-                        );
-
-                        /*
-                         * Local train data is still useful
-                         * for displaying the train name.
-                         */
-                        setTrainInfo(
-                            localTrain
-                        );
-
-                        setTrainError("");
-
-                    } finally {
-
-                        if (
-                            requestId ===
-                            trainRequestId.current
-                        ) {
-
-                            setTrainLoading(
-                                false
-                            );
-                        }
-                    }
-
-                },
-                300
-            );
-
-        return () => {
-
-            clearTimeout(timer);
-
-            controller.abort();
-        };
-
-    }, [
-        formData.trainNumber,
-    ]);
 
     // =====================================================
     // SELECT TRAIN
@@ -779,13 +974,19 @@ export default function AddJourney() {
             return;
         }
 
-        setFormData((prev) => ({
-            ...prev,
-            trainNumber:
-                train.trainNumber,
-        }));
+
+        setFormData(
+            (prev) => ({
+                ...prev,
+
+                trainNumber:
+                    train.trainNumber,
+            })
+        );
+
 
         setTrainInfo({
+
             trainNumber:
                 train.trainNumber,
 
@@ -793,23 +994,34 @@ export default function AddJourney() {
                 train.trainName,
         });
 
-        setTrainSuggestions([]);
+
+        setTrainSuggestions(
+            []
+        );
 
         setTrainSuggestionVisible(
             false
         );
 
-        setTrainError("");
-        setError("");
+        setTrainError(
+            ""
+        );
 
-        /*
-         * Classes will be loaded by the
-         * train metadata effect.
-         */
+        setError(
+            ""
+        );
+
+
+        // Metadata effect will now
+        // load timetable + classes.
     };
 
+
     // =====================================================
-    // LOAD TRAIN METADATA / CLASSES
+    // PART 1 END
+    // =====================================================
+        // =====================================================
+    // LOAD TRAIN METADATA / CLASSES / TIMETABLE
     //
     // IMPORTANT:
     // Uses the pre-chart /train/metadata endpoint.
@@ -833,11 +1045,21 @@ export default function AddJourney() {
         const requestId =
             classRequestId.current;
 
+
+        // -------------------------------------------------
+        // ABORT PREVIOUS REQUEST
+        // -------------------------------------------------
+
         if (
             classAbortController.current
         ) {
             classAbortController.current.abort();
         }
+
+
+        // -------------------------------------------------
+        // INVALID TRAIN / DATE
+        // -------------------------------------------------
 
         if (
             !/^\d{4,5}$/.test(
@@ -849,11 +1071,22 @@ export default function AddJourney() {
         ) {
 
             setAvailableClasses([]);
+
+            setTimetableStations([]);
+
             setClassLoading(false);
+
             setClassError("");
+
+            setShowTimetable(false);
 
             return;
         }
+
+
+        // -------------------------------------------------
+        // CREATE REQUEST
+        // -------------------------------------------------
 
         const controller =
             new AbortController();
@@ -861,8 +1094,17 @@ export default function AddJourney() {
         classAbortController.current =
             controller;
 
-        setClassLoading(true);
+
+        setClassLoading(
+            true
+        );
+
         setClassError("");
+
+
+        // -------------------------------------------------
+        // LOAD METADATA
+        // -------------------------------------------------
 
         const timer =
             setTimeout(
@@ -878,6 +1120,7 @@ export default function AddJourney() {
                             }
                         );
 
+
                         const response =
                             await getTrainMetadata({
                                 trainNumber,
@@ -885,6 +1128,11 @@ export default function AddJourney() {
                                 signal:
                                     controller.signal,
                             });
+
+
+                        // -----------------------------------------
+                        // REQUEST NO LONGER VALID
+                        // -----------------------------------------
 
                         if (
                             controller.signal.aborted ||
@@ -894,32 +1142,184 @@ export default function AddJourney() {
                             return;
                         }
 
+
                         console.log(
                             "📦 TRAIN METADATA RESPONSE:",
                             response
                         );
 
-                        /*
-                         * Axios response:
-                         *
-                         * response.data
-                         *     ↓
-                         * {
-                         *   success: true,
-                         *   message: "...",
-                         *   data: {
-                         *      classes: [...]
-                         *   }
-                         * }
-                         */
+
+                        // =================================================
+                        // RESPONSE STRUCTURE
+                        //
+                        // response.data
+                        //      ↓
+                        // {
+                        //     success: true,
+                        //     message: "...",
+                        //     data: {
+                        //         trainNumber,
+                        //         trainName,
+                        //         classes,
+                        //         coaches,
+                        //         stations
+                        //     }
+                        // }
+                        // =================================================
 
                         const payload =
                             response?.data ??
                             response;
 
+
                         const metadata =
                             payload?.data ??
                             payload;
+
+
+                        // =================================================
+                        // TRAIN TIMETABLE
+                        // =================================================
+
+                        const rawStations =
+                            Array.isArray(
+                                metadata?.stations
+                            )
+                                ? metadata.stations
+                                : [];
+
+
+                        console.log(
+                            "🚉 RAW TRAIN TIMETABLE:",
+                            rawStations
+                        );
+
+
+                        // -------------------------------------------------
+                        // NORMALIZE TIMETABLE
+                        // -------------------------------------------------
+
+                        const normalizedStations =
+                            rawStations
+                                .map(
+                                    (
+                                        station,
+                                        index
+                                    ) => {
+
+                                        if (
+                                            !station ||
+                                            typeof station !==
+                                                "object"
+                                        ) {
+                                            return null;
+                                        }
+
+
+                                        const code =
+                                            String(
+                                                station.code ||
+                                                station.stationCode ||
+                                                station.station_code ||
+                                                ""
+                                            )
+                                                .trim()
+                                                .toUpperCase();
+
+
+                                        const name =
+                                            String(
+                                                station.name ||
+                                                station.stationName ||
+                                                station.station_name ||
+                                                ""
+                                            ).trim();
+
+
+                                        const arrival =
+                                            station.arrival ||
+                                            station.arrivalTime ||
+                                            station.arr ||
+                                            "—";
+
+
+                                        const departure =
+                                            station.departure ||
+                                            station.departureTime ||
+                                            station.dep ||
+                                            "—";
+
+
+                                        const day =
+                                            station.day ??
+                                            station.dayOfJourney ??
+                                            station.journeyDay ??
+                                            "—";
+
+
+                                        const distance =
+                                            station.distance ??
+                                            station.distanceKm ??
+                                            station.km ??
+                                            "—";
+
+
+                                        const halt =
+                                            station.halt ??
+                                            station.haltTime ??
+                                            "—";
+
+
+                                        const platform =
+                                            station.platform ??
+                                            "—";
+
+
+                                        return {
+
+                                            index:
+                                                index + 1,
+
+                                            code,
+
+                                            name,
+
+                                            arrival,
+
+                                            departure,
+
+                                            day,
+
+                                            distance,
+
+                                            halt,
+
+                                            platform,
+
+                                        };
+                                    }
+                                )
+                                .filter(Boolean);
+
+
+                        console.log(
+                            "✅ NORMALIZED TRAIN TIMETABLE:",
+                            normalizedStations
+                        );
+
+
+                        // -------------------------------------------------
+                        // STORE TIMETABLE
+                        // -------------------------------------------------
+
+                        setTimetableStations(
+                            normalizedStations
+                        );
+
+
+                        // =================================================
+                        // TRAIN CLASSES
+                        // =================================================
 
                         const classes =
                             Array.isArray(
@@ -928,25 +1328,34 @@ export default function AddJourney() {
                                 ? metadata.classes
                                 : [];
 
+
                         console.log(
                             "🎟️ RAW TRAIN CLASSES:",
                             classes
                         );
 
-                        // ---------------------------------
+
+                        // -------------------------------------------------
                         // NORMALIZE CLASSES
-                        // ---------------------------------
+                        // -------------------------------------------------
 
                         const normalizedClasses =
                             classes
                                 .map(
-                                    (item) => {
+                                    (
+                                        item
+                                    ) => {
 
                                         let code =
                                             "";
 
                                         let name =
                                             "";
+
+
+                                        // ---------------------------------
+                                        // STRING CLASS
+                                        // ---------------------------------
 
                                         if (
                                             typeof item ===
@@ -963,8 +1372,14 @@ export default function AddJourney() {
                                                     code
                                                 ] ||
                                                 code;
+                                        }
 
-                                        } else if (
+
+                                        // ---------------------------------
+                                        // OBJECT CLASS
+                                        // ---------------------------------
+
+                                        else if (
                                             item &&
                                             typeof item ===
                                                 "object"
@@ -974,10 +1389,12 @@ export default function AddJourney() {
                                                 String(
                                                     item.code ||
                                                     item.classCode ||
+                                                    item.class ||
                                                     ""
                                                 )
                                                     .trim()
                                                     .toUpperCase();
+
 
                                             name =
                                                 String(
@@ -989,11 +1406,14 @@ export default function AddJourney() {
                                                 ).trim();
                                         }
 
+
                                         if (!code) {
                                             return null;
                                         }
 
+
                                         return {
+
                                             code,
 
                                             name:
@@ -1007,15 +1427,18 @@ export default function AddJourney() {
                                 )
                                 .filter(Boolean);
 
-                        // ---------------------------------
-                        // REMOVE DUPLICATES
-                        // ---------------------------------
+
+                        // -------------------------------------------------
+                        // REMOVE DUPLICATE CLASSES
+                        // -------------------------------------------------
 
                         const uniqueClasses =
                             Array.from(
                                 new Map(
                                     normalizedClasses.map(
-                                        (item) => [
+                                        (
+                                            item
+                                        ) => [
                                             item.code,
                                             item,
                                         ]
@@ -1023,40 +1446,48 @@ export default function AddJourney() {
                                 ).values()
                             );
 
+
                         console.log(
                             "✅ NORMALIZED TRAIN CLASSES:",
                             uniqueClasses
                         );
 
-                        // ---------------------------------
-                        // NO CLASSES
-                        // ---------------------------------
+
+                        // =================================================
+                        // NO CLASS INFORMATION
+                        // =================================================
 
                         if (
                             uniqueClasses.length ===
                             0
                         ) {
 
-                            setAvailableClasses([]);
+                            setAvailableClasses(
+                                []
+                            );
 
                             setFormData(
                                 (prev) => ({
                                     ...prev,
+
                                     preferredClass:
                                         "",
                                 })
                             );
 
+
                             setClassError(
                                 "No class information was found for this train."
                             );
 
+
                             return;
                         }
 
-                        // ---------------------------------
-                        // SET CLASSES
-                        // ---------------------------------
+
+                        // =================================================
+                        // STORE CLASSES
+                        // =================================================
 
                         setAvailableClasses(
                             uniqueClasses
@@ -1064,10 +1495,11 @@ export default function AddJourney() {
 
                         setClassError("");
 
-                        // ---------------------------------
+
+                        // =================================================
                         // KEEP CURRENT CLASS IF VALID
-                        // OTHERWISE SELECT FIRST
-                        // ---------------------------------
+                        // OTHERWISE SELECT FIRST CLASS
+                        // =================================================
 
                         setFormData(
                             (prev) => {
@@ -1080,14 +1512,19 @@ export default function AddJourney() {
                                         .trim()
                                         .toUpperCase();
 
+
                                 const exists =
                                     uniqueClasses.some(
-                                        (item) =>
+                                        (
+                                            item
+                                        ) =>
                                             item.code ===
                                             current
                                     );
 
+
                                 return {
+
                                     ...prev,
 
                                     preferredClass:
@@ -1099,9 +1536,14 @@ export default function AddJourney() {
                             }
                         );
 
+
                     } catch (
                         classLoadError
                     ) {
+
+                        // ---------------------------------------------
+                        // REQUEST CANCELLED
+                        // ---------------------------------------------
 
                         if (
                             classLoadError?.code ===
@@ -1113,6 +1555,7 @@ export default function AddJourney() {
                             return;
                         }
 
+
                         if (
                             requestId !==
                             classRequestId.current
@@ -1120,26 +1563,38 @@ export default function AddJourney() {
                             return;
                         }
 
+
                         console.error(
                             "❌ TRAIN METADATA ERROR:",
                             classLoadError
                         );
 
-                        setAvailableClasses([]);
+
+                        setAvailableClasses(
+                            []
+                        );
+
+                        setTimetableStations(
+                            []
+                        );
+
 
                         setFormData(
                             (prev) => ({
                                 ...prev,
+
                                 preferredClass:
                                     "",
                             })
                         );
 
+
                         setClassError(
                             classLoadError?.response?.data?.message ||
                             classLoadError?.message ||
-                            "Unable to load train classes."
+                            "Unable to load train information."
                         );
+
 
                     } finally {
 
@@ -1159,9 +1614,16 @@ export default function AddJourney() {
                 250
             );
 
+
+        // -------------------------------------------------
+        // CLEANUP
+        // -------------------------------------------------
+
         return () => {
 
-            clearTimeout(timer);
+            clearTimeout(
+                timer
+            );
 
             controller.abort();
         };
@@ -1170,6 +1632,7 @@ export default function AddJourney() {
         formData.trainNumber,
         formData.journeyDate,
     ]);
+
 
     // =====================================================
     // STATION SEARCH
@@ -1182,14 +1645,18 @@ export default function AddJourney() {
     ) => {
 
         const search =
-            String(value || "")
+            String(
+                value || ""
+            )
                 .trim();
+
 
         const currentRequestId =
             field ===
                 "boardingStation"
                 ? boardingSearchId.current
                 : destinationSearchId.current;
+
 
         if (
             requestId !==
@@ -1198,8 +1665,14 @@ export default function AddJourney() {
             return;
         }
 
+
+        // -------------------------------------------------
+        // SHORT SEARCH
+        // -------------------------------------------------
+
         if (
-            search.length < 2
+            search.length <
+            2
         ) {
 
             if (
@@ -1218,6 +1691,7 @@ export default function AddJourney() {
                 );
             }
 
+
             setStationLoadingField(
                 null
             );
@@ -1225,9 +1699,11 @@ export default function AddJourney() {
             return;
         }
 
+
         setStationLoadingField(
             field
         );
+
 
         try {
 
@@ -1236,11 +1712,13 @@ export default function AddJourney() {
                     search
                 );
 
+
             const latestRequestId =
                 field ===
                     "boardingStation"
                     ? boardingSearchId.current
                     : destinationSearchId.current;
+
 
             if (
                 requestId !==
@@ -1249,6 +1727,7 @@ export default function AddJourney() {
                 return;
             }
 
+
             const results =
                 Array.isArray(
                     response?.data?.data
@@ -1256,12 +1735,14 @@ export default function AddJourney() {
                     ? response.data.data
                     : [];
 
+
             const normalized =
                 results
                     .map(
                         normalizeStation
                     )
                     .filter(Boolean);
+
 
             if (
                 field ===
@@ -1278,6 +1759,7 @@ export default function AddJourney() {
                     normalized
                 );
             }
+
 
         } catch (
             searchError
@@ -1288,6 +1770,7 @@ export default function AddJourney() {
                 searchError
             );
 
+
             if (
                 field ===
                 "boardingStation"
@@ -1304,6 +1787,7 @@ export default function AddJourney() {
                 );
             }
 
+
         } finally {
 
             const latestRequestId =
@@ -1311,6 +1795,7 @@ export default function AddJourney() {
                     "boardingStation"
                     ? boardingSearchId.current
                     : destinationSearchId.current;
+
 
             if (
                 requestId ===
@@ -1324,8 +1809,9 @@ export default function AddJourney() {
         }
     };
 
+
     // =====================================================
-    // BOARDING AUTOCOMPLETE
+    // BOARDING STATION AUTOCOMPLETE
     // =====================================================
 
     useEffect(() => {
@@ -1333,10 +1819,13 @@ export default function AddJourney() {
         const value =
             formData.boardingStation;
 
+
         boardingSearchId.current += 1;
+
 
         const requestId =
             boardingSearchId.current;
+
 
         if (
             !value.trim()
@@ -1348,6 +1837,7 @@ export default function AddJourney() {
 
             return;
         }
+
 
         const timer =
             setTimeout(
@@ -1363,15 +1853,19 @@ export default function AddJourney() {
                 350
             );
 
+
         return () =>
-            clearTimeout(timer);
+            clearTimeout(
+                timer
+            );
 
     }, [
         formData.boardingStation,
     ]);
 
+
     // =====================================================
-    // DESTINATION AUTOCOMPLETE
+    // DESTINATION STATION AUTOCOMPLETE
     // =====================================================
 
     useEffect(() => {
@@ -1379,10 +1873,13 @@ export default function AddJourney() {
         const value =
             formData.destinationStation;
 
+
         destinationSearchId.current += 1;
+
 
         const requestId =
             destinationSearchId.current;
+
 
         if (
             !value.trim()
@@ -1394,6 +1891,7 @@ export default function AddJourney() {
 
             return;
         }
+
 
         const timer =
             setTimeout(
@@ -1409,12 +1907,16 @@ export default function AddJourney() {
                 350
             );
 
+
         return () =>
-            clearTimeout(timer);
+            clearTimeout(
+                timer
+            );
 
     }, [
         formData.destinationStation,
     ]);
+
 
     // =====================================================
     // SELECT STATION
@@ -1430,16 +1932,21 @@ export default function AddJourney() {
                 station
             );
 
+
         if (!normalized) {
             return;
         }
 
-        setFormData((prev) => ({
-            ...prev,
 
-            [field]:
-                normalized.code,
-        }));
+        setFormData(
+            (prev) => ({
+                ...prev,
+
+                [field]:
+                    normalized.code,
+            })
+        );
+
 
         if (
             field ===
@@ -1461,12 +1968,16 @@ export default function AddJourney() {
             destinationSearchId.current += 1;
         }
 
+
         setActiveStationField(
             null
         );
 
-        setError("");
+        setError(
+            ""
+        );
     };
+
 
     // =====================================================
     // CLOSE STATION DROPDOWN
@@ -1475,17 +1986,24 @@ export default function AddJourney() {
     const closeStationSuggestions =
         () => {
 
-            setTimeout(() => {
+            setTimeout(
+                () => {
 
-                setActiveStationField(
-                    null
-                );
+                    setActiveStationField(
+                        null
+                    );
 
-            }, 150);
+                },
+                150
+            );
         };
 
+
     // =====================================================
-    // SUBMIT
+    // PART 2 END
+    // =====================================================
+        // =====================================================
+    // SUBMIT JOURNEY
     // =====================================================
 
     const handleSubmit = async (
@@ -1494,34 +2012,46 @@ export default function AddJourney() {
 
         e.preventDefault();
 
+
         if (loading) {
             return;
         }
 
+
         setError("");
+
+
+        // -------------------------------------------------
+        // CLEAN VALUES
+        // -------------------------------------------------
 
         const trainNumber =
             formData.trainNumber
                 .trim();
 
+
         const journeyDate =
             formData.journeyDate
                 .trim();
+
 
         const source =
             formData.boardingStation
                 .trim()
                 .toUpperCase();
 
+
         const destination =
             formData.destinationStation
                 .trim()
                 .toUpperCase();
 
+
         const preferredClass =
             formData.preferredClass
                 .trim()
                 .toUpperCase();
+
 
         // =================================================
         // VALIDATE TRAIN
@@ -1540,6 +2070,7 @@ export default function AddJourney() {
             return;
         }
 
+
         if (
             !trainInfo ||
             trainInfo.trainNumber !==
@@ -1553,8 +2084,9 @@ export default function AddJourney() {
             return;
         }
 
+
         // =================================================
-        // DATE
+        // VALIDATE DATE
         // =================================================
 
         if (!journeyDate) {
@@ -1566,8 +2098,10 @@ export default function AddJourney() {
             return;
         }
 
+
         if (
-            journeyDate < today
+            journeyDate <
+            today
         ) {
 
             setError(
@@ -1577,8 +2111,9 @@ export default function AddJourney() {
             return;
         }
 
+
         // =================================================
-        // STATIONS
+        // VALIDATE SOURCE
         // =================================================
 
         if (
@@ -1594,6 +2129,11 @@ export default function AddJourney() {
             return;
         }
 
+
+        // =================================================
+        // VALIDATE DESTINATION
+        // =================================================
+
         if (
             !/^[A-Z0-9]{2,10}$/.test(
                 destination
@@ -1607,6 +2147,7 @@ export default function AddJourney() {
             return;
         }
 
+
         if (
             source ===
             destination
@@ -1619,13 +2160,12 @@ export default function AddJourney() {
             return;
         }
 
+
         // =================================================
-        // CLASS
+        // VALIDATE CLASS
         // =================================================
 
-        if (
-            !preferredClass
-        ) {
+        if (!preferredClass) {
 
             setError(
                 "Please select an available train class."
@@ -1634,12 +2174,14 @@ export default function AddJourney() {
             return;
         }
 
+
         const classExists =
             availableClasses.some(
                 (item) =>
                     item.code ===
                     preferredClass
             );
+
 
         if (!classExists) {
 
@@ -1650,11 +2192,13 @@ export default function AddJourney() {
             return;
         }
 
+
         // =================================================
-        // PAYLOAD
+        // CREATE PAYLOAD
         // =================================================
 
         const payload = {
+
             trainNumber,
 
             journeyDate,
@@ -1684,28 +2228,40 @@ export default function AddJourney() {
                 "SINGLE_TICKET",
         };
 
+
         console.log(
             "🚆 CREATE JOURNEY PAYLOAD:",
             payload
         );
 
+
+        // =================================================
+        // CREATE JOURNEY
+        // =================================================
+
         try {
 
-            setLoading(true);
+            setLoading(
+                true
+            );
+
 
             const response =
                 await createJourney(
                     payload
                 );
 
+
             console.log(
                 "✅ JOURNEY CREATED:",
                 response
             );
 
+
             navigate(
                 "/dashboard"
             );
+
 
         } catch (
             submitError
@@ -1716,8 +2272,10 @@ export default function AddJourney() {
                 submitError
             );
 
+
             const backendData =
                 submitError?.response?.data;
+
 
             if (
                 Array.isArray(
@@ -1735,25 +2293,34 @@ export default function AddJourney() {
                 return;
             }
 
+
             setError(
                 backendData?.message ||
                 "Unable to save journey. Please try again."
             );
 
+
         } finally {
 
-            setLoading(false);
+            setLoading(
+                false
+            );
         }
     };
 
-        // =====================================================
+
+    // =====================================================
     // RENDER
     // =====================================================
 
     return (
+
         <div className="addJourneyPage">
 
-            {/* BACK */}
+
+            {/* =================================================
+                BACK BUTTON
+            ================================================= */}
 
             <button
                 type="button"
@@ -1767,17 +2334,21 @@ export default function AddJourney() {
                 ← Back to Dashboard
             </button>
 
+
             <div className="addJourneyLayout">
 
+
                 {/* =================================================
-                    LEFT INFORMATION
+                    LEFT INFORMATION PANEL
                 ================================================= */}
 
                 <div className="journeyInfo">
 
+
                     <div className="infoBadge">
                         ERJA JOURNEY MONITOR
                     </div>
+
 
                     <h1>
                         Add New
@@ -1786,22 +2357,31 @@ export default function AddJourney() {
                         </span>
                     </h1>
 
+
                     <p className="infoDescription">
+
                         Tell ERJA about your railway
                         journey and we'll monitor
                         availability, analyze vacant
                         berths and find possible
                         booking strategies.
+
                     </p>
+
 
                     <div className="journeySteps">
 
+
+                        {/* STEP 1 */}
+
                         <div className="journeyStep">
+
                             <div className="stepIcon">
                                 🚆
                             </div>
 
                             <div>
+
                                 <strong>
                                     Enter Journey
                                 </strong>
@@ -1810,32 +2390,46 @@ export default function AddJourney() {
                                     Provide your train
                                     and route details.
                                 </span>
+
                             </div>
+
                         </div>
 
+
+                        {/* STEP 2 */}
+
                         <div className="journeyStep">
+
                             <div className="stepIcon">
                                 🔍
                             </div>
 
                             <div>
+
                                 <strong>
                                     Monitor Availability
                                 </strong>
 
                                 <span>
                                     ERJA tracks available
-                                    seats.
+                                    seats and berths.
                                 </span>
+
                             </div>
+
                         </div>
 
+
+                        {/* STEP 3 */}
+
                         <div className="journeyStep">
+
                             <div className="stepIcon">
                                 🧠
                             </div>
 
                             <div>
+
                                 <strong>
                                     Analyze & Optimize
                                 </strong>
@@ -1844,28 +2438,40 @@ export default function AddJourney() {
                                     Find practical booking
                                     possibilities.
                                 </span>
+
                             </div>
+
                         </div>
 
+
+                        {/* STEP 4 */}
+
                         <div className="journeyStep">
+
                             <div className="stepIcon">
                                 🎯
                             </div>
 
                             <div>
+
                                 <strong>
                                     Get Recommendation
                                 </strong>
 
                                 <span>
-                                    Receive the best
-                                    available strategy.
+                                    Receive the available
+                                    journey strategy.
                                 </span>
+
                             </div>
+
                         </div>
 
+
                     </div>
+
                 </div>
+
 
                 {/* =================================================
                     FORM CARD
@@ -1873,9 +2479,15 @@ export default function AddJourney() {
 
                 <div className="journeyCard">
 
+
+                    {/* =================================================
+                        CARD HEADER
+                    ================================================= */}
+
                     <div className="cardHeader">
 
                         <div>
+
                             <span className="cardLabel">
                                 JOURNEY REQUEST
                             </span>
@@ -1888,7 +2500,9 @@ export default function AddJourney() {
                                 Enter the details you want
                                 ERJA to monitor.
                             </p>
+
                         </div>
+
 
                         <div className="cardTrainIcon">
                             🚆
@@ -1896,11 +2510,21 @@ export default function AddJourney() {
 
                     </div>
 
+
+                    {/* =================================================
+                        ERROR
+                    ================================================= */}
+
                     {error && (
+
                         <div className="formError">
+
                             ⚠️ {error}
+
                         </div>
+
                     )}
+
 
                     <form
                         onSubmit={
@@ -1908,164 +2532,274 @@ export default function AddJourney() {
                         }
                     >
 
+
                         {/* =================================================
                             TRAIN NUMBER
                         ================================================= */}
 
-                        <div className="trainAutocompleteWrapper">
+                        <div className="formGroup">
 
-                            <div className="inputWrapper trainInputWrapper">
 
-                                <span>
-                                    🚆
-                                </span>
+                            <label
+                                htmlFor="trainNumber"
+                            >
+                                Train Number
+                            </label>
 
-                                <input
-                                    id="trainNumber"
-                                    type="text"
-                                    name="trainNumber"
-                                    value={
-                                        formData.trainNumber
+
+                            <div className="trainAutocompleteWrapper">
+
+
+                                <div
+                                    className={
+                                        "inputWrapper trainInputWrapper"
                                     }
-                                    onChange={
-                                        handleChange
-                                    }
-                                    onFocus={() => {
+                                >
 
-                                        const value =
-                                            formData.trainNumber.trim();
 
-                                        const matches =
-                                            LOCAL_TRAINS
-                                                .filter(
-                                                    (train) =>
-                                                        train.trainNumber.startsWith(
-                                                            value
-                                                        )
-                                                )
-                                                .slice(
-                                                    0,
-                                                    8
-                                                );
+                                    <span>
+                                        🚆
+                                    </span>
 
-                                        setTrainSuggestions(
-                                            matches
-                                        );
 
-                                        setTrainSuggestionVisible(
-                                            matches.length >
-                                                0
-                                        );
-                                    }}
-                                    placeholder="Enter train number"
-                                    inputMode="numeric"
-                                    maxLength="5"
-                                    autoComplete="off"
-                                    required
-                                />
+                                    <input
+                                        id="trainNumber"
+                                        type="text"
+                                        name="trainNumber"
+                                        value={
+                                            formData.trainNumber
+                                        }
+                                        onChange={
+                                            handleChange
+                                        }
+                                        onFocus={() => {
 
-                                {trainInfo &&
-                                    !trainLoading &&
-                                    trainInfo.trainName && (
-                                        <span
-                                            className="trainInlineName"
-                                            title={
-                                                trainInfo.trainName
-                                            }
-                                        >
-                                            {
-                                                trainInfo.trainName
-                                            }
+                                            const value =
+                                                formData
+                                                    .trainNumber
+                                                    .trim();
+
+
+                                            const matches =
+                                                LOCAL_TRAINS
+                                                    .filter(
+                                                        (
+                                                            train
+                                                        ) =>
+                                                            train.trainNumber
+                                                                .startsWith(
+                                                                    value
+                                                                )
+                                                    )
+                                                    .slice(
+                                                        0,
+                                                        8
+                                                    );
+
+
+                                            setTrainSuggestions(
+                                                matches
+                                            );
+
+
+                                            setTrainSuggestionVisible(
+                                                matches.length >
+                                                    0
+                                            );
+
+                                        }}
+                                        placeholder="Enter train number"
+                                        inputMode="numeric"
+                                        maxLength="5"
+                                        autoComplete="off"
+                                        required
+                                    />
+
+
+                                    {trainLoading && (
+
+                                        <span className="trainSearchSpinner">
+                                            ⟳
                                         </span>
+
                                     )}
 
-                                {trainLoading && (
-                                    <span className="trainSearchSpinner">
-                                        ⟳
-                                    </span>
+
+                                </div>
+
+
+                                {/* =================================================
+                                    TRAIN SUGGESTIONS
+                                ================================================= */}
+
+                                {trainSuggestionVisible &&
+                                    trainSuggestions.length >
+                                        0 && (
+
+                                    <div className="trainSuggestionsDropdown">
+
+                                        {trainSuggestions.map(
+                                            (
+                                                train
+                                            ) => (
+
+                                                <button
+                                                    type="button"
+                                                    key={
+                                                        train.trainNumber
+                                                    }
+                                                    className="trainSuggestion"
+                                                    onMouseDown={(
+                                                        event
+                                                    ) =>
+                                                        event.preventDefault()
+                                                    }
+                                                    onClick={() =>
+                                                        selectTrain(
+                                                            train
+                                                        )
+                                                    }
+                                                >
+
+                                                    <div className="trainSuggestionIcon">
+                                                        🚆
+                                                    </div>
+
+
+                                                    <div className="trainSuggestionContent">
+
+                                                        <strong>
+                                                            {
+                                                                train.trainNumber
+                                                            }
+                                                        </strong>
+
+                                                        <span>
+                                                            {
+                                                                train.trainName
+                                                            }
+                                                        </span>
+
+                                                    </div>
+
+
+                                                    <span className="trainSuggestionArrow">
+                                                        →
+                                                    </span>
+
+                                                </button>
+
+                                            )
+                                        )}
+
+                                    </div>
+
                                 )}
 
                             </div>
 
-                            {/* TRAIN SUGGESTION */}
 
-                            {trainSuggestionVisible &&
-                                trainSuggestions.length >
-                                    0 && (
+                            {/* =================================================
+                                VERIFIED TRAIN
+                            ================================================= */}
 
-                                <div className="trainSuggestionsDropdown">
+                            {trainInfo &&
+                                !trainLoading &&
+                                trainInfo.trainName && (
 
-                                    {trainSuggestions.map(
-                                        (
-                                            train
-                                        ) => (
+                                <div className="trainVerifiedCard">
 
-                                            <button
-                                                type="button"
-                                                key={
-                                                    train.trainNumber
-                                                }
-                                                className="trainSuggestion"
-                                                onMouseDown={(
-                                                    e
-                                                ) =>
-                                                    e.preventDefault()
-                                                }
-                                                onClick={() =>
-                                                    selectTrain(
-                                                        train
-                                                    )
-                                                }
-                                            >
 
-                                                <div className="trainSuggestionIcon">
-                                                    🚆
-                                                </div>
+                                    <div className="trainVerifiedIcon">
+                                        ✓
+                                    </div>
 
-                                                <div className="trainSuggestionContent">
 
-                                                    <strong>
-                                                        {
-                                                            train.trainNumber
-                                                        }
-                                                    </strong>
+                                    <div className="trainVerifiedInfo">
 
-                                                    <span>
-                                                        {
-                                                            train.trainName
-                                                        }
-                                                    </span>
+                                        <strong>
+                                            Train verified
+                                        </strong>
 
-                                                </div>
+                                        <span>
+                                            {
+                                                trainInfo.trainNumber
+                                            }
+                                            {" — "}
+                                            {
+                                                trainInfo.trainName
+                                            }
+                                        </span>
 
-                                                <span className="trainSuggestionArrow">
-                                                    →
-                                                </span>
+                                    </div>
 
-                                            </button>
-                                        )
+
+                                    {timetableStations.length >
+                                        0 && (
+
+                                        <button
+                                            type="button"
+                                            className="viewTimetableButton"
+                                            onClick={() =>
+                                                setShowTimetable(
+                                                    true
+                                                )
+                                            }
+                                        >
+                                            🗺️ View Timetable
+                                        </button>
+
                                     )}
 
                                 </div>
+
+                            )}
+
+
+                            {trainError && (
+
+                                <small className="fieldError">
+                                    {trainError}
+                                </small>
+
+                            )}
+
+
+                            {!trainError &&
+                                trainInfo &&
+                                !trainLoading && (
+
+                                <small className="fieldSuccess">
+
+                                    ✓ Train verified successfully.
+
+                                </small>
+
                             )}
 
                         </div>
 
+
                         {/* =================================================
-                            DATE
+                            JOURNEY DATE
                         ================================================= */}
 
                         <div className="formGroup">
 
-                            <label htmlFor="journeyDate">
+
+                            <label
+                                htmlFor="journeyDate"
+                            >
                                 Journey Date
                             </label>
+
 
                             <div className="inputWrapper">
 
                                 <span>
                                     📅
                                 </span>
+
 
                                 <input
                                     id="journeyDate"
@@ -2074,7 +2808,9 @@ export default function AddJourney() {
                                     value={
                                         formData.journeyDate
                                     }
-                                    min={today}
+                                    min={
+                                        today
+                                    }
                                     onChange={
                                         handleChange
                                     }
@@ -2083,11 +2819,13 @@ export default function AddJourney() {
 
                             </div>
 
+
                             <small>
                                 Select the date of your journey.
                             </small>
 
                         </div>
+
 
                         {/* =================================================
                             ROUTE
@@ -2095,21 +2833,28 @@ export default function AddJourney() {
 
                         <div className="routeRow">
 
+
                             {/* SOURCE */}
 
                             <div className="formGroup">
 
-                                <label htmlFor="boardingStation">
-                                    Source
+
+                                <label
+                                    htmlFor="boardingStation"
+                                >
+                                    Boarding Station
                                 </label>
 
+
                                 <div className="autocompleteWrapper">
+
 
                                     <div className="inputWrapper">
 
                                         <span>
                                             📍
                                         </span>
+
 
                                         <input
                                             id="boardingStation"
@@ -2129,20 +2874,24 @@ export default function AddJourney() {
                                             onBlur={
                                                 closeStationSuggestions
                                             }
-                                            placeholder="Enter source station"
+                                            placeholder="Enter boarding station"
                                             maxLength="10"
                                             autoComplete="off"
                                             required
                                         />
 
+
                                         {stationLoadingField ===
                                             "boardingStation" && (
+
                                             <span className="stationSearchSpinner">
                                                 ⟳
                                             </span>
+
                                         )}
 
                                     </div>
+
 
                                     {activeStationField ===
                                         "boardingStation" &&
@@ -2163,9 +2912,9 @@ export default function AddJourney() {
                                                         }
                                                         className="stationSuggestion"
                                                         onMouseDown={(
-                                                            e
+                                                            event
                                                         ) =>
-                                                            e.preventDefault()
+                                                            event.preventDefault()
                                                         }
                                                         onClick={() =>
                                                             selectStation(
@@ -2188,41 +2937,52 @@ export default function AddJourney() {
                                                         </span>
 
                                                     </button>
+
                                                 )
                                             )}
 
                                         </div>
+
                                     )}
 
                                 </div>
 
+
                                 <small>
-                                    Type station name or code.
+                                    Type the station name or code.
                                 </small>
 
                             </div>
 
-                            {/* ARROW */}
+
+                            {/* ROUTE ARROW */}
 
                             <div className="routeArrow">
                                 →
                             </div>
 
+
                             {/* DESTINATION */}
 
                             <div className="formGroup">
 
-                                <label htmlFor="destinationStation">
-                                    Destination
+
+                                <label
+                                    htmlFor="destinationStation"
+                                >
+                                    Destination Station
                                 </label>
 
+
                                 <div className="autocompleteWrapper">
+
 
                                     <div className="inputWrapper">
 
                                         <span>
                                             📍
                                         </span>
+
 
                                         <input
                                             id="destinationStation"
@@ -2248,14 +3008,18 @@ export default function AddJourney() {
                                             required
                                         />
 
+
                                         {stationLoadingField ===
                                             "destinationStation" && (
+
                                             <span className="stationSearchSpinner">
                                                 ⟳
                                             </span>
+
                                         )}
 
                                     </div>
+
 
                                     {activeStationField ===
                                         "destinationStation" &&
@@ -2276,9 +3040,9 @@ export default function AddJourney() {
                                                         }
                                                         className="stationSuggestion"
                                                         onMouseDown={(
-                                                            e
+                                                            event
                                                         ) =>
-                                                            e.preventDefault()
+                                                            event.preventDefault()
                                                         }
                                                         onClick={() =>
                                                             selectStation(
@@ -2301,21 +3065,25 @@ export default function AddJourney() {
                                                         </span>
 
                                                     </button>
+
                                                 )
                                             )}
 
                                         </div>
+
                                     )}
 
                                 </div>
 
+
                                 <small>
-                                    Type station name or code.
+                                    Type the station name or code.
                                 </small>
 
                             </div>
 
                         </div>
+
 
                         {/* =================================================
                             PREFERRED CLASS
@@ -2323,15 +3091,20 @@ export default function AddJourney() {
 
                         <div className="formGroup">
 
-                            <label htmlFor="preferredClass">
+
+                            <label
+                                htmlFor="preferredClass"
+                            >
                                 Preferred Class
                             </label>
+
 
                             <div className="inputWrapper">
 
                                 <span>
                                     🛏️
                                 </span>
+
 
                                 <select
                                     id="preferredClass"
@@ -2350,23 +3123,23 @@ export default function AddJourney() {
                                 >
 
                                     {!formData.trainNumber ||
-                                    !formData.journeyDate ? (
+                                        !formData.journeyDate ? (
 
                                         <option value="">
-                                            Select train & date
+                                            Select train and journey date
                                         </option>
 
                                     ) : classLoading ? (
 
                                         <option value="">
-                                            Loading train classes...
+                                            Loading available classes...
                                         </option>
 
                                     ) : availableClasses.length ===
-                                      0 ? (
+                                        0 ? (
 
                                         <option value="">
-                                            No class available
+                                            No class information available
                                         </option>
 
                                     ) : (
@@ -2386,46 +3159,61 @@ export default function AddJourney() {
                                                 >
                                                     {
                                                         item.code
-                                                    }{" "}
-                                                    —{" "}
+                                                    }
+                                                    {" — "}
                                                     {
                                                         item.name
                                                     }
                                                 </option>
+
                                             )
                                         )
+
                                     )}
 
                                 </select>
 
                             </div>
 
+
                             {classLoading && (
+
                                 <small className="classLoadingText">
+
                                     Loading classes from train metadata...
+
                                 </small>
+
                             )}
+
 
                             {classError &&
                                 !classLoading && (
-                                    <small className="fieldError">
-                                        {
-                                            classError
-                                        }
-                                    </small>
-                                )}
+
+                                <small className="fieldError">
+
+                                    {classError}
+
+                                </small>
+
+                            )}
+
 
                             {!classLoading &&
                                 !classError &&
                                 availableClasses.length >
                                     0 && (
 
-                                    <small className="classVerified">
-                                        ✓ Classes verified from train metadata
-                                    </small>
-                                )}
+                                <small className="classVerified">
+
+                                    ✓ Classes verified from train metadata
+
+                                </small>
+
+                            )}
 
                         </div>
+
 
                         {/* =================================================
                             MIXED CLASS
@@ -2441,6 +3229,7 @@ export default function AddJourney() {
                             }
                         >
 
+
                             <input
                                 type="checkbox"
                                 name="allowMixedClass"
@@ -2452,10 +3241,14 @@ export default function AddJourney() {
                                 }
                             />
 
+
                             <div className="customCheckbox">
+
                                 {formData.allowMixedClass &&
                                     "✓"}
+
                             </div>
+
 
                             <div className="mixedClassText">
 
@@ -2471,10 +3264,12 @@ export default function AddJourney() {
 
                             </div>
 
+
                         </label>
 
+
                         {/* =================================================
-                            SUBMIT
+                            SUBMIT BUTTON
                         ================================================= */}
 
                         <button
@@ -2502,39 +3297,486 @@ export default function AddJourney() {
                                 <>
                                     Start Monitoring →
                                 </>
+
                             )}
 
                         </button>
 
+
                     </form>
 
-                    {/* SECURITY */}
+
+                    {/* =================================================
+                        SECURITY NOTE
+                    ================================================= */}
 
                     <div className="secureNote">
+
                         🔒 Your journey information is securely
                         stored and used only for monitoring.
+
                     </div>
+
 
                 </div>
 
             </div>
 
-            {/* CLOSE TRAIN DROPDOWN WHEN CLICKING OUTSIDE */}
+
+            {/* =================================================
+                CLOSE TRAIN SUGGESTIONS
+            ================================================= */}
 
             {trainSuggestionVisible &&
                 trainInfo && (
 
-                    <div
-                        className="trainOverlay"
-                        onMouseDown={() =>
-                            setTrainSuggestionVisible(
-                                false
-                            )
-                        }
-                    />
+                <div
+                    className="trainOverlay"
+                    onMouseDown={() =>
+                        setTrainSuggestionVisible(
+                            false
+                        )
+                    }
+                />
 
-                )}
+            )}
+
+
+                {/* =================================================
+                TRAIN TIMETABLE MODAL
+            ================================================= */}
+
+            {showTimetable && (
+
+                <div
+                    className="timetableModalOverlay"
+                    onMouseDown={() =>
+                        setShowTimetable(
+                            false
+                        )
+                    }
+                >
+
+                    <div
+                        className="timetableModal"
+                        onMouseDown={(
+                            event
+                        ) =>
+                            event.stopPropagation()
+                        }
+                    >
+
+
+                        {/* =================================================
+                            MODAL HEADER
+                        ================================================= */}
+
+                        <div className="timetableModalHeader">
+
+
+                            <div>
+
+                                <span className="timetableEyebrow">
+                                    TRAIN TIMETABLE
+                                </span>
+
+
+                                <h2>
+
+                                    {trainInfo?.trainNumber ||
+                                        formData.trainNumber}
+
+                                    {" — "}
+
+                                    {trainInfo?.trainName ||
+                                        "Train Timetable"}
+
+                                </h2>
+
+
+                                <p>
+                                    Complete route and scheduled
+                                    timings for this train.
+                                </p>
+
+                            </div>
+
+
+                            <button
+                                type="button"
+                                className="timetableCloseButton"
+                                onClick={() =>
+                                    setShowTimetable(
+                                        false
+                                    )
+                                }
+                                aria-label="Close timetable"
+                            >
+                                ×
+                            </button>
+
+                        </div>
+
+
+                        {/* =================================================
+                            ROUTE SUMMARY
+                        ================================================= */}
+
+                        <div className="timetableRouteSummary">
+
+
+                            <div>
+
+                                <span>
+                                    BOARDING
+                                </span>
+
+
+                                <strong>
+
+                                    {formData.boardingStation ||
+                                        "Not selected"}
+
+                                </strong>
+
+                            </div>
+
+
+                            <div className="timetableRouteArrow">
+                                →
+                            </div>
+
+
+                            <div>
+
+                                <span>
+                                    DESTINATION
+                                </span>
+
+
+                                <strong>
+
+                                    {formData.destinationStation ||
+                                        "Not selected"}
+
+                                </strong>
+
+                            </div>
+
+                        </div>
+
+
+                        {/* =================================================
+                            TIMETABLE TABLE
+                        ================================================= */}
+
+                        <div className="timetableTableWrapper">
+
+
+                            {timetableStations.length >
+                            0 ? (
+
+                                <table className="timetableTable">
+
+
+                                    <thead>
+
+                                        <tr>
+
+                                            <th>
+                                                #
+                                            </th>
+
+                                            <th>
+                                                Station
+                                            </th>
+
+                                            <th>
+                                                Arrival
+                                            </th>
+
+                                            <th>
+                                                Departure
+                                            </th>
+
+                                            <th>
+                                                Day
+                                            </th>
+
+                                            <th>
+                                                Distance
+                                            </th>
+
+                                        </tr>
+
+                                    </thead>
+
+
+                                    <tbody>
+
+                                        {timetableStations.map(
+                                            (
+                                                station,
+                                                index
+                                            ) => {
+
+
+                                                const code =
+                                                    String(
+                                                        station?.code ||
+                                                        station?.stationCode ||
+                                                        ""
+                                                    )
+                                                        .trim()
+                                                        .toUpperCase();
+
+
+                                                const name =
+                                                    String(
+                                                        station?.name ||
+                                                        station?.stationName ||
+                                                        "Unknown Station"
+                                                    ).trim();
+
+
+                                                const arrival =
+                                                    station?.arrival ||
+                                                    "—";
+
+
+                                                const departure =
+                                                    station?.departure ||
+                                                    "—";
+
+
+                                                const day =
+                                                    station?.day ??
+                                                    "—";
+
+
+                                                const distance =
+                                                    station?.distance ??
+                                                    "—";
+
+
+                                                const isSource =
+                                                    code ===
+                                                    String(
+                                                        formData
+                                                            .boardingStation ||
+                                                        ""
+                                                    )
+                                                        .trim()
+                                                        .toUpperCase();
+
+
+                                                const isDestination =
+                                                    code ===
+                                                    String(
+                                                        formData
+                                                            .destinationStation ||
+                                                        ""
+                                                    )
+                                                        .trim()
+                                                        .toUpperCase();
+
+
+                                                let rowClass =
+                                                    "";
+
+
+                                                if (
+                                                    isSource
+                                                ) {
+
+                                                    rowClass =
+                                                        "timetableSourceRow";
+
+                                                } else if (
+                                                    isDestination
+                                                ) {
+
+                                                    rowClass =
+                                                        "timetableDestinationRow";
+                                                }
+
+
+                                                return (
+
+                                                    <tr
+                                                        key={
+                                                            `${code}-${index}`
+                                                        }
+                                                        className={
+                                                            rowClass
+                                                        }
+                                                    >
+
+
+                                                        {/* NUMBER */}
+
+                                                        <td className="stationNumber">
+
+                                                            {index + 1}
+
+                                                        </td>
+
+
+                                                        {/* STATION */}
+
+                                                        <td className="timetableStationCell">
+
+
+                                                            <div className="stationCode">
+
+                                                                {code ||
+                                                                    "—"}
+
+                                                            </div>
+
+
+                                                            <div className="stationName">
+
+                                                                {name}
+
+                                                            </div>
+
+
+                                                            {isSource && (
+
+                                                                <span className="stationMarker sourceMarker">
+
+                                                                    BOARDING
+
+                                                                </span>
+
+                                                            )}
+
+
+                                                            {isDestination && (
+
+                                                                <span className="stationMarker destinationMarker">
+
+                                                                    DESTINATION
+
+                                                                </span>
+
+                                                            )}
+
+                                                        </td>
+
+
+                                                        {/* ARRIVAL */}
+
+                                                        <td>
+
+                                                            {arrival}
+
+                                                        </td>
+
+
+                                                        {/* DEPARTURE */}
+
+                                                        <td>
+
+                                                            {departure}
+
+                                                        </td>
+
+
+                                                        {/* DAY */}
+
+                                                        <td>
+
+                                                            {day}
+
+                                                        </td>
+
+
+                                                        {/* DISTANCE */}
+
+                                                        <td>
+
+                                                            {distance ===
+                                                                "—"
+                                                                ? "—"
+                                                                : `${distance} km`}
+
+                                                        </td>
+
+                                                    </tr>
+
+                                                );
+                                            }
+                                        )}
+
+                                    </tbody>
+
+                                </table>
+
+                            ) : (
+
+                                <div className="timetableEmptyState">
+
+                                    <div className="timetableEmptyIcon">
+                                        🚆
+                                    </div>
+
+                                    <strong>
+                                        Timetable unavailable
+                                    </strong>
+
+                                    <span>
+                                        Train timetable information
+                                        could not be loaded.
+                                    </span>
+
+                                </div>
+
+                            )}
+
+                        </div>
+
+
+                        {/* =================================================
+                            MODAL FOOTER
+                        ================================================= */}
+
+                        <div className="timetableModalFooter">
+
+
+                            <span>
+
+                                🕐 Timings are based on the
+                                selected train and journey date.
+
+                            </span>
+
+
+                            <button
+                                type="button"
+                                onClick={() =>
+                                    setShowTimetable(
+                                        false
+                                    )
+                                }
+                            >
+
+                                Done
+
+                            </button>
+
+                        </div>
+
+
+                    </div>
+
+                </div>
+
+            )}
+
 
         </div>
+
     );
 }

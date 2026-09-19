@@ -1,6 +1,9 @@
 const transporter =
     require("../../config/mail");
 
+const Notification =
+    require("./notification.model");
+
 
 // =========================================================
 // EMAIL NOTIFICATION
@@ -202,6 +205,357 @@ This email was generated automatically by ERJA.
 };
 
 
+// =========================================================
+// CREATE IN-APP NOTIFICATION
+// =========================================================
+
+const createNotification = async ({
+    userId,
+    type = "SYSTEM",
+    title,
+    message,
+    journeyId = null,
+}) => {
+
+    if (!userId) {
+
+        throw new Error(
+            "User ID is required."
+        );
+    }
+
+
+    if (
+        !title ||
+        typeof title !== "string"
+    ) {
+
+        throw new Error(
+            "Notification title is required."
+        );
+    }
+
+
+    if (
+        !message ||
+        typeof message !== "string"
+    ) {
+
+        throw new Error(
+            "Notification message is required."
+        );
+    }
+
+
+    const notification =
+        await Notification.create({
+
+            userId,
+
+            type,
+
+            title:
+                title.trim(),
+
+            message:
+                message.trim(),
+
+            journeyId,
+
+            isRead: false,
+        });
+
+
+    return notification;
+};
+
+
+// =========================================================
+// GET NOTIFICATIONS
+// =========================================================
+
+const getNotifications = async (
+    userId,
+    query = {}
+) => {
+
+    if (!userId) {
+
+        throw new Error(
+            "User ID is required."
+        );
+    }
+
+
+    const requestedLimit =
+        Number.parseInt(
+            query.limit,
+            10
+        );
+
+
+    const limit =
+        Number.isFinite(requestedLimit)
+            ? Math.min(
+                Math.max(
+                    requestedLimit,
+                    1
+                ),
+                100
+            )
+            : 50;
+
+
+    const [
+        notifications,
+        unreadCount,
+    ] =
+        await Promise.all([
+
+            Notification.find({
+                userId,
+            })
+                .sort({
+                    createdAt: -1,
+                })
+                .limit(limit)
+                .lean(),
+
+            Notification.countDocuments({
+                userId,
+                isRead: false,
+            }),
+
+        ]);
+
+
+    return {
+
+        notifications,
+
+        unreadCount,
+    };
+};
+
+
+// =========================================================
+// MARK NOTIFICATION AS READ
+// =========================================================
+
+const markAsRead = async (
+    notificationId,
+    userId
+) => {
+
+    if (!notificationId) {
+
+        throw new Error(
+            "Notification ID is required."
+        );
+    }
+
+
+    if (!userId) {
+
+        throw new Error(
+            "User ID is required."
+        );
+    }
+
+
+    const notification =
+        await Notification.findOneAndUpdate(
+
+            {
+                _id:
+                    notificationId,
+
+                userId,
+            },
+
+            {
+                $set: {
+                    isRead: true,
+                },
+            },
+
+            {
+                new: true,
+            }
+
+        ).lean();
+
+
+    if (!notification) {
+
+        const error =
+            new Error(
+                "Notification not found."
+            );
+
+        error.statusCode = 404;
+
+        throw error;
+    }
+
+
+    return notification;
+};
+
+
+// =========================================================
+// MARK ALL NOTIFICATIONS AS READ
+// =========================================================
+
+const markAllAsRead = async (
+    userId
+) => {
+
+    if (!userId) {
+
+        throw new Error(
+            "User ID is required."
+        );
+    }
+
+
+    const result =
+        await Notification.updateMany(
+
+            {
+                userId,
+
+                isRead: false,
+            },
+
+            {
+                $set: {
+                    isRead: true,
+                },
+            }
+
+        );
+
+
+    return {
+
+        matchedCount:
+            result.matchedCount ??
+            result.n ??
+            0,
+
+        modifiedCount:
+            result.modifiedCount ??
+            result.nModified ??
+            0,
+    };
+};
+
+
+// =========================================================
+// DELETE ONE NOTIFICATION
+// =========================================================
+
+const deleteNotification = async (
+    notificationId,
+    userId
+) => {
+
+    if (!notificationId) {
+
+        throw new Error(
+            "Notification ID is required."
+        );
+    }
+
+
+    if (!userId) {
+
+        throw new Error(
+            "User ID is required."
+        );
+    }
+
+
+    const notification =
+        await Notification.findOneAndDelete({
+
+            _id:
+                notificationId,
+
+            userId,
+
+        }).lean();
+
+
+    if (!notification) {
+
+        const error =
+            new Error(
+                "Notification not found."
+            );
+
+        error.statusCode = 404;
+
+        throw error;
+    }
+
+
+    return notification;
+};
+
+
+// =========================================================
+// DELETE ALL NOTIFICATIONS
+// =========================================================
+
+const deleteAllNotifications = async (
+    userId
+) => {
+
+    if (!userId) {
+
+        throw new Error(
+            "User ID is required."
+        );
+    }
+
+
+    const result =
+        await Notification.deleteMany({
+
+            userId,
+
+        });
+
+
+    return {
+
+        deletedCount:
+            result.deletedCount ??
+            result.n ??
+            0,
+    };
+};
+
+
+// =========================================================
+// EXPORT
+// =========================================================
+
 module.exports = {
+
     sendNotification,
+
+    createNotification,
+
+    getNotifications,
+
+    markAsRead,
+
+    markAllAsRead,
+
+    deleteNotification,
+
+    deleteAllNotifications,
 };

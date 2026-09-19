@@ -1,5 +1,33 @@
 const axios = require("axios");
 const TrainStop = require("./trainStop.model");
+const { getConfirmTktTrainMetadata } = require("./confirmtkt.service");
+
+// ============================================================
+// CONFIRMTKT TRAIN METADATA
+// ============================================================
+
+const getTrainMetadataService = async (query) => {
+
+  const { trainNumber, journeyDate } = query;
+
+  if (!trainNumber) {
+    const error = new Error("Train number is required.");
+    error.statusCode = 400;
+    throw error;
+  }
+
+  if (!journeyDate) {
+    const error = new Error("Journey date is required.");
+    error.statusCode = 400;
+    throw error;
+  }
+
+  return await getConfirmTktTrainMetadata(
+    trainNumber,
+    journeyDate
+  );
+};
+
 
 // ============================================================
 // NTES timetable service
@@ -802,6 +830,8 @@ const getStopsBetweenService = async (query) => {
 module.exports = {
 
   searchTrainService,
+
+  getTrainMetadataService,
 
   getLiveTrainStatusService,
 

@@ -20,12 +20,14 @@ const API = axios.create({
     },
 });
 
+
 // =========================================================
 // AUTH INTERCEPTOR
 // =========================================================
 
 API.interceptors.request.use(
     (config) => {
+
         const token =
             localStorage.getItem("token");
 
@@ -41,6 +43,7 @@ API.interceptors.request.use(
         Promise.reject(error)
 );
 
+
 // =========================================================
 // RESPONSE INTERCEPTOR
 // =========================================================
@@ -49,16 +52,20 @@ API.interceptors.response.use(
     (response) => response,
 
     (error) => {
+
         if (
             error?.response?.status === 401
         ) {
+
             localStorage.removeItem("token");
             localStorage.removeItem("user");
+
         }
 
         return Promise.reject(error);
     }
 );
+
 
 // =========================================================
 // HELPERS
@@ -71,6 +78,7 @@ const cleanString = (
     String(value ?? "")
         .trim()
         .slice(0, maxLength);
+
 
 // =========================================================
 // STATION SEARCH
@@ -85,12 +93,14 @@ export const searchStation = (
         cleanString(search, 50);
 
     if (query.length < 2) {
+
         return Promise.resolve({
             data: {
                 success: true,
                 data: [],
             },
         });
+
     }
 
     return API.get(
@@ -106,6 +116,7 @@ export const searchStation = (
     );
 };
 
+
 // =========================================================
 // TRAIN SEARCH
 // =========================================================
@@ -113,12 +124,12 @@ export const searchStation = (
 /*
  * Searches one train number.
  *
- * Backend currently exposes:
+ * Backend:
  *
  * GET /api/train/search?trainNumber=12796
  *
- * The response comes from the existing train
- * search service.
+ * The response comes from the existing
+ * train search service.
  */
 
 export const searchTrain = (
@@ -135,11 +146,13 @@ export const searchTrain = (
     if (
         !/^\d{4,5}$/.test(value)
     ) {
+
         return Promise.reject(
             new Error(
                 "Invalid train number."
             )
         );
+
     }
 
     return API.get(
@@ -155,13 +168,130 @@ export const searchTrain = (
     );
 };
 
+
 // =========================================================
-// ACTUAL TRAIN CLASSES
+// TRAIN METADATA
 // =========================================================
 
 /*
- * Fetches actual train composition from
- * the backend.
+ * Fetches pre-chart train metadata.
+ *
+ * IMPORTANT:
+ *
+ * This endpoint is different from
+ * /chart/classes.
+ *
+ * /chart/classes depends on the railway chart
+ * being prepared.
+ *
+ * /train/metadata provides train composition,
+ * classes and route information before the chart
+ * is prepared.
+ *
+ * Backend:
+ *
+ * GET /api/train/metadata
+ *
+ * Required:
+ *
+ * trainNumber
+ * journeyDate
+ */
+
+export const getTrainMetadata = ({
+    trainNumber,
+    journeyDate,
+    signal,
+}) => {
+
+    const cleanTrainNumber =
+        cleanString(
+            trainNumber,
+            5
+        );
+
+    const cleanJourneyDate =
+        cleanString(
+            journeyDate,
+            10
+        );
+
+    // ---------------------------------------------------------
+    // VALIDATE TRAIN NUMBER
+    // ---------------------------------------------------------
+
+    if (
+        !/^\d{4,5}$/.test(
+            cleanTrainNumber
+        )
+    ) {
+
+        return Promise.reject(
+            new Error(
+                "Invalid train number."
+            )
+        );
+
+    }
+
+    // ---------------------------------------------------------
+    // VALIDATE JOURNEY DATE
+    // ---------------------------------------------------------
+
+    if (
+        !/^\d{4}-\d{2}-\d{2}$/.test(
+            cleanJourneyDate
+        )
+    ) {
+
+        return Promise.reject(
+            new Error(
+                "Invalid journey date."
+            )
+        );
+
+    }
+
+    // ---------------------------------------------------------
+    // API REQUEST
+    // ---------------------------------------------------------
+
+    return API.get(
+        "/train/metadata",
+        {
+            params: {
+
+                trainNumber:
+                    cleanTrainNumber,
+
+                journeyDate:
+                    cleanJourneyDate,
+
+            },
+
+            signal,
+        }
+    );
+};
+
+
+// =========================================================
+// LEGACY / CHART TRAIN CLASSES
+// =========================================================
+
+/*
+ * Fetches classes from the prepared railway chart.
+ *
+ * IMPORTANT:
+ *
+ * Keep this function because other parts of ERJA
+ * may still use the chart/classes endpoint.
+ *
+ * Do NOT use this function from AddJourney for
+ * initial class selection.
+ *
+ * AddJourney should use getTrainMetadata()
+ * because the chart may not yet be prepared.
  *
  * Backend:
  *
@@ -193,46 +323,73 @@ export const getTrainClasses = ({
             10
         ).toUpperCase();
 
+
+    // ---------------------------------------------------------
+    // VALIDATE TRAIN NUMBER
+    // ---------------------------------------------------------
+
     if (
         !/^\d{4,5}$/.test(
             cleanTrainNumber
         )
     ) {
+
         return Promise.reject(
             new Error(
                 "Invalid train number."
             )
         );
+
     }
+
+
+    // ---------------------------------------------------------
+    // VALIDATE JOURNEY DATE
+    // ---------------------------------------------------------
 
     if (
         !/^\d{4}-\d{2}-\d{2}$/.test(
             cleanJourneyDate
         )
     ) {
+
         return Promise.reject(
             new Error(
                 "Invalid journey date."
             )
         );
+
     }
+
+
+    // ---------------------------------------------------------
+    // VALIDATE BOARDING STATION
+    // ---------------------------------------------------------
 
     if (
         !/^[A-Z0-9]{2,10}$/.test(
             cleanBoardingStation
         )
     ) {
+
         return Promise.reject(
             new Error(
                 "Invalid boarding station."
             )
         );
+
     }
+
+
+    // ---------------------------------------------------------
+    // API REQUEST
+    // ---------------------------------------------------------
 
     return API.get(
         "/chart/classes",
         {
             params: {
+
                 trainNumber:
                     cleanTrainNumber,
 
@@ -241,11 +398,17 @@ export const getTrainClasses = ({
 
                 boardingStation:
                     cleanBoardingStation,
+
             },
 
             signal,
         }
     );
 };
+
+
+// =========================================================
+// DEFAULT EXPORT
+// =========================================================
 
 export default API;

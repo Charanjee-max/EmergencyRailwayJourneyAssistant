@@ -5,6 +5,7 @@ const {
     getTrainStopsService,
     checkTrainStopService,
     getStopsBetweenService,
+    getTrainMetadataService,
 } = require("./train.service");
 
 const {
@@ -14,6 +15,7 @@ const {
     trainStopsValidation,
     checkTrainStopValidation,
     stopsBetweenValidation,
+    trainMetadataValidation,
 } = require("./train.validation");
 
 
@@ -45,6 +47,66 @@ const validationErrorResponse = (
             })),
 
     });
+};
+
+
+// ============================================================
+// TRAIN METADATA
+// ============================================================
+
+const getTrainMetadata = async (req, res) => {
+
+    try {
+
+        const {
+            error,
+            value,
+        } = trainMetadataValidation(req.query);
+
+        if (error) {
+            return validationErrorResponse(res, error);
+        }
+
+        const result =
+            await getTrainMetadataService(value);
+
+        return res.status(200).json({
+
+            success: true,
+
+            message:
+                "Train metadata fetched successfully.",
+
+            data:
+                result,
+
+        });
+
+    } catch (error) {
+
+        console.error(
+            "❌ TRAIN METADATA ERROR:",
+            error.message
+        );
+
+        const statusCode =
+            Number(error?.statusCode) >= 400 &&
+            Number(error?.statusCode) < 600
+                ? Number(error.statusCode)
+                : 500;
+
+        return res.status(statusCode).json({
+
+            success: false,
+
+            message:
+                error.message ||
+                "Unable to fetch train metadata.",
+
+        });
+
+    }
+
 };
 
 
@@ -444,6 +506,8 @@ const getStopsBetween = async (
 // ============================================================
 
 module.exports = {
+
+    getTrainMetadata,
 
     searchTrain,
 

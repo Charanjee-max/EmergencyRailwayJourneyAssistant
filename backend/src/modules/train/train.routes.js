@@ -8,9 +8,22 @@ const {
   getTrainStops,
   checkTrainStop,
   getStopsBetween,
+  getTrainMetadata,
 } = require("./train.controller");
 
 const router = express.Router();
+
+
+// ============================================================
+// Train Metadata / Composition
+// ============================================================
+
+router.get(
+  "/metadata",
+  authenticate,
+  getTrainMetadata
+);
+
 
 // ============================================================
 // Search Train
@@ -22,6 +35,7 @@ router.get(
   searchTrain
 );
 
+
 // ============================================================
 // Live Train Running Status
 // ============================================================
@@ -31,6 +45,7 @@ router.get(
   authenticate,
   getLiveTrainStatus
 );
+
 
 // ============================================================
 // Seat Availability Forecast
@@ -42,6 +57,7 @@ router.get(
   getSeatAvailability
 );
 
+
 // ============================================================
 // Complete Train Timetable
 // ============================================================
@@ -51,6 +67,7 @@ router.get(
   authenticate,
   getTrainStops
 );
+
 
 // ============================================================
 // Check Whether Train Stops at Station
@@ -62,6 +79,7 @@ router.get(
   checkTrainStop
 );
 
+
 // ============================================================
 // Get Stops Between Two Stations
 // ============================================================
@@ -71,5 +89,6 @@ router.get(
   authenticate,
   getStopsBetween
 );
+
 
 module.exports = router;

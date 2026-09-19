@@ -251,6 +251,42 @@ const seatAvailabilityValidation = (data) => {
 
 
 // ============================================================
+// TRAIN METADATA
+// ============================================================
+
+const trainMetadataValidation = (data) => {
+
+    const schema = Joi.object({
+
+        trainNumber:
+            trainNumberSchema,
+
+        journeyDate:
+            Joi.string()
+                .trim()
+                .pattern(/^\d{4}-\d{2}-\d{2}$/)
+                .required()
+                .messages({
+                    "string.empty":
+                        "Journey date is required.",
+
+                    "string.pattern.base":
+                        "Journey date must be in YYYY-MM-DD format.",
+
+                    "any.required":
+                        "Journey date is required.",
+                }),
+
+    }).unknown(false);
+
+    return schema.validate(data, {
+        abortEarly: false,
+        allowUnknown: false,
+    });
+};
+
+
+// ============================================================
 // EXPORT
 // ============================================================
 
@@ -267,5 +303,7 @@ module.exports = {
     stopsBetweenValidation,
 
     seatAvailabilityValidation,
+
+    trainMetadataValidation,
 
 };

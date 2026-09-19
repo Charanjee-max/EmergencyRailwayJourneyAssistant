@@ -17,8 +17,9 @@ import {
 import {
     searchStation,
     searchTrain,
-    getTrainClasses,
+    getTrainMetadata,
 } from "../../api/trainAPI";
+
 import trainList from "../../data/train_data.js";
 
 // =========================================================
@@ -313,9 +314,9 @@ export default function AddJourney() {
     ] = useState(null);
 
     const [
-    trainSuggestions,
-    setTrainSuggestions,
-] = useState([]);
+        trainSuggestions,
+        setTrainSuggestions,
+    ] = useState([]);
 
     const [
         trainLoading,
@@ -441,6 +442,7 @@ export default function AddJourney() {
 
             setTrainInfo(null);
             setTrainError("");
+
             setTrainSuggestionVisible(
                 updatedValue.length >= 4
             );
@@ -449,6 +451,7 @@ export default function AddJourney() {
              * Changing train invalidates classes.
              */
             setAvailableClasses([]);
+
             setFormData((prev) => ({
                 ...prev,
                 preferredClass: "",
@@ -469,23 +472,6 @@ export default function AddJourney() {
                 value
                     .toUpperCase()
                     .slice(0, 10);
-
-            /*
-             * Changing boarding station changes
-             * the IRCTC composition request.
-             */
-            if (
-                name ===
-                "boardingStation"
-            ) {
-                setAvailableClasses([]);
-                setClassError("");
-
-                setFormData((prev) => ({
-                    ...prev,
-                    preferredClass: "",
-                }));
-            }
         }
 
         // -------------------------------------------------
@@ -514,360 +500,351 @@ export default function AddJourney() {
     };
 
     // =====================================================
-// TRAIN AUTOCOMPLETE + API VERIFICATION
-// =====================================================
+    // TRAIN AUTOCOMPLETE + API VERIFICATION
+    // =====================================================
 
-useEffect(() => {
+    useEffect(() => {
 
-    const value =
-        formData.trainNumber
-            .trim();
+        const value =
+            formData.trainNumber
+                .trim();
 
-    trainRequestId.current += 1;
+        trainRequestId.current += 1;
 
-    const requestId =
-        trainRequestId.current;
+        const requestId =
+            trainRequestId.current;
 
-    if (
-        trainAbortController.current
-    ) {
-        trainAbortController.current.abort();
-    }
+        if (
+            trainAbortController.current
+        ) {
+            trainAbortController.current.abort();
+        }
 
-    // -------------------------------------------------
-    // EMPTY / SHORT INPUT
-    // -------------------------------------------------
+        // -------------------------------------------------
+        // EMPTY / SHORT INPUT
+        // -------------------------------------------------
 
-    if (!value) {
+        if (!value) {
 
-        setTrainSuggestions([]);
-        setTrainInfo(null);
-        setTrainLoading(false);
-        setTrainError("");
-        setTrainSuggestionVisible(false);
+            setTrainSuggestions([]);
+            setTrainInfo(null);
+            setTrainLoading(false);
+            setTrainError("");
+            setTrainSuggestionVisible(false);
 
-        return;
-    }
+            return;
+        }
 
-    // -------------------------------------------------
-    // FIND LOCAL TRAINS
-    // -------------------------------------------------
+        // -------------------------------------------------
+        // FIND LOCAL TRAINS
+        // -------------------------------------------------
 
-    const matches =
-        LOCAL_TRAINS
-            .filter(
+        const matches =
+            LOCAL_TRAINS
+                .filter(
+                    (train) =>
+                        train.trainNumber
+                            .startsWith(value)
+                )
+                .slice(0, 8);
+
+        setTrainSuggestions(matches);
+
+        setTrainSuggestionVisible(
+            matches.length > 0
+        );
+
+        // -------------------------------------------------
+        // LESS THAN 5 DIGITS
+        // -------------------------------------------------
+
+        if (
+            value.length < 5
+        ) {
+
+            setTrainInfo(null);
+            setTrainLoading(false);
+            setTrainError("");
+
+            return;
+        }
+
+        // -------------------------------------------------
+        // INVALID TRAIN NUMBER
+        // -------------------------------------------------
+
+        if (
+            !/^\d{5}$/.test(value)
+        ) {
+
+            setTrainInfo(null);
+            setTrainLoading(false);
+
+            return;
+        }
+
+        // -------------------------------------------------
+        // CHECK LOCAL DATA
+        // -------------------------------------------------
+
+        const localTrain =
+            LOCAL_TRAINS.find(
                 (train) =>
-                    train.trainNumber
-                        .startsWith(value)
-            )
-            .slice(0, 8);
+                    train.trainNumber ===
+                    value
+            );
 
-    setTrainSuggestions(matches);
+        if (!localTrain) {
 
-    setTrainSuggestionVisible(
-        matches.length > 0
-    );
+            setTrainInfo(null);
+            setTrainLoading(false);
 
-    // -------------------------------------------------
-    // LESS THAN 5 DIGITS
-    // -------------------------------------------------
+            setTrainError(
+                "Train not found."
+            );
 
-    if (
-        value.length < 5
-    ) {
+            return;
+        }
 
-        setTrainInfo(null);
-        setTrainLoading(false);
-        setTrainError("");
+        // -------------------------------------------------
+        // API VERIFICATION
+        // -------------------------------------------------
 
-        return;
-    }
+        const controller =
+            new AbortController();
 
-    // -------------------------------------------------
-    // INVALID TRAIN NUMBER
-    // -------------------------------------------------
+        trainAbortController.current =
+            controller;
 
-    if (
-        !/^\d{5}$/.test(value)
-    ) {
+        const timer =
+            setTimeout(
+                async () => {
 
-        setTrainInfo(null);
-        setTrainLoading(false);
+                    setTrainLoading(true);
+                    setTrainError("");
 
-        return;
-    }
+                    try {
 
-    // -------------------------------------------------
-    // CHECK LOCAL DATA
-    // -------------------------------------------------
+                        const response =
+                            await searchTrain(
+                                value,
+                                {
+                                    signal:
+                                        controller.signal,
+                                }
+                            );
 
-    const localTrain =
-        LOCAL_TRAINS.find(
-            (train) =>
-                train.trainNumber ===
-                value
-        );
+                        if (
+                            requestId !==
+                            trainRequestId.current
+                        ) {
+                            return;
+                        }
 
-    if (!localTrain) {
+                        const normalized =
+                            normalizeTrain(
+                                response
+                            );
 
-        setTrainInfo(null);
-        setTrainLoading(false);
+                        // ---------------------------------
+                        // API DID NOT RETURN TRAIN
+                        // ---------------------------------
 
-        setTrainError(
-            "Train not found."
-        );
+                        if (!normalized) {
 
-        return;
-    }
+                            /*
+                             * We still know the train name
+                             * from the local railway list.
+                             */
+                            setTrainInfo(
+                                localTrain
+                            );
 
-    // -------------------------------------------------
-    // API VERIFICATION
-    // -------------------------------------------------
+                            setTrainError(
+                                ""
+                            );
 
-    const controller =
-        new AbortController();
+                            return;
+                        }
 
-    trainAbortController.current =
-        controller;
+                        // ---------------------------------
+                        // SAFETY CHECK
+                        // ---------------------------------
 
-    const timer =
-        setTimeout(
-            async () => {
+                        if (
+                            normalized.trainNumber &&
+                            normalized.trainNumber !==
+                                value
+                        ) {
 
-                setTrainLoading(true);
-                setTrainError("");
+                            setTrainInfo(null);
 
-                try {
+                            setTrainError(
+                                "Train number could not be verified."
+                            );
 
-                    const response =
-                        await searchTrain(
-                            value,
-                            {
-                                signal:
-                                    controller.signal,
-                            }
-                        );
+                            return;
+                        }
 
-                    if (
-                        requestId !==
-                        trainRequestId.current
+                        // ---------------------------------
+                        // USE API NAME WHEN AVAILABLE
+                        // OTHERWISE LOCAL NAME
+                        // ---------------------------------
+
+                        setTrainInfo({
+                            trainNumber:
+                                value,
+
+                            trainName:
+                                normalized.trainName &&
+                                normalized.trainName !==
+                                    "Train name unavailable."
+                                    ? normalized.trainName
+                                    : localTrain.trainName,
+                        });
+
+                    } catch (
+                        searchError
                     ) {
-                        return;
-                    }
 
-                    const normalized =
-                        normalizeTrain(
-                            response
+                        if (
+                            searchError?.code ===
+                                "ERR_CANCELED" ||
+                            searchError?.name ===
+                                "CanceledError" ||
+                            controller.signal.aborted
+                        ) {
+                            return;
+                        }
+
+                        if (
+                            requestId !==
+                            trainRequestId.current
+                        ) {
+                            return;
+                        }
+
+                        console.error(
+                            "TRAIN SEARCH ERROR:",
+                            searchError
                         );
-
-                    // ---------------------------------
-                    // API DID NOT RETURN TRAIN
-                    // ---------------------------------
-
-                    if (!normalized) {
 
                         /*
-                         * We still know the train name
-                         * from the local railway list.
+                         * Local train data is still useful
+                         * for displaying the train name.
                          */
                         setTrainInfo(
                             localTrain
                         );
 
-                        setTrainError(
-                            ""
-                        );
+                        setTrainError("");
 
-                        return;
+                    } finally {
+
+                        if (
+                            requestId ===
+                            trainRequestId.current
+                        ) {
+
+                            setTrainLoading(
+                                false
+                            );
+                        }
                     }
 
-                    // ---------------------------------
-                    // SAFETY CHECK
-                    // ---------------------------------
+                },
+                300
+            );
 
-                    if (
-                        normalized.trainNumber &&
-                        normalized.trainNumber !==
-                            value
-                    ) {
+        return () => {
 
-                        setTrainInfo(null);
+            clearTimeout(timer);
 
-                        setTrainError(
-                            "Train number could not be verified."
-                        );
+            controller.abort();
+        };
 
-                        return;
-                    }
-
-                    // ---------------------------------
-                    // USE API NAME WHEN AVAILABLE
-                    // OTHERWISE LOCAL NAME
-                    // ---------------------------------
-
-                    setTrainInfo({
-                        trainNumber:
-                            value,
-
-                        trainName:
-                            normalized.trainName &&
-                            normalized.trainName !==
-                                "Train name unavailable."
-                                ? normalized.trainName
-                                : localTrain.trainName,
-                    });
-
-                } catch (
-                    searchError
-                ) {
-
-                    if (
-                        searchError?.code ===
-                            "ERR_CANCELED" ||
-                        searchError?.name ===
-                            "CanceledError" ||
-                        controller.signal.aborted
-                    ) {
-                        return;
-                    }
-
-                    if (
-                        requestId !==
-                        trainRequestId.current
-                    ) {
-                        return;
-                    }
-
-                    console.error(
-                        "TRAIN SEARCH ERROR:",
-                        searchError
-                    );
-
-                    /*
-                     * Local train data is still useful
-                     * for displaying the train name.
-                     */
-                    setTrainInfo(
-                        localTrain
-                    );
-
-                    setTrainError("");
-                } finally {
-
-                    if (
-                        requestId ===
-                        trainRequestId.current
-                    ) {
-
-                        setTrainLoading(
-                            false
-                        );
-                    }
-                }
-
-            },
-            300
-        );
-
-    return () => {
-
-        clearTimeout(timer);
-
-        controller.abort();
-    };
-
-}, [
-    formData.trainNumber,
-]);
+    }, [
+        formData.trainNumber,
+    ]);
 
     // =====================================================
     // SELECT TRAIN
     // =====================================================
 
     const selectTrain = (
-    train
-) => {
+        train
+    ) => {
 
-    if (!train) {
-        return;
-    }
+        if (!train) {
+            return;
+        }
 
-    setFormData((prev) => ({
-        ...prev,
-        trainNumber:
-            train.trainNumber,
-    }));
+        setFormData((prev) => ({
+            ...prev,
+            trainNumber:
+                train.trainNumber,
+        }));
 
-    setTrainInfo({
-        trainNumber:
-            train.trainNumber,
+        setTrainInfo({
+            trainNumber:
+                train.trainNumber,
 
-        trainName:
-            train.trainName,
-    });
+            trainName:
+                train.trainName,
+        });
 
-    setTrainSuggestions([]);
+        setTrainSuggestions([]);
 
-    setTrainSuggestionVisible(
-        false
-    );
+        setTrainSuggestionVisible(
+            false
+        );
 
-    setTrainError("");
-    setError("");
+        setTrainError("");
+        setError("");
 
-    /*
-     * Classes will be reloaded by the
-     * existing class-loading effect.
-     */
-};
+        /*
+         * Classes will be loaded by the
+         * train metadata effect.
+         */
+    };
 
     // =====================================================
-    // LOAD ACTUAL TRAIN CLASSES
+    // LOAD TRAIN METADATA / CLASSES
+    //
+    // IMPORTANT:
+    // Uses the pre-chart /train/metadata endpoint.
+    // This does NOT depend on chart preparation.
     // =====================================================
 
     useEffect(() => {
 
         const trainNumber =
-            formData.trainNumber.trim();
+            String(
+                formData.trainNumber || ""
+            ).trim();
 
         const journeyDate =
-            formData.journeyDate.trim();
+            String(
+                formData.journeyDate || ""
+            ).trim();
 
-        const boardingStation =
-            formData.boardingStation
-                .trim()
-                .toUpperCase();
-
-        /*
-         * Every new dependency invalidates
-         * previous request.
-         */
         classRequestId.current += 1;
 
         const requestId =
             classRequestId.current;
 
-        /*
-         * Cancel previous class request.
-         */
         if (
             classAbortController.current
         ) {
             classAbortController.current.abort();
         }
 
-        /*
-         * Clear when incomplete.
-         */
         if (
             !/^\d{4,5}$/.test(
                 trainNumber
             ) ||
             !/^\d{4}-\d{2}-\d{2}$/.test(
                 journeyDate
-            ) ||
-            !/^[A-Z0-9]{2,10}$/.test(
-                boardingStation
             )
         ) {
 
@@ -875,20 +852,6 @@ useEffect(() => {
             setClassLoading(false);
             setClassError("");
 
-            return;
-        }
-
-        /*
-         * Do not load classes until the train
-         * itself has been verified.
-         */
-        if (
-            !trainInfo ||
-            trainInfo.trainNumber !==
-                trainNumber
-        ) {
-            setAvailableClasses([]);
-            setClassLoading(false);
             return;
         }
 
@@ -907,70 +870,151 @@ useEffect(() => {
 
                     try {
 
-                        const response =
-                            await getTrainClasses({
+                        console.log(
+                            "🚆 Loading train metadata:",
+                            {
                                 trainNumber,
                                 journeyDate,
-                                boardingStation,
+                            }
+                        );
+
+                        const response =
+                            await getTrainMetadata({
+                                trainNumber,
+                                journeyDate,
                                 signal:
                                     controller.signal,
                             });
 
                         if (
+                            controller.signal.aborted ||
                             requestId !==
-                            classRequestId.current
+                                classRequestId.current
                         ) {
                             return;
                         }
 
-                        const result =
-                            response?.data?.data;
+                        console.log(
+                            "📦 TRAIN METADATA RESPONSE:",
+                            response
+                        );
+
+                        /*
+                         * Axios response:
+                         *
+                         * response.data
+                         *     ↓
+                         * {
+                         *   success: true,
+                         *   message: "...",
+                         *   data: {
+                         *      classes: [...]
+                         *   }
+                         * }
+                         */
+
+                        const payload =
+                            response?.data ??
+                            response;
+
+                        const metadata =
+                            payload?.data ??
+                            payload;
 
                         const classes =
                             Array.isArray(
-                                result?.classes
+                                metadata?.classes
                             )
-                                ? result.classes
+                                ? metadata.classes
                                 : [];
 
-                        const normalized =
+                        console.log(
+                            "🎟️ RAW TRAIN CLASSES:",
                             classes
-                                .map((item) => {
+                        );
 
-                                    const code =
-                                        String(
-                                            item?.code ||
-                                            item?.classCode ||
-                                            ""
-                                        )
-                                            .trim()
-                                            .toUpperCase();
+                        // ---------------------------------
+                        // NORMALIZE CLASSES
+                        // ---------------------------------
 
-                                    if (
-                                        !code ||
-                                        !CLASS_NAMES[code]
-                                    ) {
-                                        return null;
+                        const normalizedClasses =
+                            classes
+                                .map(
+                                    (item) => {
+
+                                        let code =
+                                            "";
+
+                                        let name =
+                                            "";
+
+                                        if (
+                                            typeof item ===
+                                            "string"
+                                        ) {
+
+                                            code =
+                                                item
+                                                    .trim()
+                                                    .toUpperCase();
+
+                                            name =
+                                                CLASS_NAMES[
+                                                    code
+                                                ] ||
+                                                code;
+
+                                        } else if (
+                                            item &&
+                                            typeof item ===
+                                                "object"
+                                        ) {
+
+                                            code =
+                                                String(
+                                                    item.code ||
+                                                    item.classCode ||
+                                                    ""
+                                                )
+                                                    .trim()
+                                                    .toUpperCase();
+
+                                            name =
+                                                String(
+                                                    item.name ||
+                                                    CLASS_NAMES[
+                                                        code
+                                                    ] ||
+                                                    code
+                                                ).trim();
+                                        }
+
+                                        if (!code) {
+                                            return null;
+                                        }
+
+                                        return {
+                                            code,
+
+                                            name:
+                                                name ||
+                                                CLASS_NAMES[
+                                                    code
+                                                ] ||
+                                                code,
+                                        };
                                     }
-
-                                    return {
-                                        code,
-                                        name:
-                                            item?.name ||
-                                            CLASS_NAMES[
-                                                code
-                                            ],
-                                    };
-                                })
+                                )
                                 .filter(Boolean);
 
-                        /*
-                         * Remove duplicates.
-                         */
-                        const unique =
+                        // ---------------------------------
+                        // REMOVE DUPLICATES
+                        // ---------------------------------
+
+                        const uniqueClasses =
                             Array.from(
                                 new Map(
-                                    normalized.map(
+                                    normalizedClasses.map(
                                         (item) => [
                                             item.code,
                                             item,
@@ -979,13 +1023,21 @@ useEffect(() => {
                                 ).values()
                             );
 
+                        console.log(
+                            "✅ NORMALIZED TRAIN CLASSES:",
+                            uniqueClasses
+                        );
+
+                        // ---------------------------------
+                        // NO CLASSES
+                        // ---------------------------------
+
                         if (
-                            unique.length === 0
+                            uniqueClasses.length ===
+                            0
                         ) {
 
-                            setAvailableClasses(
-                                []
-                            );
+                            setAvailableClasses([]);
 
                             setFormData(
                                 (prev) => ({
@@ -996,28 +1048,40 @@ useEffect(() => {
                             );
 
                             setClassError(
-                                "No bookable class was found for this train."
+                                "No class information was found for this train."
                             );
 
                             return;
                         }
 
+                        // ---------------------------------
+                        // SET CLASSES
+                        // ---------------------------------
+
                         setAvailableClasses(
-                            unique
+                            uniqueClasses
                         );
 
-                        /*
-                         * Automatically choose the first
-                         * actual class.
-                         */
+                        setClassError("");
+
+                        // ---------------------------------
+                        // KEEP CURRENT CLASS IF VALID
+                        // OTHERWISE SELECT FIRST
+                        // ---------------------------------
+
                         setFormData(
                             (prev) => {
 
                                 const current =
-                                    prev.preferredClass;
+                                    String(
+                                        prev.preferredClass ||
+                                        ""
+                                    )
+                                        .trim()
+                                        .toUpperCase();
 
                                 const exists =
-                                    unique.some(
+                                    uniqueClasses.some(
                                         (item) =>
                                             item.code ===
                                             current
@@ -1029,7 +1093,7 @@ useEffect(() => {
                                     preferredClass:
                                         exists
                                             ? current
-                                            : unique[0]
+                                            : uniqueClasses[0]
                                                   .code,
                                 };
                             }
@@ -1057,13 +1121,11 @@ useEffect(() => {
                         }
 
                         console.error(
-                            "TRAIN CLASS ERROR:",
+                            "❌ TRAIN METADATA ERROR:",
                             classLoadError
                         );
 
-                        setAvailableClasses(
-                            []
-                        );
+                        setAvailableClasses([]);
 
                         setFormData(
                             (prev) => ({
@@ -1074,34 +1136,39 @@ useEffect(() => {
                         );
 
                         setClassError(
-                            "Unable to load actual train classes."
+                            classLoadError?.response?.data?.message ||
+                            classLoadError?.message ||
+                            "Unable to load train classes."
                         );
 
                     } finally {
 
                         if (
                             requestId ===
-                            classRequestId.current
+                                classRequestId.current &&
+                            !controller.signal.aborted
                         ) {
+
                             setClassLoading(
                                 false
                             );
                         }
                     }
+
                 },
                 250
             );
 
         return () => {
+
             clearTimeout(timer);
+
             controller.abort();
         };
 
     }, [
         formData.trainNumber,
         formData.journeyDate,
-        formData.boardingStation,
-        trainInfo,
     ]);
 
     // =====================================================
@@ -1139,9 +1206,16 @@ useEffect(() => {
                 field ===
                 "boardingStation"
             ) {
-                setBoardingSuggestions([]);
+
+                setBoardingSuggestions(
+                    []
+                );
+
             } else {
-                setDestinationSuggestions([]);
+
+                setDestinationSuggestions(
+                    []
+                );
             }
 
             setStationLoadingField(
@@ -1193,16 +1267,21 @@ useEffect(() => {
                 field ===
                 "boardingStation"
             ) {
+
                 setBoardingSuggestions(
                     normalized
                 );
+
             } else {
+
                 setDestinationSuggestions(
                     normalized
                 );
             }
 
-        } catch (searchError) {
+        } catch (
+            searchError
+        ) {
 
             console.error(
                 "STATION SEARCH ERROR:",
@@ -1213,9 +1292,16 @@ useEffect(() => {
                 field ===
                 "boardingStation"
             ) {
-                setBoardingSuggestions([]);
+
+                setBoardingSuggestions(
+                    []
+                );
+
             } else {
-                setDestinationSuggestions([]);
+
+                setDestinationSuggestions(
+                    []
+                );
             }
 
         } finally {
@@ -1230,6 +1316,7 @@ useEffect(() => {
                 requestId ===
                 latestRequestId
             ) {
+
                 setStationLoadingField(
                     null
                 );
@@ -1263,15 +1350,18 @@ useEffect(() => {
         }
 
         const timer =
-            setTimeout(() => {
+            setTimeout(
+                () => {
 
-                searchStations(
-                    "boardingStation",
-                    value,
-                    requestId
-                );
+                    searchStations(
+                        "boardingStation",
+                        value,
+                        requestId
+                    );
 
-            }, 350);
+                },
+                350
+            );
 
         return () =>
             clearTimeout(timer);
@@ -1306,15 +1396,18 @@ useEffect(() => {
         }
 
         const timer =
-            setTimeout(() => {
+            setTimeout(
+                () => {
 
-                searchStations(
-                    "destinationStation",
-                    value,
-                    requestId
-                );
+                    searchStations(
+                        "destinationStation",
+                        value,
+                        requestId
+                    );
 
-            }, 350);
+                },
+                350
+            );
 
         return () =>
             clearTimeout(timer);
@@ -1343,6 +1436,7 @@ useEffect(() => {
 
         setFormData((prev) => ({
             ...prev,
+
             [field]:
                 normalized.code,
         }));
@@ -1613,7 +1707,9 @@ useEffect(() => {
                 "/dashboard"
             );
 
-        } catch (submitError) {
+        } catch (
+            submitError
+        ) {
 
             console.error(
                 "❌ CREATE JOURNEY ERROR:",
@@ -1650,7 +1746,7 @@ useEffect(() => {
         }
     };
 
-    // =====================================================
+        // =====================================================
     // RENDER
     // =====================================================
 
@@ -1818,122 +1914,142 @@ useEffect(() => {
 
                         <div className="trainAutocompleteWrapper">
 
-                                <div className="inputWrapper trainInputWrapper">
+                            <div className="inputWrapper trainInputWrapper">
 
-                                    <span>
-                                        🚆
-                                    </span>
+                                <span>
+                                    🚆
+                                </span>
 
-                                    <input
-                                        id="trainNumber"
-                                        type="text"
-                                        name="trainNumber"
-                                        value={
-                                            formData.trainNumber
-                                        }
-                                        onChange={
-                                            handleChange
-                                        }
-                                        onFocus={() => {
-                                            const value =
-                                                formData.trainNumber.trim();
+                                <input
+                                    id="trainNumber"
+                                    type="text"
+                                    name="trainNumber"
+                                    value={
+                                        formData.trainNumber
+                                    }
+                                    onChange={
+                                        handleChange
+                                    }
+                                    onFocus={() => {
 
-                                            const matches =
-                                                LOCAL_TRAINS
-                                                    .filter((train) =>
+                                        const value =
+                                            formData.trainNumber.trim();
+
+                                        const matches =
+                                            LOCAL_TRAINS
+                                                .filter(
+                                                    (train) =>
                                                         train.trainNumber.startsWith(
                                                             value
                                                         )
-                                                    )
-                                                    .slice(0, 8);
+                                                )
+                                                .slice(
+                                                    0,
+                                                    8
+                                                );
 
-                                            setTrainSuggestions(matches);
+                                        setTrainSuggestions(
+                                            matches
+                                        );
 
-                                            setTrainSuggestionVisible(
-                                                matches.length > 0
-                                            );
-                                        }}
-                                        placeholder="Enter train number"
-                                        inputMode="numeric"
-                                        maxLength="5"
-                                        autoComplete="off"
-                                        required
-                                    />
+                                        setTrainSuggestionVisible(
+                                            matches.length >
+                                                0
+                                        );
+                                    }}
+                                    placeholder="Enter train number"
+                                    inputMode="numeric"
+                                    maxLength="5"
+                                    autoComplete="off"
+                                    required
+                                />
 
-                                    {trainInfo &&
-                                        !trainLoading &&
-                                        trainInfo.trainName && (
-                                            <span
-                                                className="trainInlineName"
-                                                title={
-                                                    trainInfo.trainName
-                                                }
-                                            >
-                                                {trainInfo.trainName}
-                                            </span>
-                                        )}
-
-                                    {trainLoading && (
-                                        <span className="trainSearchSpinner">
-                                            ⟳
+                                {trainInfo &&
+                                    !trainLoading &&
+                                    trainInfo.trainName && (
+                                        <span
+                                            className="trainInlineName"
+                                            title={
+                                                trainInfo.trainName
+                                            }
+                                        >
+                                            {
+                                                trainInfo.trainName
+                                            }
                                         </span>
                                     )}
 
+                                {trainLoading && (
+                                    <span className="trainSearchSpinner">
+                                        ⟳
+                                    </span>
+                                )}
+
+                            </div>
+
+                            {/* TRAIN SUGGESTION */}
+
+                            {trainSuggestionVisible &&
+                                trainSuggestions.length >
+                                    0 && (
+
+                                <div className="trainSuggestionsDropdown">
+
+                                    {trainSuggestions.map(
+                                        (
+                                            train
+                                        ) => (
+
+                                            <button
+                                                type="button"
+                                                key={
+                                                    train.trainNumber
+                                                }
+                                                className="trainSuggestion"
+                                                onMouseDown={(
+                                                    e
+                                                ) =>
+                                                    e.preventDefault()
+                                                }
+                                                onClick={() =>
+                                                    selectTrain(
+                                                        train
+                                                    )
+                                                }
+                                            >
+
+                                                <div className="trainSuggestionIcon">
+                                                    🚆
+                                                </div>
+
+                                                <div className="trainSuggestionContent">
+
+                                                    <strong>
+                                                        {
+                                                            train.trainNumber
+                                                        }
+                                                    </strong>
+
+                                                    <span>
+                                                        {
+                                                            train.trainName
+                                                        }
+                                                    </span>
+
+                                                </div>
+
+                                                <span className="trainSuggestionArrow">
+                                                    →
+                                                </span>
+
+                                            </button>
+                                        )
+                                    )}
+
                                 </div>
-
-                                {/* TRAIN SUGGESTION */}
-
-                                {trainSuggestionVisible &&
-    trainSuggestions.length > 0 && (
-        <div className="trainSuggestionsDropdown">
-
-            {trainSuggestions.map(
-                (train) => (
-                    <button
-                        type="button"
-                        key={
-                            train.trainNumber
-                        }
-                        className="trainSuggestion"
-                        onMouseDown={(e) =>
-                            e.preventDefault()
-                        }
-                        onClick={() =>
-                            selectTrain(
-                                train
-                            )
-                        }
-                    >
-
-                        <div className="trainSuggestionIcon">
-                            🚆
-                        </div>
-
-                        <div className="trainSuggestionContent">
-
-                            <strong>
-                                {
-                                    train.trainNumber
-                                }
-                            </strong>
-
-                            <span>
-                                {
-                                    train.trainName
-                                }
-                            </span>
+                            )}
 
                         </div>
-
-                         <span className="trainSuggestionArrow">
-                            →
-                        </span>
-                    </button>
-                ))}
-            </div>
-        )}
-
-</div>
 
                         {/* =================================================
                             DATE
@@ -2032,49 +2148,51 @@ useEffect(() => {
                                         "boardingStation" &&
                                         boardingSuggestions.length >
                                             0 && (
-                                            <div className="autocompleteDropdown">
 
-                                                {boardingSuggestions.map(
-                                                    (
-                                                        station
-                                                    ) => (
-                                                        <button
-                                                            type="button"
-                                                            key={
+                                        <div className="autocompleteDropdown">
+
+                                            {boardingSuggestions.map(
+                                                (
+                                                    station
+                                                ) => (
+
+                                                    <button
+                                                        type="button"
+                                                        key={
+                                                            station.code
+                                                        }
+                                                        className="stationSuggestion"
+                                                        onMouseDown={(
+                                                            e
+                                                        ) =>
+                                                            e.preventDefault()
+                                                        }
+                                                        onClick={() =>
+                                                            selectStation(
+                                                                "boardingStation",
+                                                                station
+                                                            )
+                                                        }
+                                                    >
+
+                                                        <strong>
+                                                            {
                                                                 station.code
                                                             }
-                                                            className="stationSuggestion"
-                                                            onMouseDown={(
-                                                                e
-                                                            ) =>
-                                                                e.preventDefault()
+                                                        </strong>
+
+                                                        <span>
+                                                            {
+                                                                station.name
                                                             }
-                                                            onClick={() =>
-                                                                selectStation(
-                                                                    "boardingStation",
-                                                                    station
-                                                                )
-                                                            }
-                                                        >
+                                                        </span>
 
-                                                            <strong>
-                                                                {
-                                                                    station.code
-                                                                }
-                                                            </strong>
+                                                    </button>
+                                                )
+                                            )}
 
-                                                            <span>
-                                                                {
-                                                                    station.name
-                                                                }
-                                                            </span>
-
-                                                        </button>
-                                                    )
-                                                )}
-
-                                            </div>
-                                        )}
+                                        </div>
+                                    )}
 
                                 </div>
 
@@ -2143,49 +2261,51 @@ useEffect(() => {
                                         "destinationStation" &&
                                         destinationSuggestions.length >
                                             0 && (
-                                            <div className="autocompleteDropdown">
 
-                                                {destinationSuggestions.map(
-                                                    (
-                                                        station
-                                                    ) => (
-                                                        <button
-                                                            type="button"
-                                                            key={
+                                        <div className="autocompleteDropdown">
+
+                                            {destinationSuggestions.map(
+                                                (
+                                                    station
+                                                ) => (
+
+                                                    <button
+                                                        type="button"
+                                                        key={
+                                                            station.code
+                                                        }
+                                                        className="stationSuggestion"
+                                                        onMouseDown={(
+                                                            e
+                                                        ) =>
+                                                            e.preventDefault()
+                                                        }
+                                                        onClick={() =>
+                                                            selectStation(
+                                                                "destinationStation",
+                                                                station
+                                                            )
+                                                        }
+                                                    >
+
+                                                        <strong>
+                                                            {
                                                                 station.code
                                                             }
-                                                            className="stationSuggestion"
-                                                            onMouseDown={(
-                                                                e
-                                                            ) =>
-                                                                e.preventDefault()
+                                                        </strong>
+
+                                                        <span>
+                                                            {
+                                                                station.name
                                                             }
-                                                            onClick={() =>
-                                                                selectStation(
-                                                                    "destinationStation",
-                                                                    station
-                                                                )
-                                                            }
-                                                        >
+                                                        </span>
 
-                                                            <strong>
-                                                                {
-                                                                    station.code
-                                                                }
-                                                            </strong>
+                                                    </button>
+                                                )
+                                            )}
 
-                                                            <span>
-                                                                {
-                                                                    station.name
-                                                                }
-                                                            </span>
-
-                                                        </button>
-                                                    )
-                                                )}
-
-                                            </div>
-                                        )}
+                                        </div>
+                                    )}
 
                                 </div>
 
@@ -2230,23 +2350,32 @@ useEffect(() => {
                                 >
 
                                     {!formData.trainNumber ||
-                                    !formData.journeyDate ||
-                                    !formData.boardingStation ? (
+                                    !formData.journeyDate ? (
+
                                         <option value="">
-                                            Select train, date & source
+                                            Select train & date
                                         </option>
+
                                     ) : classLoading ? (
+
                                         <option value="">
-                                            Loading actual classes...
+                                            Loading train classes...
                                         </option>
+
                                     ) : availableClasses.length ===
                                       0 ? (
+
                                         <option value="">
                                             No class available
                                         </option>
+
                                     ) : (
+
                                         availableClasses.map(
-                                            (item) => (
+                                            (
+                                                item
+                                            ) => (
+
                                                 <option
                                                     key={
                                                         item.code
@@ -2255,7 +2384,13 @@ useEffect(() => {
                                                         item.code
                                                     }
                                                 >
-                                                    {item.code} — {item.name}
+                                                    {
+                                                        item.code
+                                                    }{" "}
+                                                    —{" "}
+                                                    {
+                                                        item.name
+                                                    }
                                                 </option>
                                             )
                                         )
@@ -2267,24 +2402,26 @@ useEffect(() => {
 
                             {classLoading && (
                                 <small className="classLoadingText">
-                                    Loading actual classes from
-                                    train composition...
+                                    Loading classes from train metadata...
                                 </small>
                             )}
 
-                            {classError && !classLoading && (
-                                <small className="fieldError">
-                                    {classError}
-                                </small>
-                            )}
+                            {classError &&
+                                !classLoading && (
+                                    <small className="fieldError">
+                                        {
+                                            classError
+                                        }
+                                    </small>
+                                )}
 
                             {!classLoading &&
                                 !classError &&
                                 availableClasses.length >
                                     0 && (
+
                                     <small className="classVerified">
-                                        ✓ Actual classes available on
-                                        this train
+                                        ✓ Classes verified from train metadata
                                     </small>
                                 )}
 
@@ -2353,11 +2490,15 @@ useEffect(() => {
                         >
 
                             {loading ? (
+
                                 <>
                                     <span className="spinner" />
+
                                     Saving Journey...
                                 </>
+
                             ) : (
+
                                 <>
                                     Start Monitoring →
                                 </>
@@ -2382,6 +2523,7 @@ useEffect(() => {
 
             {trainSuggestionVisible &&
                 trainInfo && (
+
                     <div
                         className="trainOverlay"
                         onMouseDown={() =>
@@ -2390,6 +2532,7 @@ useEffect(() => {
                             )
                         }
                     />
+
                 )}
 
         </div>

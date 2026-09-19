@@ -1,10 +1,12 @@
 const express = require("express");
 const cors = require("cors");
 const helmet = require("helmet");
+
 const {
     rateLimit,
     ipKeyGenerator,
 } = require("express-rate-limit");
+
 
 // =========================================================
 // ROUTES
@@ -60,29 +62,78 @@ app.use(
 // =========================================================
 // CORS
 // =========================================================
+//
+// Local development:
+//   Frontend Vite:
+//   http://localhost:5173
+//
+//   Alternative Vite address:
+//   http://127.0.0.1:5173
+//
+//   Backend:
+//   http://localhost:5000
+//
+// =========================================================
 
 const allowedOrigins = [
     "http://localhost:5173",
+    "http://127.0.0.1:5173",
 ];
 
 app.use(
     cors({
+
         origin: (origin, callback) => {
 
+            // -------------------------------------------------
             // Allow requests without Origin
-            // such as Postman/server-to-server requests.
+            //
+            // Examples:
+            // - Postman
+            // - curl
+            // - server-to-server requests
+            // - internal backend requests
+            // -------------------------------------------------
+
             if (!origin) {
                 return callback(null, true);
             }
 
+
+            // -------------------------------------------------
+            // Allow registered frontend origins
+            // -------------------------------------------------
+
             if (allowedOrigins.includes(origin)) {
+
+                console.log(
+                    `✅ CORS allowed: ${origin}`
+                );
+
                 return callback(null, true);
             }
 
-            return callback(
-                new Error("CORS policy: Origin not allowed.")
+
+            // -------------------------------------------------
+            // Reject unknown origins
+            // -------------------------------------------------
+
+            console.error(
+                `❌ CORS blocked origin: ${origin}`
             );
+
+            return callback(
+                new Error(
+                    "CORS policy: Origin not allowed."
+                )
+            );
+
         },
+
+
+        // -----------------------------------------------------
+        // Allowed HTTP methods
+        // -----------------------------------------------------
 
         methods: [
             "GET",
@@ -93,12 +144,23 @@ app.use(
             "OPTIONS",
         ],
 
+
+        // -----------------------------------------------------
+        // Allowed request headers
+        // -----------------------------------------------------
+
         allowedHeaders: [
             "Content-Type",
             "Authorization",
         ],
 
+
+        // -----------------------------------------------------
+        // Cookies / authentication
+        // -----------------------------------------------------
+
         credentials: true,
+
     })
 );
 
@@ -215,8 +277,10 @@ const railwayApiLimiter =
         },
 
         keyGenerator: (req) => {
-    return ipKeyGenerator(req.ip);
-},
+
+            return ipKeyGenerator(req.ip);
+
+        },
 
     });
 

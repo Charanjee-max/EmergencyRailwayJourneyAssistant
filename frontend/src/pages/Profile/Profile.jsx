@@ -1,642 +1,881 @@
-import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import {
+    useEffect,
+    useMemo,
+    useState,
+} from "react";
 
 import {
-    getProfile,
-    updateProfile,
-} from "../../api/profileAPI";
+    useNavigate,
+} from "react-router-dom";
+
+import Navbar from "../../components/Navbar/Navbar";
 
 import "./Profile.css";
 
 
+// =========================================================
+// HELPERS
+// =========================================================
+
+const getStoredUser = () => {
+    try {
+        const storedUser =
+            localStorage.getItem("user");
+
+        if (!storedUser) {
+            return {};
+        }
+
+        const parsed =
+            JSON.parse(storedUser);
+
+        return (
+            parsed &&
+            typeof parsed === "object"
+                ? parsed
+                : {}
+        );
+
+    } catch {
+        return {};
+    }
+};
+
+
+const getInitials = (
+    name = ""
+) => {
+
+    const cleanName =
+        String(name)
+            .trim();
+
+    if (!cleanName) {
+        return "U";
+    }
+
+    const parts =
+        cleanName
+            .split(/\s+/)
+            .filter(Boolean);
+
+    if (parts.length === 1) {
+        return parts[0]
+            .slice(0, 2)
+            .toUpperCase();
+    }
+
+    return (
+        parts[0][0] +
+        parts[parts.length - 1][0]
+    ).toUpperCase();
+};
+
+
+const getDisplayValue = (
+    value,
+    fallback = "Not available"
+) => {
+
+    if (
+        value === null ||
+        value === undefined ||
+        String(value).trim() === ""
+    ) {
+        return fallback;
+    }
+
+    return String(value).trim();
+};
+
+
+// =========================================================
+// COMPONENT
+// =========================================================
+
 export default function Profile() {
 
-    const navigate = useNavigate();
-
-    const [profile, setProfile] = useState(null);
-
-    const [formData, setFormData] = useState({
-        fullName: "",
-        phoneNumber: "",
-    });
-
-    const [loading, setLoading] = useState(true);
-    const [saving, setSaving] = useState(false);
-
-    const [error, setError] = useState("");
-    const [success, setSuccess] = useState("");
+    const navigate =
+        useNavigate();
 
 
-    // =========================================
-    // LOAD PROFILE
-    // =========================================
+    // =====================================================
+    // USER
+    // =====================================================
 
-    const loadProfile = async () => {
+    const [
+        user,
+        setUser,
+    ] = useState(
+        getStoredUser()
+    );
 
-        try {
 
-            setLoading(true);
-            setError("");
+    // =====================================================
+    // UI
+    // =====================================================
 
-            const response = await getProfile();
+    const [
+        copied,
+        setCopied,
+    ] = useState(false);
 
-            const data = response?.data?.data;
 
-            if (!data) {
-                throw new Error(
-                    "Profile information was not returned."
-                );
-            }
-
-            setProfile(data);
-
-            setFormData({
-                fullName: data.fullName || "",
-                phoneNumber: data.phoneNumber || "",
-            });
-
-        } catch (err) {
-
-            console.error(
-                "Failed to load profile:",
-                err
-            );
-
-            setError(
-                err.response?.data?.message ||
-                "Unable to load your profile."
-            );
-
-        } finally {
-
-            setLoading(false);
-
-        }
-    };
-
+    // =====================================================
+    // LOAD USER
+    // =====================================================
 
     useEffect(() => {
-        loadProfile();
+
+        const refreshUser =
+            () => {
+
+                setUser(
+                    getStoredUser()
+                );
+            };
+
+        window.addEventListener(
+            "storage",
+            refreshUser
+        );
+
+        refreshUser();
+
+        return () => {
+
+            window.removeEventListener(
+                "storage",
+                refreshUser
+            );
+
+        };
+
     }, []);
 
 
-    // =========================================
-    // INPUT CHANGE
-    // =========================================
+    // =====================================================
+    // NORMALIZED USER VALUES
+    // =====================================================
 
-    const handleChange = (event) => {
+    const userName =
+        getDisplayValue(
+            user?.name ||
+            user?.fullName ||
+            user?.username ||
+            user?.userName,
+            "ERJA User"
+        );
 
-        const { name, value } = event.target;
+    const email =
+        getDisplayValue(
+            user?.email ||
+            user?.emailAddress
+        );
 
-        setFormData((previous) => ({
-            ...previous,
-            [name]: value,
-        }));
+    const phone =
+        getDisplayValue(
+            user?.phone ||
+            user?.mobile ||
+            user?.mobileNumber,
+            "Not provided"
+        );
 
-        setSuccess("");
-        setError("");
-    };
+    const userId =
+        getDisplayValue(
+            user?._id ||
+            user?.id ||
+            user?.userId,
+            "Not available"
+        );
+
+    const role =
+        getDisplayValue(
+            user?.role,
+            "USER"
+        )
+            .toUpperCase();
+
+    const initials =
+        useMemo(
+            () =>
+                getInitials(
+                    userName
+                ),
+            [userName]
+        );
 
 
-    // =========================================
-    // UPDATE PROFILE
-    // =========================================
+    // =====================================================
+    // MEMBER DATE
+    // =====================================================
 
-    const handleSubmit = async (event) => {
+    const memberSince =
+        user?.createdAt ||
+        user?.created_at;
 
-        event.preventDefault();
+    const formattedMemberSince =
+        memberSince
+            ? new Date(
+                memberSince
+            ).toLocaleDateString(
+                "en-IN",
+                {
+                    day: "2-digit",
+                    month: "short",
+                    year: "numeric",
+                }
+            )
+            : "Available in account data";
 
-        try {
 
-            setSaving(true);
+    // =====================================================
+    // COPY USER ID
+    // =====================================================
 
-            setError("");
-            setSuccess("");
+    const handleCopyUserId =
+        async () => {
 
-            const response =
-                await updateProfile(formData);
-
-            const updatedProfile =
-                response?.data?.data;
-
-            if (updatedProfile) {
-
-                setProfile(updatedProfile);
-
-                setFormData({
-                    fullName:
-                        updatedProfile.fullName || "",
-
-                    phoneNumber:
-                        updatedProfile.phoneNumber || "",
-                });
+            if (
+                !userId ||
+                userId === "Not available"
+            ) {
+                return;
             }
 
-            setSuccess(
-                "Profile updated successfully."
-            );
+            try {
 
-        } catch (err) {
+                await navigator.clipboard.writeText(
+                    userId
+                );
 
-            console.error(
-                "Failed to update profile:",
-                err
-            );
+                setCopied(true);
 
-            setError(
-                err.response?.data?.message ||
-                "Unable to update your profile."
-            );
+                window.setTimeout(
+                    () => {
+                        setCopied(false);
+                    },
+                    1800
+                );
 
-        } finally {
+            } catch {
 
-            setSaving(false);
+                setCopied(false);
 
-        }
-    };
+            }
+        };
 
 
-    // =========================================
+    // =====================================================
     // LOGOUT
-    // =========================================
+    // =====================================================
 
-    const handleLogout = () => {
+    const handleLogout =
+        () => {
 
-        localStorage.removeItem("token");
+            localStorage.removeItem(
+                "token"
+            );
 
-        navigate("/login");
-    };
+            localStorage.removeItem(
+                "user"
+            );
 
-
-    // =========================================
-    // LOADING
-    // =========================================
-
-    if (loading) {
-
-        return (
-            <div className="profile-page">
-
-                <div className="profile-state-card">
-
-                    <div className="profile-state-icon">
-                        👤
-                    </div>
-
-                    <span className="profile-eyebrow">
-                        ERJA USER PROFILE
-                    </span>
-
-                    <h2>
-                        Loading Profile
-                    </h2>
-
-                    <p>
-                        Fetching your account information...
-                    </p>
-
-                    <div className="profile-loading-bar">
-                        <div />
-                    </div>
-
-                </div>
-
-            </div>
-        );
-    }
+            navigate(
+                "/login",
+                {
+                    replace: true,
+                }
+            );
+        };
 
 
-    // =========================================
-    // ERROR
-    // =========================================
+    // =====================================================
+    // NAVIGATION
+    // =====================================================
 
-    if (error && !profile) {
+    const goToJourneys =
+        () => {
 
-        return (
-            <div className="profile-page">
-
-                <div className="profile-state-card">
-
-                    <div className="profile-state-icon">
-                        ⚠️
-                    </div>
-
-                    <span className="profile-eyebrow">
-                        ERJA USER PROFILE
-                    </span>
-
-                    <h2>
-                        Unable to Load Profile
-                    </h2>
-
-                    <p>
-                        {error}
-                    </p>
-
-                    <button
-                        className="profile-primary-btn"
-                        onClick={loadProfile}
-                    >
-                        Try Again
-                    </button>
-
-                </div>
-
-            </div>
-        );
-    }
+            navigate(
+                "/journeys"
+            );
+        };
 
 
-    // =========================================
-    // MAIN PAGE
-    // =========================================
+    const goToNotifications =
+        () => {
+
+            navigate(
+                "/notifications"
+            );
+        };
+
+
+    const goToAddJourney =
+        () => {
+
+            navigate(
+                "/add-journey"
+            );
+        };
+
+
+    // =====================================================
+    // RENDER
+    // =====================================================
 
     return (
-        <div className="profile-page">
 
-            <header className="profile-header">
+        <div className="profilePage">
 
-                <button
-                    className="profile-back-btn"
-                    onClick={() =>
-                        navigate("/dashboard")
-                    }
-                >
-                    ← Back to Dashboard
-                </button>
+            <Navbar />
 
-                <span className="profile-eyebrow">
-                    ERJA USER PROFILE
-                </span>
 
-                <h1>
-                    My Profile
-                </h1>
+            <main className="profileMain">
 
-                <p>
-                    Manage your personal information
-                    used by the Emergency Railway
-                    Journey Assistant.
-                </p>
+                {/* =================================================
+                    PAGE HEADER
+                ================================================= */}
 
-            </header>
-
-
-            <main className="profile-content">
-
-
-                {/* =================================
-                    PROFILE IDENTITY
-                ================================== */}
-
-                <section className="profile-identity-card">
-
-                    <div className="profile-avatar">
-                        {(profile?.fullName ||
-                            profile?.email ||
-                            "U")
-                            .charAt(0)
-                            .toUpperCase()}
-                    </div>
-
-                    <div className="profile-identity">
-
-                        <span>
-                            ERJA ACCOUNT
-                        </span>
-
-                        <h2>
-                            {profile?.fullName ||
-                                "ERJA User"}
-                        </h2>
-
-                        <p>
-                            {profile?.email ||
-                                "Email unavailable"}
-                        </p>
-
-                    </div>
-
-                    <div className="account-status">
-
-                        <span className="status-dot" />
-
-                        Active Account
-
-                    </div>
-
-                </section>
-
-
-                {/* =================================
-                    ALERTS
-                ================================== */}
-
-                {success && (
-                    <div className="profile-alert success">
-
-                        <span>✓</span>
-
-                        <p>
-                            {success}
-                        </p>
-
-                    </div>
-                )}
-
-
-                {error && (
-                    <div className="profile-alert error">
-
-                        <span>⚠</span>
-
-                        <p>
-                            {error}
-                        </p>
-
-                    </div>
-                )}
-
-
-                {/* =================================
-                    PROFILE FORM
-                ================================== */}
-
-                <section className="profile-panel">
-
-                    <div className="profile-panel-heading">
-
-                        <div className="panel-number">
-                            01
-                        </div>
-
-                        <div>
-
-                            <span>
-                                PERSONAL INFORMATION
-                            </span>
-
-                            <h2>
-                                Account Details
-                            </h2>
-
-                        </div>
-
-                    </div>
-
-
-                    <form
-                        className="profile-form"
-                        onSubmit={handleSubmit}
-                    >
-
-
-                        {/* FULL NAME */}
-
-                        <div className="profile-field">
-
-                            <label htmlFor="fullName">
-                                Full Name
-                            </label>
-
-                            <div className="profile-input-wrap">
-
-                                <span>
-                                    👤
-                                </span>
-
-                                <input
-                                    id="fullName"
-                                    name="fullName"
-                                    type="text"
-                                    value={
-                                        formData.fullName
-                                    }
-                                    onChange={
-                                        handleChange
-                                    }
-                                    placeholder="Enter your full name"
-                                    autoComplete="name"
-                                />
-
-                            </div>
-
-                        </div>
-
-
-                        {/* EMAIL */}
-
-                        <div className="profile-field">
-
-                            <label htmlFor="email">
-                                Email Address
-                            </label>
-
-                            <div className="profile-input-wrap disabled">
-
-                                <span>
-                                    ✉
-                                </span>
-
-                                <input
-                                    id="email"
-                                    type="email"
-                                    value={
-                                        profile?.email ||
-                                        ""
-                                    }
-                                    disabled
-                                />
-
-                                <small>
-                                    Verified
-                                </small>
-
-                            </div>
-
-                            <p className="field-note">
-                                Email address cannot be
-                                changed from your profile.
-                            </p>
-
-                        </div>
-
-
-                        {/* PHONE */}
-
-                        <div className="profile-field">
-
-                            <label htmlFor="phoneNumber">
-                                Phone Number
-                            </label>
-
-                            <div className="profile-input-wrap">
-
-                                <span>
-                                    📱
-                                </span>
-
-                                <input
-                                    id="phoneNumber"
-                                    name="phoneNumber"
-                                    type="tel"
-                                    value={
-                                        formData.phoneNumber
-                                    }
-                                    onChange={
-                                        handleChange
-                                    }
-                                    placeholder="Enter your phone number"
-                                    autoComplete="tel"
-                                />
-
-                            </div>
-
-                        </div>
-
-
-                        {/* ACTIONS */}
-
-                        <div className="profile-form-actions">
-
-                            <button
-                                type="submit"
-                                className="profile-save-btn"
-                                disabled={saving}
-                            >
-
-                                {saving
-                                    ? "Saving Changes..."
-                                    : "Save Changes"}
-
-                            </button>
-
-                            <button
-                                type="button"
-                                className="profile-cancel-btn"
-                                onClick={() =>
-                                    setFormData({
-                                        fullName:
-                                            profile?.fullName ||
-                                            "",
-
-                                        phoneNumber:
-                                            profile?.phoneNumber ||
-                                            "",
-                                    })
-                                }
-                                disabled={saving}
-                            >
-                                Reset
-                            </button>
-
-                        </div>
-
-                    </form>
-
-                </section>
-
-
-                {/* =================================
-                    ACCOUNT INFORMATION
-                ================================== */}
-
-                <section className="profile-panel">
-
-                    <div className="profile-panel-heading">
-
-                        <div className="panel-number">
-                            02
-                        </div>
-
-                        <div>
-
-                            <span>
-                                ACCOUNT
-                            </span>
-
-                            <h2>
-                                Account Information
-                            </h2>
-
-                        </div>
-
-                    </div>
-
-
-                    <div className="account-info-grid">
-
-                        <div className="account-info-item">
-
-                            <span>
-                                Account ID
-                            </span>
-
-                            <strong>
-                                {profile?._id ||
-                                    "Unavailable"}
-                            </strong>
-
-                        </div>
-
-
-                        <div className="account-info-item">
-
-                            <span>
-                                Member Since
-                            </span>
-
-                            <strong>
-                                {profile?.createdAt
-                                    ? new Date(
-                                        profile.createdAt
-                                    ).toLocaleDateString(
-                                        "en-IN",
-                                        {
-                                            day: "2-digit",
-                                            month: "short",
-                                            year: "numeric",
-                                        }
-                                    )
-                                    : "Unavailable"}
-                            </strong>
-
-                        </div>
-
-                    </div>
-
-                </section>
-
-
-                {/* =================================
-                    LOGOUT
-                ================================== */}
-
-                <section className="profile-logout-card">
+                <section className="profilePageHeader">
 
                     <div>
 
-                        <span>
-                            ACCOUNT SESSION
-                        </span>
+                        <div className="profileEyebrow">
+                            ERJA ACCOUNT
+                        </div>
 
-                        <h3>
-                            Sign out of ERJA
-                        </h3>
+                        <h1>
+                            My
+                            <span>
+                                Profile
+                            </span>
+                        </h1>
 
                         <p>
-                            You can sign in again at
-                            any time using your account.
+                            Manage your ERJA account
+                            information and view your
+                            account status.
                         </p>
 
                     </div>
 
-                    <button
-                        className="profile-logout-btn"
-                        onClick={handleLogout}
-                    >
-                        Sign Out
-                    </button>
+                    <div className="profileHeaderStatus">
+
+                        <span className="profileStatusDot" />
+
+                        <span>
+                            Account Active
+                        </span>
+
+                    </div>
+
+                </section>
+
+
+                {/* =================================================
+                    PROFILE HERO
+                ================================================= */}
+
+                <section className="profileHero">
+
+                    <div className="profileHeroGlow" />
+
+                    <div className="profileAvatar">
+
+                        <span>
+                            {initials}
+                        </span>
+
+                    </div>
+
+
+                    <div className="profileHeroInfo">
+
+                        <div className="profileHeroName">
+                            {userName}
+                        </div>
+
+                        <div className="profileHeroEmail">
+                            {email}
+                        </div>
+
+                        <div className="profileHeroMeta">
+
+                            <span>
+                                ● {role}
+                            </span>
+
+                            <span>
+                                ● ERJA Account
+                            </span>
+
+                        </div>
+
+                    </div>
+
+
+                    <div className="profileHeroAction">
+
+                        <button
+                            type="button"
+                            className="profilePrimaryButton"
+                            onClick={goToAddJourney}
+                        >
+                            <span>
+                                +
+                            </span>
+
+                            Add Journey
+                        </button>
+
+                    </div>
+
+                </section>
+
+
+                {/* =================================================
+                    CONTENT GRID
+                ================================================= */}
+
+                <section className="profileContentGrid">
+
+
+                    {/* =================================================
+                        PERSONAL INFORMATION
+                    ================================================= */}
+
+                    <div className="profileCard personalCard">
+
+                        <div className="profileCardHeader">
+
+                            <div>
+
+                                <span className="profileCardIcon">
+                                    👤
+                                </span>
+
+                                <div>
+
+                                    <h2>
+                                        Personal Information
+                                    </h2>
+
+                                    <p>
+                                        Information associated
+                                        with your ERJA account.
+                                    </p>
+
+                                </div>
+
+                            </div>
+
+                        </div>
+
+
+                        <div className="profileInfoGrid">
+
+                            <div className="profileInfoItem">
+
+                                <span>
+                                    FULL NAME
+                                </span>
+
+                                <strong>
+                                    {userName}
+                                </strong>
+
+                            </div>
+
+
+                            <div className="profileInfoItem">
+
+                                <span>
+                                    EMAIL ADDRESS
+                                </span>
+
+                                <strong>
+                                    {email}
+                                </strong>
+
+                            </div>
+
+
+                            <div className="profileInfoItem">
+
+                                <span>
+                                    MOBILE NUMBER
+                                </span>
+
+                                <strong>
+                                    {phone}
+                                </strong>
+
+                            </div>
+
+
+                            <div className="profileInfoItem">
+
+                                <span>
+                                    ACCOUNT ROLE
+                                </span>
+
+                                <strong>
+                                    {role}
+                                </strong>
+
+                            </div>
+
+                        </div>
+
+                    </div>
+
+
+                    {/* =================================================
+                        ACCOUNT INFORMATION
+                    ================================================= */}
+
+                    <div className="profileCard accountCard">
+
+                        <div className="profileCardHeader">
+
+                            <div>
+
+                                <span className="profileCardIcon">
+                                    🛡️
+                                </span>
+
+                                <div>
+
+                                    <h2>
+                                        Account
+                                    </h2>
+
+                                    <p>
+                                        Your ERJA account
+                                        status and identity.
+                                    </p>
+
+                                </div>
+
+                            </div>
+
+                        </div>
+
+
+                        <div className="accountRows">
+
+                            <div className="accountRow">
+
+                                <div className="accountRowLabel">
+
+                                    <span>
+                                        ACCOUNT STATUS
+                                    </span>
+
+                                    <strong>
+                                        Active
+                                    </strong>
+
+                                </div>
+
+                                <div className="accountBadge success">
+                                    ACTIVE
+                                </div>
+
+                            </div>
+
+
+                            <div className="accountRow">
+
+                                <div className="accountRowLabel">
+
+                                    <span>
+                                        MEMBER SINCE
+                                    </span>
+
+                                    <strong>
+                                        {formattedMemberSince}
+                                    </strong>
+
+                                </div>
+
+                                <span className="accountRowIcon">
+                                    📅
+                                </span>
+
+                            </div>
+
+
+                            <div className="accountRow">
+
+                                <div className="accountRowLabel">
+
+                                    <span>
+                                        USER ID
+                                    </span>
+
+                                    <strong className="userIdValue">
+                                        {userId}
+                                    </strong>
+
+                                </div>
+
+                                <button
+                                    type="button"
+                                    className="copyButton"
+                                    onClick={
+                                        handleCopyUserId
+                                    }
+                                    disabled={
+                                        userId ===
+                                        "Not available"
+                                    }
+                                >
+                                    {
+                                        copied
+                                            ? "Copied"
+                                            : "Copy"
+                                    }
+                                </button>
+
+                            </div>
+
+                        </div>
+
+                    </div>
+
+
+                    {/* =================================================
+                        ERJA ACTIVITY
+                    ================================================= */}
+
+                    <div className="profileCard activityCard">
+
+                        <div className="profileCardHeader">
+
+                            <div>
+
+                                <span className="profileCardIcon">
+                                    🚆
+                                </span>
+
+                                <div>
+
+                                    <h2>
+                                        ERJA Activity
+                                    </h2>
+
+                                    <p>
+                                        Quick access to your
+                                        railway monitoring tools.
+                                    </p>
+
+                                </div>
+
+                            </div>
+
+                        </div>
+
+
+                        <div className="activityGrid">
+
+                            <button
+                                type="button"
+                                className="activityItem"
+                                onClick={
+                                    goToJourneys
+                                }
+                            >
+
+                                <span className="activityIcon blue">
+                                    🚆
+                                </span>
+
+                                <span className="activityText">
+
+                                    <strong>
+                                        My Journeys
+                                    </strong>
+
+                                    <small>
+                                        View monitored
+                                        train journeys
+                                    </small>
+
+                                </span>
+
+                                <span className="activityArrow">
+                                    →
+                                </span>
+
+                            </button>
+
+
+                            <button
+                                type="button"
+                                className="activityItem"
+                                onClick={
+                                    goToNotifications
+                                }
+                            >
+
+                                <span className="activityIcon purple">
+                                    🔔
+                                </span>
+
+                                <span className="activityText">
+
+                                    <strong>
+                                        Notifications
+                                    </strong>
+
+                                    <small>
+                                        View journey and
+                                        chart updates
+                                    </small>
+
+                                </span>
+
+                                <span className="activityArrow">
+                                    →
+                                </span>
+
+                            </button>
+
+
+                            <button
+                                type="button"
+                                className="activityItem"
+                                onClick={
+                                    goToAddJourney
+                                }
+                            >
+
+                                <span className="activityIcon green">
+                                    +
+                                </span>
+
+                                <span className="activityText">
+
+                                    <strong>
+                                        New Journey
+                                    </strong>
+
+                                    <small>
+                                        Start monitoring
+                                        another train
+                                    </small>
+
+                                </span>
+
+                                <span className="activityArrow">
+                                    →
+                                </span>
+
+                            </button>
+
+                        </div>
+
+                    </div>
+
+
+                    {/* =================================================
+                        SECURITY / SESSION
+                    ================================================= */}
+
+                    <div className="profileCard securityCard">
+
+                        <div className="profileCardHeader">
+
+                            <div>
+
+                                <span className="profileCardIcon">
+                                    🔐
+                                </span>
+
+                                <div>
+
+                                    <h2>
+                                        Security
+                                    </h2>
+
+                                    <p>
+                                        Current authentication
+                                        session information.
+                                    </p>
+
+                                </div>
+
+                            </div>
+
+                        </div>
+
+
+                        <div className="securityStatus">
+
+                            <div className="securityStatusIcon">
+                                ✓
+                            </div>
+
+                            <div>
+
+                                <strong>
+                                    Session secured
+                                </strong>
+
+                                <span>
+                                    Your current ERJA
+                                    session is authenticated.
+                                </span>
+
+                            </div>
+
+                        </div>
+
+
+                        <button
+                            type="button"
+                            className="logoutLargeButton"
+                            onClick={
+                                handleLogout
+                            }
+                        >
+                            <span>
+                                ↪
+                            </span>
+
+                            Sign Out
+                        </button>
+
+                    </div>
+
+                </section>
+
+
+                {/* =================================================
+                    FOOTER NOTE
+                ================================================= */}
+
+                <section className="profileFooter">
+
+                    <div className="profileFooterMark">
+                        E
+                    </div>
+
+                    <div>
+
+                        <strong>
+                            Emergency Railway Journey Assistant
+                        </strong>
+
+                        <span>
+                            Your railway journey monitoring
+                            workspace.
+                        </span>
+
+                    </div>
 
                 </section>
 

@@ -10,26 +10,44 @@ import {
     useParams,
 } from "react-router-dom";
 
+import Navbar from "../../components/Navbar/Navbar";
+
 import { getJourneyById } from "../../api/journeyAPI";
 import { getRecommendations } from "../../api/recommendationAPI";
 
 import "./JourneyDetails.css";
 
+
 export default function JourneyDetails() {
+
     const { id } = useParams();
     const navigate = useNavigate();
 
-    const [journey, setJourney] = useState(null);
-    const [recommendations, setRecommendations] = useState([]);
 
-    const [loading, setLoading] = useState(true);
-    const [refreshing, setRefreshing] = useState(false);
+    // =========================================================
+    // STATE
+    // =========================================================
+
+    const [journey, setJourney] = useState(null);
+
+    const [recommendations, setRecommendations] =
+        useState([]);
+
+    const [loading, setLoading] =
+        useState(true);
+
+    const [refreshing, setRefreshing] =
+        useState(false);
+
     const [recommendationLoading, setRecommendationLoading] =
         useState(false);
 
-    const [error, setError] = useState("");
+    const [error, setError] =
+        useState("");
+
     const [recommendationError, setRecommendationError] =
         useState("");
+
 
     // =========================================================
     // LOAD JOURNEY
@@ -37,13 +55,21 @@ export default function JourneyDetails() {
 
     const loadJourney = useCallback(
         async (isRefresh = false) => {
+
             if (!id) {
-                setError("Journey ID is missing.");
+
+                setError(
+                    "Journey ID is missing."
+                );
+
                 setLoading(false);
+
                 return;
             }
 
+
             try {
+
                 if (isRefresh) {
                     setRefreshing(true);
                 } else {
@@ -52,296 +78,381 @@ export default function JourneyDetails() {
 
                 setError("");
 
+
                 const response =
                     await getJourneyById(id);
+
 
                 const data =
                     response?.data?.data;
 
+
                 if (!data) {
+
                     throw new Error(
                         "Journey information was not returned by the server."
                     );
                 }
 
+
                 setJourney(data);
+
             } catch (err) {
+
                 console.error(
                     "Failed to load journey:",
                     err
                 );
 
+
                 setError(
-                    err.response?.data?.message ||
-                    err.message ||
+                    err?.response?.data?.message ||
+                    err?.message ||
                     "Unable to load journey details."
                 );
+
             } finally {
+
                 setLoading(false);
                 setRefreshing(false);
             }
+
         },
         [id]
     );
+
 
     // =========================================================
     // LOAD RECOMMENDATIONS
     // =========================================================
 
     const loadRecommendations =
-        useCallback(async () => {
-            if (!id) {
-                return;
-            }
+        useCallback(
+            async () => {
 
-            try {
-                setRecommendationLoading(true);
-                setRecommendationError("");
+                if (!id) {
+                    return;
+                }
 
-                const response =
-                    await getRecommendations(id);
 
-                const data =
-                    response?.data?.data ??
-                    response?.data ??
-                    [];
+                try {
 
-                setRecommendations(
-                    Array.isArray(data)
-                        ? data
-                        : []
-                );
-            } catch (err) {
-                console.error(
-                    "Failed to load recommendations:",
-                    err
-                );
+                    setRecommendationLoading(
+                        true
+                    );
 
-                setRecommendations([]);
+                    setRecommendationError("");
 
-                /*
-                 * Recommendation data may legitimately be
-                 * unavailable before the chart is prepared.
-                 * Therefore this should not make the entire
-                 * Journey Details page fail.
-                 */
-                setRecommendationError(
-                    err.response?.data?.message ||
-                    err.message ||
-                    "Recommendations are not available yet."
-                );
-            } finally {
-                setRecommendationLoading(false);
-            }
-        }, [id]);
+
+                    const response =
+                        await getRecommendations(id);
+
+
+                    const data =
+                        response?.data?.data ??
+                        response?.data ??
+                        [];
+
+
+                    setRecommendations(
+                        Array.isArray(data)
+                            ? data
+                            : []
+                    );
+
+                } catch (err) {
+
+                    console.error(
+                        "Failed to load recommendations:",
+                        err
+                    );
+
+
+                    setRecommendations([]);
+
+
+                    setRecommendationError(
+                        err?.response?.data?.message ||
+                        err?.message ||
+                        "Recommendations are not available yet."
+                    );
+
+                } finally {
+
+                    setRecommendationLoading(
+                        false
+                    );
+                }
+
+            },
+            [id]
+        );
+
 
     // =========================================================
     // INITIAL LOAD
     // =========================================================
 
     useEffect(() => {
+
         loadJourney();
+
     }, [loadJourney]);
 
+
     useEffect(() => {
+
         loadRecommendations();
+
     }, [loadRecommendations]);
 
-    // =========================================================
-    // REFRESH EVERYTHING
-    // =========================================================
-
-    const handleRefresh = async () => {
-        await Promise.all([
-            loadJourney(true),
-            loadRecommendations(),
-        ]);
-    };
 
     // =========================================================
-    // DATE FORMATTERS
+    // REFRESH
     // =========================================================
 
-    const formatDate = (date) => {
-        if (!date) {
-            return "—";
-        }
+    const handleRefresh =
+        async () => {
 
-        const parsedDate =
-            new Date(date);
+            await Promise.all([
+                loadJourney(true),
+                loadRecommendations(),
+            ]);
 
-        if (
-            Number.isNaN(
-                parsedDate.getTime()
-            )
-        ) {
-            return "—";
-        }
+        };
 
-        return parsedDate.toLocaleDateString(
-            "en-IN",
-            {
-                day: "2-digit",
-                month: "short",
-                year: "numeric",
+
+    // =========================================================
+    // FORMAT DATE
+    // =========================================================
+
+    const formatDate =
+        (date) => {
+
+            if (!date) {
+                return "—";
             }
-        );
-    };
 
-    const formatDateTime = (date) => {
-        if (!date) {
-            return "Not available";
-        }
 
-        const parsedDate =
-            new Date(date);
+            const parsedDate =
+                new Date(date);
 
-        if (
-            Number.isNaN(
-                parsedDate.getTime()
-            )
-        ) {
-            return "Not available";
-        }
 
-        return parsedDate.toLocaleString(
-            "en-IN",
-            {
-                day: "2-digit",
-                month: "short",
-                year: "numeric",
-                hour: "2-digit",
-                minute: "2-digit",
+            if (
+                Number.isNaN(
+                    parsedDate.getTime()
+                )
+            ) {
+                return "—";
             }
-        );
-    };
 
-    // =========================================================
-    // STRATEGY
-    // =========================================================
 
-    const formatStrategy = (strategy) => {
-        if (!strategy) {
-            return "Single Ticket";
-        }
-
-        return String(strategy)
-            .replaceAll("_", " ")
-            .toLowerCase()
-            .replace(
-                /\b\w/g,
-                (char) =>
-                    char.toUpperCase()
+            return parsedDate.toLocaleDateString(
+                "en-IN",
+                {
+                    day: "2-digit",
+                    month: "short",
+                    year: "numeric",
+                }
             );
-    };
+        };
+
+
+    // =========================================================
+    // FORMAT DATE TIME
+    // =========================================================
+
+    const formatDateTime =
+        (date) => {
+
+            if (!date) {
+                return "Not available";
+            }
+
+
+            const parsedDate =
+                new Date(date);
+
+
+            if (
+                Number.isNaN(
+                    parsedDate.getTime()
+                )
+            ) {
+                return "Not available";
+            }
+
+
+            return parsedDate.toLocaleString(
+                "en-IN",
+                {
+                    day: "2-digit",
+                    month: "short",
+                    year: "numeric",
+                    hour: "2-digit",
+                    minute: "2-digit",
+                }
+            );
+        };
+
+
+    // =========================================================
+    // FORMAT STRATEGY
+    // =========================================================
+
+    const formatStrategy =
+        (strategy) => {
+
+            if (!strategy) {
+                return "Single Ticket";
+            }
+
+
+            return String(strategy)
+                .replaceAll("_", " ")
+                .toLowerCase()
+                .replace(
+                    /\b\w/g,
+                    (char) =>
+                        char.toUpperCase()
+                );
+        };
+
 
     // =========================================================
     // STATUS
     // =========================================================
 
-    const getStatusClass = (status) => {
-        return (
-            String(status || "PENDING")
+    const getStatusClass =
+        (status) => {
+
+            return String(
+                status || "PENDING"
+            )
                 .toLowerCase()
-                .replaceAll("_", "-")
-        );
-    };
+                .replaceAll("_", "-");
+        };
 
-    const getStatusIcon = (status) => {
-        switch (status) {
-            case "MONITORING":
-                return "📡";
 
-            case "RECOMMENDATION_READY":
-                return "✨";
+    const getStatusIcon =
+        (status) => {
 
-            case "CHART_PREPARED":
-                return "📋";
+            switch (status) {
 
-            case "COMPLETED":
-                return "✓";
+                case "MONITORING":
+                    return "📡";
 
-            case "CANCELLED":
-                return "✕";
+                case "RECOMMENDATION_READY":
+                    return "✨";
 
-            default:
-                return "⏳";
-        }
-    };
+                case "CHART_PREPARED":
+                    return "📋";
 
-    const getStatusText = (status) => {
-        switch (status) {
-            case "MONITORING":
-                return "Monitoring";
+                case "COMPLETED":
+                    return "✓";
 
-            case "RECOMMENDATION_READY":
-                return "Recommendation Ready";
+                case "CANCELLED":
+                    return "✕";
 
-            case "CHART_PREPARED":
-                return "Chart Prepared";
+                default:
+                    return "⏳";
+            }
+        };
 
-            case "COMPLETED":
-                return "Completed";
 
-            case "CANCELLED":
-                return "Cancelled";
+    const getStatusText =
+        (status) => {
 
-            default:
-                return "Pending";
-        }
-    };
+            switch (status) {
+
+                case "MONITORING":
+                    return "Monitoring";
+
+                case "RECOMMENDATION_READY":
+                    return "Recommendation Ready";
+
+                case "CHART_PREPARED":
+                    return "Chart Prepared";
+
+                case "COMPLETED":
+                    return "Completed";
+
+                case "CANCELLED":
+                    return "Cancelled";
+
+                default:
+                    return "Pending";
+            }
+        };
+
 
     // =========================================================
     // ENABLED CLASSES
     // =========================================================
 
-    const enabledClasses = useMemo(() => {
-        return (
-            journey?.allowedClasses?.filter(
-                (item) => item?.enabled
-            ) || []
+    const enabledClasses =
+        useMemo(
+            () => {
+
+                return (
+                    journey?.allowedClasses?.filter(
+                        (item) =>
+                            item?.enabled
+                    ) || []
+                );
+
+            },
+            [journey]
         );
-    }, [journey]);
+
 
     // =========================================================
-    // CHART INFORMATION
+    // CHART DATA
     // =========================================================
 
-    const chart = journey?.chart || {};
+    const chart =
+        journey?.chart || {};
+
 
     const chartPrepared =
         chart.chartPrepared === true ||
         chart.prepared === true;
 
+
     const chartOneDate =
-        chart.chartOneDate || null;
+        chart.chartOneDate ||
+        null;
+
 
     const chartTwoDate =
-        chart.chartTwoDate || null;
+        chart.chartTwoDate ||
+        null;
 
-    /*
-     * If chartTwoDate exists, the second/final chart
-     * has been prepared according to the data currently
-     * exposed by the backend.
-     */
+
     const finalChartPrepared =
         Boolean(chartTwoDate);
 
+
     // =========================================================
-    // RECOMMENDATION INFORMATION
+    // RECOMMENDATION DATA
     // =========================================================
 
     const recommendationCount =
         recommendations.length;
 
+
     const topRecommendation =
-        recommendations[0] || null;
+        recommendations[0] ||
+        null;
+
 
     const getRecommendationStrategy =
         (recommendation) => {
+
             if (!recommendation) {
                 return "No recommendation";
             }
+
 
             return formatStrategy(
                 recommendation.strategy ||
@@ -350,11 +461,14 @@ export default function JourneyDetails() {
             );
         };
 
+
     const getRecommendationScore =
         (recommendation) => {
+
             if (!recommendation) {
                 return "—";
             }
+
 
             return (
                 recommendation.score ??
@@ -363,8 +477,10 @@ export default function JourneyDetails() {
             );
         };
 
+
     const getRecommendationTickets =
         (recommendation) => {
+
             if (
                 !recommendation ||
                 !Array.isArray(
@@ -374,220 +490,284 @@ export default function JourneyDetails() {
                 return 0;
             }
 
+
             return recommendation.tickets.length;
         };
+
 
     // =========================================================
     // JOURNEY STATE
     // =========================================================
 
     const isCompleted =
-        journey.status === "COMPLETED";
+        journey?.status === "COMPLETED";
+
 
     const isCancelled =
-        journey.status === "CANCELLED";
+        journey?.status === "CANCELLED";
+
 
     const isActive =
         !isCompleted &&
         !isCancelled;
 
+
     // =========================================================
-    // LOADING
+    // LOADING SCREEN
     // =========================================================
 
     if (loading) {
+
         return (
             <div className="journey-details-page">
 
-                <div className="journey-state-card">
+                <Navbar />
 
-                    <div className="journey-state-icon">
-                        🚆
-                    </div>
+                <main className="journey-details-shell">
 
-                    <div className="details-page-label">
-                        ERJA JOURNEY MONITOR
-                    </div>
+                    <section className="journey-loading-card">
 
-                    <h2>
-                        Loading Journey
-                    </h2>
+                        <div className="loading-icon">
+                            🚆
+                        </div>
 
-                    <p>
-                        Fetching your journey details...
-                    </p>
+                        <span className="page-eyebrow">
+                            ERJA JOURNEY MONITOR
+                        </span>
 
-                    <div className="details-loading-bar">
-                        <div></div>
-                    </div>
+                        <h1>
+                            Loading Journey
+                        </h1>
 
-                </div>
+                        <p>
+                            Fetching your journey details
+                            and latest railway status.
+                        </p>
+
+                        <div className="loading-track">
+                            <div className="loading-progress"></div>
+                        </div>
+
+                    </section>
+
+                </main>
 
             </div>
         );
     }
 
+
     // =========================================================
-    // ERROR
+    // ERROR SCREEN
     // =========================================================
 
     if (error || !journey) {
+
         return (
             <div className="journey-details-page">
 
-                <div className="journey-state-card">
+                <Navbar />
 
-                    <div className="journey-state-icon">
-                        ⚠️
-                    </div>
+                <main className="journey-details-shell">
 
-                    <div className="details-page-label">
-                        ERJA JOURNEY MONITOR
-                    </div>
+                    <section className="journey-error-card">
 
-                    <h2>
-                        Journey Not Found
-                    </h2>
+                        <div className="error-icon">
+                            ⚠️
+                        </div>
 
-                    <p>
-                        {error ||
-                            "The requested journey could not be found."}
-                    </p>
+                        <span className="page-eyebrow">
+                            ERJA JOURNEY MONITOR
+                        </span>
 
-                    <div className="journey-state-actions">
+                        <h1>
+                            Journey Not Found
+                        </h1>
 
-                        <button
-                            className="primary-details-btn"
-                            onClick={() =>
-                                navigate("/dashboard")
-                            }
-                        >
-                            ← Back to Dashboard
-                        </button>
+                        <p>
+                            {error ||
+                                "The requested journey could not be found."}
+                        </p>
 
-                        <button
-                            className="secondary-action"
-                            onClick={() =>
-                                loadJourney()
-                            }
-                        >
-                            Try Again
-                        </button>
+                        <div className="error-actions">
 
-                    </div>
+                            <button
+                                className="primary-button"
+                                onClick={() =>
+                                    navigate(
+                                        "/dashboard"
+                                    )
+                                }
+                            >
+                                ← Dashboard
+                            </button>
 
-                </div>
+                            <button
+                                className="secondary-button"
+                                onClick={() =>
+                                    loadJourney()
+                                }
+                            >
+                                Try Again
+                            </button>
+
+                        </div>
+
+                    </section>
+
+                </main>
 
             </div>
         );
     }
+
+
+    // =========================================================
+    // MAIN UI
+    // =========================================================
 
     return (
         <div className="journey-details-page">
 
-            {/* =================================================
-                HEADER
-            ================================================= */}
+            <Navbar />
 
-            <header className="journey-details-header">
 
-                <div className="details-header-actions">
+            <main className="journey-details-shell">
 
-                    <button
-                        className="details-back-btn"
-                        onClick={() =>
-                            navigate("/dashboard")
-                        }
-                    >
-                        ← Back to Dashboard
-                    </button>
-
-                    <button
-                        className="refresh-details-btn"
-                        onClick={handleRefresh}
-                        disabled={
-                            refreshing ||
-                            recommendationLoading
-                        }
-                    >
-                        {refreshing ||
-                        recommendationLoading
-                            ? "Refreshing..."
-                            : "↻ Refresh"}
-                    </button>
-
-                </div>
-
-                <div className="details-page-label">
-                    ERJA JOURNEY MONITOR
-                </div>
-
-                <div className="details-heading-row">
-
-                    <div>
-
-                        <h1>
-                            Journey Details
-                        </h1>
-
-                        <p>
-                            Monitor your railway journey,
-                            chart preparation and ERJA
-                            booking recommendations.
-                        </p>
-
-                    </div>
-
-                    <div
-                        className={`journey-status-badge ${getStatusClass(
-                            journey.status
-                        )}`}
-                    >
-
-                        <span className="status-dot">
-                            {getStatusIcon(
-                                journey.status
-                            )}
-                        </span>
-
-                        {getStatusText(
-                            journey.status
-                        )}
-
-                    </div>
-
-                </div>
-
-            </header>
-
-            {/* =================================================
-                MAIN
-            ================================================= */}
-
-            <main className="journey-details-content">
 
                 {/* =================================================
-                    ROUTE CARD
+                    PAGE HEADER
                 ================================================= */}
 
-                <section className="route-card">
+                <section className="details-hero">
 
-                    <div className="route-card-top">
+                    <div className="hero-top-row">
 
-                        <div>
+                        <button
+                            className="back-button"
+                            onClick={() =>
+                                navigate(
+                                    "/dashboard"
+                                )
+                            }
+                        >
+                            ← Dashboard
+                        </button>
 
-                            <span className="card-eyebrow">
-                                TRAIN NUMBER
+
+                        <button
+                            className="refresh-button"
+                            onClick={
+                                handleRefresh
+                            }
+                            disabled={
+                                refreshing ||
+                                recommendationLoading
+                            }
+                        >
+                            <span>
+                                ↻
                             </span>
 
-                            <strong className="train-number">
-                                {journey.trainNumber ||
-                                    "—"}
-                            </strong>
+                            {refreshing ||
+                            recommendationLoading
+                                ? "Refreshing..."
+                                : "Refresh"}
+                        </button>
+
+                    </div>
+
+
+                    <div className="hero-content">
+
+                        <div className="hero-copy">
+
+                            <span className="page-eyebrow">
+                                ERJA JOURNEY MONITOR
+                            </span>
+
+                            <h1>
+                                Journey
+                                <span>
+                                    Details
+                                </span>
+                            </h1>
+
+                            <p>
+                                Monitor your railway
+                                journey, chart preparation,
+                                vacancy analysis and
+                                ERJA booking strategies.
+                            </p>
 
                         </div>
 
-                        <div className="journey-date-box">
+
+                        <div
+                            className={`hero-status ${getStatusClass(
+                                journey.status
+                            )}`}
+                        >
+
+                            <span className="hero-status-icon">
+                                {getStatusIcon(
+                                    journey.status
+                                )}
+                            </span>
+
+                            <div>
+
+                                <small>
+                                    CURRENT STATUS
+                                </small>
+
+                                <strong>
+                                    {getStatusText(
+                                        journey.status
+                                    )}
+                                </strong>
+
+                            </div>
+
+                        </div>
+
+                    </div>
+
+                </section>
+
+
+
+                {/* =================================================
+                    JOURNEY ROUTE
+                ================================================= */}
+
+                <section className="route-hero-card">
+
+                    <div className="route-card-header">
+
+                        <div>
+
+                            <span className="section-eyebrow">
+                                TRAIN
+                            </span>
+
+                            <div className="train-heading">
+
+                                <strong>
+                                    {journey.trainNumber ||
+                                        "—"}
+                                </strong>
+
+                                <span>
+                                    Journey
+                                </span>
+
+                            </div>
+
+                        </div>
+
+
+                        <div className="date-display">
 
                             <span>
                                 JOURNEY DATE
@@ -603,11 +783,12 @@ export default function JourneyDetails() {
 
                     </div>
 
-                    <div className="route-display">
 
-                        <div className="station">
+                    <div className="route-main">
 
-                            <span className="station-label">
+                        <div className="route-station source">
+
+                            <span className="station-caption">
                                 FROM
                             </span>
 
@@ -617,30 +798,40 @@ export default function JourneyDetails() {
                             </strong>
 
                             <small>
-                                Boarding Station
+                                Boarding station
                             </small>
 
                         </div>
 
-                        <div className="route-line">
 
-                            <div className="route-node"></div>
+                        <div className="route-visual">
 
-                            <div className="route-track"></div>
+                            <div className="route-line-top">
 
-                            <span className="route-train">
-                                🚆
-                            </span>
+                                <span className="route-dot"></span>
 
-                            <div className="route-track"></div>
+                                <span className="route-line"></span>
 
-                            <div className="route-node"></div>
+                                <span className="route-train-icon">
+                                    🚆
+                                </span>
+
+                                <span className="route-line"></span>
+
+                                <span className="route-dot"></span>
+
+                            </div>
+
+                            <div className="route-arrow-label">
+                                JOURNEY ROUTE
+                            </div>
 
                         </div>
 
-                        <div className="station destination">
 
-                            <span className="station-label">
+                        <div className="route-station destination">
+
+                            <span className="station-caption">
                                 TO
                             </span>
 
@@ -650,7 +841,7 @@ export default function JourneyDetails() {
                             </strong>
 
                             <small>
-                                Passenger Destination
+                                Passenger destination
                             </small>
 
                         </div>
@@ -659,22 +850,24 @@ export default function JourneyDetails() {
 
                 </section>
 
+
+
                 {/* =================================================
-                    TOP INFORMATION
+                    KPI CARDS
                 ================================================= */}
 
-                <section className="details-grid">
+                <section className="details-kpi-grid">
 
-                    <div className="info-card">
+                    <div className="kpi-card">
 
-                        <div className="info-icon blue">
+                        <div className="kpi-icon blue">
                             📡
                         </div>
 
-                        <div>
+                        <div className="kpi-content">
 
                             <span>
-                                Journey Status
+                                JOURNEY STATUS
                             </span>
 
                             <strong>
@@ -691,16 +884,17 @@ export default function JourneyDetails() {
 
                     </div>
 
-                    <div className="info-card">
 
-                        <div className="info-icon green">
+                    <div className="kpi-card">
+
+                        <div className="kpi-icon green">
                             📋
                         </div>
 
-                        <div>
+                        <div className="kpi-content">
 
                             <span>
-                                Chart Status
+                                CHART STATUS
                             </span>
 
                             <strong>
@@ -710,33 +904,66 @@ export default function JourneyDetails() {
                             </strong>
 
                             <small>
-                                IRCTC chart status
+                                IRCTC chart state
                             </small>
 
                         </div>
 
                     </div>
 
-                    <div className="info-card">
 
-                        <div className="info-icon orange">
+                    <div className="kpi-card">
+
+                        <div className="kpi-icon orange">
                             ✨
                         </div>
 
-                        <div>
+                        <div className="kpi-content">
 
                             <span>
-                                Recommendations
+                                RECOMMENDATIONS
                             </span>
 
                             <strong>
                                 {recommendationLoading
-                                    ? "Checking..."
+                                    ? "..."
                                     : recommendationCount}
                             </strong>
 
                             <small>
-                                Active ERJA strategies
+                                Available strategies
+                            </small>
+
+                        </div>
+
+                    </div>
+
+
+                    <div className="kpi-card">
+
+                        <div className="kpi-icon purple">
+                            🎫
+                        </div>
+
+                        <div className="kpi-content">
+
+                            <span>
+                                PREFERRED CLASS
+                            </span>
+
+                            <strong>
+                                {enabledClasses.length > 0
+                                    ? enabledClasses
+                                          .map(
+                                              (item) =>
+                                                  item.class
+                                          )
+                                          .join(", ")
+                                    : "Not specified"}
+                            </strong>
+
+                            <small>
+                                Booking preference
                             </small>
 
                         </div>
@@ -745,49 +972,73 @@ export default function JourneyDetails() {
 
                 </section>
 
+
+
                 {/* =================================================
-                    CHART STATUS
+                    CHART PREPARATION
                 ================================================= */}
 
-                <section className="details-panel chart-status-panel">
+                <section className="glass-panel">
 
-                    <div className="panel-heading">
+                    <div className="panel-header">
 
-                        <div className="panel-number">
-                            01
-                        </div>
+                        <div className="panel-title-group">
 
-                        <div>
-
-                            <span>
-                                IRCTC CHART
+                            <span className="panel-number">
+                                01
                             </span>
 
-                            <h2>
-                                Chart Preparation
-                            </h2>
+                            <div>
 
+                                <span className="section-eyebrow">
+                                    IRCTC CHART
+                                </span>
+
+                                <h2>
+                                    Chart Preparation
+                                </h2>
+
+                            </div>
+
+                        </div>
+
+
+                        <div
+                            className={`panel-status ${
+                                chartPrepared
+                                    ? "success"
+                                    : "waiting"
+                            }`}
+                        >
+                            <span></span>
+
+                            {chartPrepared
+                                ? "Chart Prepared"
+                                : "Waiting"}
                         </div>
 
                     </div>
 
+
                     <div className="chart-timeline">
 
                         <div
-                            className={`chart-step ${
+                            className={`timeline-item ${
                                 chartOneDate
-                                    ? "completed-step"
+                                    ? "completed"
                                     : ""
                             }`}
                         >
 
-                            <div className="chart-step-icon">
+                            <div className="timeline-marker">
+
                                 {chartOneDate
                                     ? "✓"
                                     : "1"}
+
                             </div>
 
-                            <div>
+                            <div className="timeline-content">
 
                                 <span>
                                     FIRST CHART
@@ -809,23 +1060,27 @@ export default function JourneyDetails() {
 
                         </div>
 
-                        <div className="chart-timeline-line"></div>
+
+                        <div className="timeline-connector"></div>
+
 
                         <div
-                            className={`chart-step ${
+                            className={`timeline-item ${
                                 finalChartPrepared
-                                    ? "completed-step"
+                                    ? "completed"
                                     : ""
                             }`}
                         >
 
-                            <div className="chart-step-icon">
+                            <div className="timeline-marker">
+
                                 {finalChartPrepared
                                     ? "✓"
                                     : "2"}
+
                             </div>
 
-                            <div>
+                            <div className="timeline-content">
 
                                 <span>
                                     SECOND / FINAL CHART
@@ -849,101 +1104,129 @@ export default function JourneyDetails() {
 
                     </div>
 
-                    <div className="chart-source-note">
+
+                    <div className="info-strip">
 
                         <span>
-                            ℹ️
+                            ℹ
                         </span>
 
                         <p>
-                            ERJA uses the expected chart
-                            window to decide when to query
-                            IRCTC. The actual preparation
-                            status shown here comes from
-                            IRCTC chart data.
+                            ERJA uses the chart preparation
+                            state to determine when vacancy
+                            analysis should begin.
                         </p>
 
                     </div>
 
                 </section>
 
+
+
                 {/* =================================================
-                    TWO COLUMN DETAILS
+                    TWO COLUMN INFORMATION
                 ================================================= */}
 
-                <div className="details-two-column">
+                <section className="details-two-column">
+
 
                     {/* =================================================
-                        BOOKING CONFIGURATION
+                        BOOKING PREFERENCES
                     ================================================= */}
 
-                    <section className="details-panel">
+                    <div className="glass-panel">
 
-                        <div className="panel-heading">
+                        <div className="panel-header">
 
-                            <div className="panel-number">
-                                02
-                            </div>
+                            <div className="panel-title-group">
 
-                            <div>
-
-                                <span>
-                                    JOURNEY CONFIGURATION
+                                <span className="panel-number">
+                                    02
                                 </span>
 
-                                <h2>
-                                    Booking Preferences
-                                </h2>
+                                <div>
+
+                                    <span className="section-eyebrow">
+                                        CONFIGURATION
+                                    </span>
+
+                                    <h2>
+                                        Booking Preferences
+                                    </h2>
+
+                                </div>
 
                             </div>
 
                         </div>
 
+
                         <div className="preference-list">
 
-                            <div className="preference-row">
+                            <div className="preference-item">
 
-                                <span>
-                                    Preferred Class
-                                </span>
+                                <div className="preference-label">
+                                    <span>
+                                        Preferred Class
+                                    </span>
 
-                                <div className="class-list">
+                                    <small>
+                                        Selected booking class
+                                    </small>
+                                </div>
+
+                                <div className="class-badges">
 
                                     {enabledClasses.length >
                                     0 ? (
+
                                         enabledClasses.map(
                                             (item) => (
+
                                                 <span
-                                                    className="details-class-badge"
+                                                    className="class-badge"
                                                     key={
                                                         item.class
                                                     }
                                                 >
                                                     {item.class}
                                                 </span>
+
                                             )
                                         )
+
                                     ) : (
+
                                         <strong>
                                             Not specified
                                         </strong>
+
                                     )}
 
                                 </div>
 
                             </div>
 
-                            <div className="preference-row">
 
-                                <span>
-                                    Mixed Class
-                                </span>
+                            <div className="preference-item">
+
+                                <div className="preference-label">
+
+                                    <span>
+                                        Mixed Class
+                                    </span>
+
+                                    <small>
+                                        Allow different classes
+                                    </small>
+
+                                </div>
 
                                 <strong
                                     className={
                                         journey.allowMixedClass
-                                            ? "enabled-text"
-                                            : "disabled-text"
+                                            ? "value-positive"
+                                            : "value-muted"
                                     }
                                 >
                                     {journey.allowMixedClass
@@ -953,11 +1236,20 @@ export default function JourneyDetails() {
 
                             </div>
 
-                            <div className="preference-row">
 
-                                <span>
-                                    Preferred Strategy
-                                </span>
+                            <div className="preference-item">
+
+                                <div className="preference-label">
+
+                                    <span>
+                                        Preferred Strategy
+                                    </span>
+
+                                    <small>
+                                        Journey optimization
+                                    </small>
+
+                                </div>
 
                                 <strong>
                                     {formatStrategy(
@@ -967,11 +1259,20 @@ export default function JourneyDetails() {
 
                             </div>
 
-                            <div className="preference-row">
 
-                                <span>
-                                    Journey Created
-                                </span>
+                            <div className="preference-item">
+
+                                <div className="preference-label">
+
+                                    <span>
+                                        Journey Created
+                                    </span>
+
+                                    <small>
+                                        ERJA registration time
+                                    </small>
+
+                                </div>
 
                                 <strong>
                                     {formatDateTime(
@@ -983,49 +1284,61 @@ export default function JourneyDetails() {
 
                         </div>
 
-                    </section>
+                    </div>
+
+
 
                     {/* =================================================
-                        MONITORING
+                        MONITORING STATE
                     ================================================= */}
 
-                    <section className="details-panel">
+                    <div className="glass-panel">
 
-                        <div className="panel-heading">
+                        <div className="panel-header">
 
-                            <div className="panel-number">
-                                03
-                            </div>
+                            <div className="panel-title-group">
 
-                            <div>
-
-                                <span>
-                                    ERJA MONITORING
+                                <span className="panel-number">
+                                    03
                                 </span>
 
-                                <h2>
-                                    Monitoring State
-                                </h2>
+                                <div>
+
+                                    <span className="section-eyebrow">
+                                        ERJA MONITORING
+                                    </span>
+
+                                    <h2>
+                                        Monitoring State
+                                    </h2>
+
+                                </div>
 
                             </div>
 
                         </div>
 
+
                         <div
-                            className={`monitor-box ${
+                            className={`monitoring-card ${
                                 isActive
-                                    ? "has-monitor-data"
-                                    : ""
+                                    ? "active"
+                                    : isCompleted
+                                    ? "completed"
+                                    : "cancelled"
                             }`}
                         >
 
-                            <div className="monitor-status-icon">
+                            <div className="monitoring-icon">
+
                                 {isCompleted
                                     ? "✓"
                                     : isCancelled
                                     ? "✕"
                                     : "📡"}
+
                             </div>
+
 
                             <div>
 
@@ -1038,48 +1351,51 @@ export default function JourneyDetails() {
                                 </strong>
 
                                 <p>
-                                    Last monitoring check:{" "}
+                                    Last monitoring check
+                                </p>
+
+                                <span>
                                     {formatDateTime(
                                         journey.lastCheckedAt
                                     )}
-                                </p>
+                                </span>
 
                             </div>
 
                         </div>
 
-                        <div className="monitor-note">
+
+                        <div className="info-strip">
 
                             <span>
-                                ℹ️
+                                ℹ
                             </span>
 
                             <p>
-                                ERJA does not use RailRadar
-                                seat availability for this
-                                workflow. Vacancy analysis
-                                is performed from the IRCTC
-                                chart workflow after chart
-                                preparation.
+                                Vacancy analysis is performed
+                                through the IRCTC chart workflow
+                                after chart preparation.
                             </p>
 
                         </div>
 
-                    </section>
+                    </div>
 
-                </div>
+                </section>
+
+
 
                 {/* =================================================
-                    RECOMMENDATION SUMMARY
+                    RECOMMENDATION
                 ================================================= */}
 
-                <section className="recommendation-summary-panel">
+                <section className="recommendation-panel">
 
-                    <div className="recommendation-summary-header">
+                    <div className="recommendation-header">
 
                         <div>
 
-                            <span>
+                            <span className="section-eyebrow">
                                 ERJA OPTIMIZATION
                             </span>
 
@@ -1087,27 +1403,37 @@ export default function JourneyDetails() {
                                 Booking Recommendation
                             </h2>
 
+                            <p>
+                                Practical booking strategies
+                                generated from the latest
+                                railway availability data.
+                            </p>
+
                         </div>
 
-                        <div className="recommendation-count-badge">
+
+                        <div className="recommendation-count">
+
                             {recommendationLoading
-                                ? "Checking"
+                                ? "Checking..."
                                 : `${recommendationCount} Available`}
+
                         </div>
 
                     </div>
+
 
                     {recommendationLoading ? (
 
                         <div className="recommendation-empty">
 
-                            <div className="recommendation-empty-icon">
+                            <div className="empty-icon">
                                 🔎
                             </div>
 
-                            <strong>
-                                Checking recommendations...
-                            </strong>
+                            <h3>
+                                Checking recommendations
+                            </h3>
 
                             <p>
                                 ERJA is checking the latest
@@ -1120,14 +1446,15 @@ export default function JourneyDetails() {
 
                         <div className="recommendation-highlight">
 
-                            <div className="recommendation-main-icon">
+                            <div className="recommendation-icon">
                                 ✨
                             </div>
 
-                            <div className="recommendation-main-content">
+
+                            <div className="recommendation-details">
 
                                 <span>
-                                    TOP STRATEGY
+                                    TOP AVAILABLE STRATEGY
                                 </span>
 
                                 <h3>
@@ -1138,47 +1465,58 @@ export default function JourneyDetails() {
 
                                 <p>
                                     {topRecommendation.reason ||
-                                        "ERJA has generated a booking strategy based on the available chart data."}
+                                        "ERJA generated this booking strategy using the latest available chart data."}
                                 </p>
 
-                                <div className="recommendation-meta">
+
+                                <div className="recommendation-stats">
 
                                     <div>
+
                                         <span>
                                             SCORE
                                         </span>
+
                                         <strong>
                                             {getRecommendationScore(
                                                 topRecommendation
                                             )}
                                         </strong>
+
                                     </div>
 
+
                                     <div>
+
                                         <span>
                                             TICKETS
                                         </span>
+
                                         <strong>
                                             {getRecommendationTickets(
                                                 topRecommendation
                                             )}
                                         </strong>
+
                                     </div>
 
                                 </div>
 
                             </div>
 
+
                             <button
-                                className="recommendation-view-btn"
+                                className="view-recommendation-button"
                                 onClick={() =>
                                     navigate(
                                         `/recommendation/${id}`
                                     )
                                 }
                             >
-                                View All
-                                <span>→</span>
+                                View Recommendations
+                                <span>
+                                    →
+                                </span>
                             </button>
 
                         </div>
@@ -1187,23 +1525,23 @@ export default function JourneyDetails() {
 
                         <div className="recommendation-empty">
 
-                            <div className="recommendation-empty-icon">
+                            <div className="empty-icon">
                                 {chartPrepared
                                     ? "🔎"
                                     : "⏳"}
                             </div>
 
-                            <strong>
+                            <h3>
                                 {chartPrepared
                                     ? "No recommendation available"
                                     : "Waiting for chart preparation"}
-                            </strong>
+                            </h3>
 
                             <p>
                                 {recommendationError ||
                                     (chartPrepared
                                         ? "IRCTC has not returned a usable vacancy combination for this journey yet."
-                                        : "ERJA will analyze vacancy only after the required IRCTC chart is prepared.")}
+                                        : "ERJA will analyze vacancy after the required IRCTC chart is prepared.")}
                             </p>
 
                         </div>
@@ -1212,40 +1550,45 @@ export default function JourneyDetails() {
 
                 </section>
 
+
+
                 {/* =================================================
-                    AVAILABILITY WARNING
+                    AVAILABILITY NOTICE
                 ================================================= */}
 
-                <section className="availability-warning">
+                <section className="availability-notice">
 
-                    <div className="availability-warning-icon">
+                    <div className="notice-icon">
                         ⚠️
                     </div>
 
                     <div>
 
                         <strong>
-                            Important availability notice
+                            Availability can change at any time
                         </strong>
 
                         <p>
-                            Berth availability may change at
-                            any time. Recommended berths may
-                            become unavailable or be booked by
-                            other passengers before you complete
-                            your booking.
+                            Recommended berths may become
+                            unavailable or be booked by another
+                            passenger before you complete your
+                            reservation. Always verify the latest
+                            availability before booking.
                         </p>
 
                     </div>
 
                 </section>
 
+
+
                 {/* =================================================
-                    COMPLETION INFORMATION
+                    COMPLETED JOURNEY
                 ================================================= */}
 
                 {isCompleted && (
-                    <section className="completion-card">
+
+                    <section className="completion-panel">
 
                         <div className="completion-icon">
                             ✓
@@ -1281,16 +1624,19 @@ export default function JourneyDetails() {
                         </div>
 
                     </section>
+
                 )}
 
+
+
                 {/* =================================================
-                    ACTIONS
+                    BOTTOM ACTIONS
                 ================================================= */}
 
                 <section className="journey-actions">
 
                     <button
-                        className="recommendation-action"
+                        className="primary-action-card"
                         onClick={() =>
                             navigate(
                                 `/recommendation/${id}`
@@ -1298,7 +1644,7 @@ export default function JourneyDetails() {
                         }
                     >
 
-                        <span>
+                        <span className="action-icon">
                             ✨
                         </span>
 
@@ -1309,27 +1655,59 @@ export default function JourneyDetails() {
                             </strong>
 
                             <small>
-                                See ERJA's booking strategies
+                                Explore ERJA booking strategies
                             </small>
 
                         </div>
 
-                        <b>
+                        <span className="action-arrow">
                             →
-                        </b>
+                        </span>
 
                     </button>
 
+
                     <button
-                        className="secondary-action"
+                        className="secondary-action-card"
                         onClick={() =>
-                            navigate("/journeys")
+                            navigate(
+                                "/journeys"
+                            )
                         }
                     >
+
+                        <span>
+                            🚆
+                        </span>
+
                         View All Journeys
+
                     </button>
 
                 </section>
+
+
+                {/* =================================================
+                    FOOTER
+                ================================================= */}
+
+                <footer className="journey-details-footer">
+
+                    <span className="footer-live">
+
+                        <i></i>
+
+                        ERJA monitoring system active
+
+                    </span>
+
+
+                    <span>
+                        Emergency Railway Journey Assistant
+                    </span>
+
+                </footer>
+
 
             </main>
 

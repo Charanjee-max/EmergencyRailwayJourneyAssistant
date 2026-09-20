@@ -4,12 +4,21 @@ import {
     Navigate,
 } from "react-router-dom";
 
+
+// =========================================================
+// PUBLIC
+// =========================================================
+
+import Home from "../pages/Home/Home";
+
+
 // =========================================================
 // AUTH
 // =========================================================
 
 import Login from "../pages/Login/Login";
 import Signup from "../pages/Signup/Signup";
+
 
 // =========================================================
 // MAIN PAGES
@@ -20,13 +29,21 @@ import Journeys from "../pages/Journeys/Journeys";
 import AddJourney from "../pages/AddJourney/AddJourney";
 import Recommendation from "../pages/Recommendation/Recommendation";
 
+
 // =========================================================
 // USER PAGES
 // =========================================================
 
 import Profile from "../pages/Profile/Profile";
 import Notifications from "../pages/Notifications/Notifications";
+
+
+// =========================================================
+// HELP
+// =========================================================
+
 import Help from "../pages/Help/Help";
+
 
 // =========================================================
 // PNR
@@ -34,23 +51,32 @@ import Help from "../pages/Help/Help";
 
 import PNR from "../pages/PNR/PNR";
 
+
+// =========================================================
+// ROUTES
+// =========================================================
+
 function AppRoutes() {
+
     return (
+
         <Routes>
 
-            {/* DEFAULT */}
+            {/* =================================================
+                PUBLIC HOME
+            ================================================= */}
 
             <Route
                 path="/"
                 element={
-                    <Navigate
-                        to="/login"
-                        replace
-                    />
+                    <Home />
                 }
             />
 
-            {/* LOGIN */}
+
+            {/* =================================================
+                LOGIN
+            ================================================= */}
 
             <Route
                 path="/login"
@@ -59,7 +85,10 @@ function AppRoutes() {
                 }
             />
 
-            {/* SIGNUP */}
+
+            {/* =================================================
+                SIGNUP
+            ================================================= */}
 
             <Route
                 path="/signup"
@@ -68,7 +97,10 @@ function AppRoutes() {
                 }
             />
 
-            {/* DASHBOARD */}
+
+            {/* =================================================
+                DASHBOARD
+            ================================================= */}
 
             <Route
                 path="/dashboard"
@@ -77,7 +109,10 @@ function AppRoutes() {
                 }
             />
 
-            {/* ALL JOURNEYS */}
+
+            {/* =================================================
+                ALL JOURNEYS
+            ================================================= */}
 
             <Route
                 path="/journeys"
@@ -86,7 +121,10 @@ function AppRoutes() {
                 }
             />
 
-            {/* ADD JOURNEY */}
+
+            {/* =================================================
+                ADD JOURNEY
+            ================================================= */}
 
             <Route
                 path="/add-journey"
@@ -95,7 +133,10 @@ function AppRoutes() {
                 }
             />
 
-            {/* RECOMMENDATION */}
+
+            {/* =================================================
+                RECOMMENDATION
+            ================================================= */}
 
             <Route
                 path="/recommendation/:id"
@@ -104,7 +145,10 @@ function AppRoutes() {
                 }
             />
 
-            {/* PROFILE */}
+
+            {/* =================================================
+                PROFILE
+            ================================================= */}
 
             <Route
                 path="/profile"
@@ -113,7 +157,10 @@ function AppRoutes() {
                 }
             />
 
-            {/* NOTIFICATIONS */}
+
+            {/* =================================================
+                NOTIFICATIONS
+            ================================================= */}
 
             <Route
                 path="/notifications"
@@ -122,7 +169,10 @@ function AppRoutes() {
                 }
             />
 
-            {/* HELP */}
+
+            {/* =================================================
+                HELP
+            ================================================= */}
 
             <Route
                 path="/help"
@@ -131,7 +181,10 @@ function AppRoutes() {
                 }
             />
 
-            {/* PNR */}
+
+            {/* =================================================
+                PNR
+            ================================================= */}
 
             <Route
                 path="/pnr"
@@ -140,20 +193,25 @@ function AppRoutes() {
                 }
             />
 
-            {/* UNKNOWN ROUTE */}
+
+            {/* =================================================
+                UNKNOWN ROUTE
+            ================================================= */}
 
             <Route
                 path="*"
                 element={
                     <Navigate
-                        to="/dashboard"
+                        to="/"
                         replace
                     />
                 }
             />
 
         </Routes>
+
     );
 }
+
 
 export default AppRoutes;

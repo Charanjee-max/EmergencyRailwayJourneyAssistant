@@ -1,13 +1,4 @@
-import {
-    useEffect,
-    useState,
-} from "react";
-
-import {
-    useNavigate,
-} from "react-router-dom";
-
-import Navbar from "../../components/Navbar/Navbar";
+import { useEffect, useMemo, useState } from "react";
 
 import {
     checkPNR,
@@ -18,750 +9,815 @@ import {
 import "./PNR.css";
 
 
-// =========================================================
-// HELPERS
-// =========================================================
-
-const getValue = (
-    object,
-    paths = [],
-    fallback = "—"
-) => {
-
-    for (const path of paths) {
-
-        const parts =
-            path.split(".");
-
-        let current =
-            object;
-
-        for (const part of parts) {
-
-            if (
-                current === null ||
-                current === undefined
-            ) {
-                break;
-            }
-
-            current =
-                current[part];
-        }
-
-        if (
-            current !== undefined &&
-            current !== null &&
-            String(current).trim() !== ""
-        ) {
-            return current;
-        }
-    }
-
-    return fallback;
-};
-
-
-const normalizeStatus = (
-    status
-) => {
-
-    return String(
-        status || "UNKNOWN"
-    )
-        .trim()
-        .toUpperCase();
-};
-
-
-const getStatusClass = (
-    status
-) => {
-
-    const normalized =
-        normalizeStatus(status);
-
-    if (
-        normalized === "CNF" ||
-        normalized === "CONFIRMED"
-    ) {
-        return "confirmed";
-    }
-
-    if (
-        normalized === "RAC"
-    ) {
-        return "rac";
-    }
-
-    if (
-        normalized.includes("WL") ||
-        normalized.includes("WAIT")
-    ) {
-        return "waitlist";
-    }
-
-    if (
-        normalized === "CAN" ||
-        normalized === "CANCELLED"
-    ) {
-        return "cancelled";
-    }
-
-    return "unknown";
-};
-
-
-const formatDate = (
-    value
-) => {
-
-    if (!value) {
-        return "—";
-    }
-
-    const date =
-        new Date(value);
-
-    if (
-        Number.isNaN(
-            date.getTime()
-        )
-    ) {
-        return String(value);
-    }
-
-    return date.toLocaleDateString(
-        "en-IN",
-        {
-            day: "2-digit",
-            month: "short",
-            year: "numeric",
-        }
-    );
-};
-
-
-// =========================================================
-// COMPONENT
-// =========================================================
-
 function PNR() {
 
-    const navigate =
-        useNavigate();
+    const [pnr, setPnr] = useState("");
+    const [pnrData, setPnrData] = useState(null);
+    const [savedPNRs, setSavedPNRs] = useState([]);
+
+    const [loading, setLoading] = useState(false);
+    const [loadingList, setLoadingList] = useState(true);
+
+    const [error, setError] = useState("");
+    const [success, setSuccess] = useState("");
 
 
-    // =====================================================
-    // STATE
-    // =====================================================
-
-    const [
-        pnr,
-        setPnr,
-    ] = useState("");
-
-
-    const [
-        pnrData,
-        setPnrData,
-    ] = useState(null);
-
-
-    const [
-        savedPNRs,
-        setSavedPNRs,
-    ] = useState([]);
-
-
-    const [
-        loading,
-        setLoading,
-    ] = useState(false);
-
-
-    const [
-        listLoading,
-        setListLoading,
-    ] = useState(true);
-
-
-    const [
-        error,
-        setError,
-    ] = useState("");
-
-
-    const [
-        success,
-        setSuccess,
-    ] = useState("");
-
-
-    // =====================================================
+    // =========================================================
     // LOAD SAVED PNRS
-    // =====================================================
+    // =========================================================
 
-    const loadSavedPNRs =
-        async () => {
+    const loadPNRs = async () => {
 
-            try {
+        try {
 
-                setListLoading(
-                    true
-                );
+            setLoadingList(true);
 
-                const response =
-                    await getPNRs();
+            const response =
+                await getPNRs();
 
-                const list =
-                    response?.data?.data ||
-                    response?.data?.pnrs ||
-                    response?.data ||
-                    [];
+            setSavedPNRs(
+                response?.data?.data || []
+            );
 
-                setSavedPNRs(
-                    Array.isArray(list)
-                        ? list
-                        : []
-                );
+        } catch (err) {
 
-            } catch (err) {
+            console.error(
+                "PNR LIST ERROR:",
+                err
+            );
 
-                console.error(
-                    "PNR LIST ERROR:",
-                    err
-                );
+        } finally {
 
-            } finally {
+            setLoadingList(false);
 
-                setListLoading(
-                    false
-                );
-            }
-        };
+        }
 
+    };
 
-    // =====================================================
-    // INITIAL LOAD
-    // =====================================================
 
     useEffect(() => {
 
-        loadSavedPNRs();
+        loadPNRs();
 
     }, []);
 
 
-    // =====================================================
+    // =========================================================
     // CHECK PNR
-    // =====================================================
+    // =========================================================
 
-    const handleCheckPNR =
-        async (
-            event
-        ) => {
+    const handleCheckPNR = async (
+        event
+    ) => {
 
-            if (event) {
-                event.preventDefault();
+        if (event) {
+            event.preventDefault();
+        }
+
+        const cleanPNR =
+            pnr
+                .replace(/\D/g, "")
+                .slice(0, 10);
+
+
+        if (
+            cleanPNR.length !== 10
+        ) {
+
+            setError(
+                "Please enter a valid 10-digit PNR."
+            );
+
+            setSuccess("");
+
+            return;
+
+        }
+
+
+        try {
+
+            setLoading(true);
+
+            setError("");
+            setSuccess("");
+
+
+            const response =
+                await checkPNR(
+                    cleanPNR
+                );
+
+
+            const data =
+                response?.data?.data;
+
+
+            if (!data) {
+
+                setError(
+                    "No PNR information available."
+                );
+
+                return;
+
             }
 
 
-            const cleanPNR =
-                String(pnr)
-                    .replace(
-                        /\D/g,
-                        ""
-                    )
-                    .slice(
-                        0,
-                        10
-                    );
-
+            setPnrData(data);
 
             setPnr(
+                data.pnr ||
                 cleanPNR
             );
 
 
-            if (
-                cleanPNR.length !== 10
-            ) {
-
-                setError(
-                    "Please enter a valid 10-digit PNR."
-                );
-
-                setSuccess("");
-
-                return;
-            }
-
-
-            try {
-
-                setLoading(
-                    true
-                );
-
-                setError("");
-
-                setSuccess("");
-
-
-                const response =
-                    await checkPNR(
-                        cleanPNR
-                    );
-
-
-                const data =
-                    response?.data?.data ||
-                    response?.data;
-
-
-                if (!data) {
-
-                    setError(
-                        "No PNR information was returned."
-                    );
-
-                    return;
-                }
-
-
-                setPnrData(
-                    data
-                );
-
-
-                setSuccess(
-                    "PNR status updated successfully."
-                );
-
-
-                await loadSavedPNRs();
-
-            } catch (err) {
-
-                console.error(
-                    "PNR CHECK ERROR:",
-                    err
-                );
-
-
-                setError(
-                    err?.response?.data?.message ||
-                    "Unable to fetch PNR status."
-                );
-
-                setSuccess("");
-
-            } finally {
-
-                setLoading(
-                    false
-                );
-            }
-        };
-
-
-    // =====================================================
-    // REFRESH
-    // =====================================================
-
-    const handleRefresh =
-        async () => {
-
-            const currentPNR =
-                pnrData?.pnr ||
-                pnrData?.pnrNumber ||
-                pnr;
-
-
-            if (
-                !currentPNR
-            ) {
-                return;
-            }
-
-
-            setPnr(
-                String(
-                    currentPNR
-                )
+            setSuccess(
+                "PNR status updated successfully."
             );
 
 
-            await handleCheckPNR();
-        };
+            await loadPNRs();
 
+        } catch (err) {
 
-    // =====================================================
-    // DELETE
-    // =====================================================
-
-    const handleDelete =
-        async (
-            id
-        ) => {
-
-            if (!id) {
-                return;
-            }
-
-
-            const confirmed =
-                window.confirm(
-                    "Are you sure you want to delete this saved PNR?"
-                );
-
-
-            if (!confirmed) {
-                return;
-            }
-
-
-            try {
-
-                setError("");
-
-                setSuccess("");
-
-
-                await deletePNR(
-                    id
-                );
-
-
-                if (
-                    pnrData?._id === id ||
-                    pnrData?.id === id
-                ) {
-
-                    setPnrData(
-                        null
-                    );
-
-                    setPnr("");
-                }
-
-
-                await loadSavedPNRs();
-
-
-                setSuccess(
-                    "PNR deleted successfully."
-                );
-
-            } catch (err) {
-
-                console.error(
-                    "PNR DELETE ERROR:",
-                    err
-                );
-
-
-                setError(
-                    err?.response?.data?.message ||
-                    "Unable to delete PNR."
-                );
-            }
-        };
-
-
-    // =====================================================
-    // OPEN SAVED PNR
-    // =====================================================
-
-    const openSavedPNR =
-        (
-            item
-        ) => {
-
-            const value =
-                item?.pnr ||
-                item?.pnrNumber ||
-                "";
-
-
-            setPnr(
-                String(value)
+            console.error(
+                "PNR CHECK ERROR:",
+                err
             );
 
 
-            setPnrData(
-                item
-            );
+            const message =
+                err.response?.data?.message ||
+                "Unable to fetch PNR status.";
 
 
-            setError("");
+            setError(message);
 
             setSuccess("");
-        };
+
+        } finally {
+
+            setLoading(false);
+
+        }
+
+    };
 
 
-    // =====================================================
-    // EXTRACT DATA
-    // =====================================================
+    // =========================================================
+    // REFRESH
+    // =========================================================
 
-    const currentPNR =
-        getValue(
-            pnrData,
-            [
-                "pnr",
-                "pnrNumber",
-            ],
-            pnr || "—"
+    const handleRefresh = async () => {
+
+        if (!pnrData?.pnr) {
+            return;
+        }
+
+        setPnr(
+            pnrData.pnr
         );
 
+        await handleCheckPNR();
 
-    const trainNumber =
-        getValue(
-            pnrData,
-            [
-                "train.number",
-                "train.trainNumber",
-                "trainNo",
-                "trainNumber",
-            ]
+    };
+
+
+    // =========================================================
+    // DELETE PNR
+    // =========================================================
+
+    const handleDelete = async (
+        id
+    ) => {
+
+        if (!id) {
+            return;
+        }
+
+
+        const confirmed =
+            window.confirm(
+                "Are you sure you want to delete this PNR?"
+            );
+
+
+        if (!confirmed) {
+            return;
+        }
+
+
+        try {
+
+            setError("");
+            setSuccess("");
+
+
+            await deletePNR(id);
+
+
+            if (
+                pnrData?._id === id
+            ) {
+
+                setPnrData(null);
+                setPnr("");
+
+            }
+
+
+            await loadPNRs();
+
+
+            setSuccess(
+                "PNR deleted successfully."
+            );
+
+        } catch (err) {
+
+            console.error(
+                "PNR DELETE ERROR:",
+                err
+            );
+
+
+            setError(
+                err.response?.data?.message ||
+                "Unable to delete PNR."
+            );
+
+        }
+
+    };
+
+
+    // =========================================================
+    // OPEN SAVED PNR
+    // =========================================================
+
+    const openSavedPNR = (
+        item
+    ) => {
+
+        setPnrData(item);
+
+        setPnr(
+            item?.pnr || ""
         );
 
+        setError("");
+        setSuccess("");
 
-    const trainName =
-        getValue(
-            pnrData,
-            [
-                "train.name",
-                "train.trainName",
-                "trainName",
-            ],
-            "Railway Journey"
+    };
+
+
+    // =========================================================
+    // PASSENGER STATUS
+    // =========================================================
+
+    const getPassengerStatus = (
+        passenger
+    ) => {
+
+        return (
+            passenger?.current?.status ||
+            passenger?.booking?.status ||
+            "—"
         );
 
+    };
 
-    const source =
-        getValue(
-            pnrData,
-            [
-                "journey.boardingPoint.name",
-                "journey.boardingPoint.code",
-                "boardingStation",
-                "source",
-            ]
+
+    // =========================================================
+    // OVERALL STATUS
+    // =========================================================
+
+    const getOverallStatus = () => {
+
+        if (
+            !pnrData ||
+            !Array.isArray(
+                pnrData.passengers
+            ) ||
+            pnrData.passengers.length === 0
+        ) {
+
+            return "UNKNOWN";
+
+        }
+
+
+        const statuses =
+            pnrData.passengers.map(
+                getPassengerStatus
+            );
+
+
+        if (
+            statuses.some(
+                (status) =>
+                    status === "CNF"
+            )
+        ) {
+
+            return "CONFIRMED";
+
+        }
+
+
+        if (
+            statuses.some(
+                (status) =>
+                    status === "RAC"
+            )
+        ) {
+
+            return "RAC";
+
+        }
+
+
+        if (
+            statuses.some(
+                (status) =>
+                    String(
+                        status
+                    ).includes("WL")
+            )
+        ) {
+
+            return "WAITLIST";
+
+        }
+
+
+        if (
+            statuses.some(
+                (status) =>
+                    status === "CAN" ||
+                    status === "CANCELLED"
+            )
+        ) {
+
+            return "CANCELLED";
+
+        }
+
+
+        return (
+            statuses[0] ||
+            "UNKNOWN"
         );
 
-
-    const destination =
-        getValue(
-            pnrData,
-            [
-                "journey.destinationPoint.name",
-                "journey.destinationPoint.code",
-                "destinationStation",
-                "destination",
-            ]
-        );
-
-
-    const journeyDate =
-        getValue(
-            pnrData,
-            [
-                "journey.date",
-                "journeyDate",
-                "dateOfJourney",
-            ]
-        );
-
-
-    const travelClass =
-        getValue(
-            pnrData,
-            [
-                "booking.class",
-                "train.class",
-                "classCode",
-            ]
-        );
-
-
-    const quota =
-        getValue(
-            pnrData,
-            [
-                "booking.quota",
-                "quota",
-            ]
-        );
-
-
-    const fare =
-        getValue(
-            pnrData,
-            [
-                "booking.fare",
-                "fare",
-            ]
-        );
-
-
-    const passengers =
-        Array.isArray(
-            pnrData?.passengers
-        )
-            ? pnrData.passengers
-            : [];
-
-
-    const passengerStatuses =
-        passengers.map(
-            (passenger) =>
-                normalizeStatus(
-                    getValue(
-                        passenger,
-                        [
-                            "current.status",
-                            "booking.status",
-                            "status",
-                        ],
-                        "UNKNOWN"
-                    )
-                )
-        );
+    };
 
 
     const overallStatus =
-        passengerStatuses.includes(
-            "CNF"
-        )
-            ? "CONFIRMED"
-            : passengerStatuses.includes(
-                  "CONFIRMED"
-              )
-              ? "CONFIRMED"
-              : passengerStatuses.includes(
-                    "RAC"
-                )
-                ? "RAC"
-                : passengerStatuses.some(
-                      (status) =>
-                          status.includes(
-                              "WL"
-                          )
-                  )
-                  ? "WAITLIST"
-                  : passengerStatuses.includes(
-                        "CAN"
-                    )
-                    ? "CANCELLED"
-                    : passengerStatuses[0] ||
-                      "UNKNOWN";
+        getOverallStatus();
 
 
-    // =====================================================
-    // RENDER
-    // =====================================================
+    // =========================================================
+    // SUMMARY
+    // =========================================================
+
+    const summary = useMemo(() => {
+
+        const total =
+            savedPNRs.length;
+
+
+        const monitoring =
+            savedPNRs.filter(
+                (item) =>
+                    item?.isMonitoring === true ||
+                    item?.monitoringEnabled === true ||
+                    item?.status === "MONITORING"
+            ).length;
+
+
+        const confirmed =
+            savedPNRs.filter(
+                (item) => {
+
+                    const status =
+                        item
+                            ?.passengers?.[0]
+                            ?.current
+                            ?.status ||
+                        item
+                            ?.passengers?.[0]
+                            ?.booking
+                            ?.status ||
+                        "";
+
+                    return (
+                        status === "CNF" ||
+                        status === "CONFIRMED"
+                    );
+
+                }
+            ).length;
+
+
+        return {
+            total,
+            monitoring,
+            confirmed,
+        };
+
+    }, [savedPNRs]);
+
+
+    // =========================================================
+    // FORMAT DATE
+    // =========================================================
+
+    const formatDate = (
+        value
+    ) => {
+
+        if (!value) {
+            return "—";
+        }
+
+
+        const date =
+            new Date(value);
+
+
+        if (
+            Number.isNaN(
+                date.getTime()
+            )
+        ) {
+
+            return String(value);
+
+        }
+
+
+        return date.toLocaleDateString(
+            "en-IN",
+            {
+                day: "2-digit",
+                month: "short",
+                year: "numeric",
+            }
+        );
+
+    };
+
+
+    // =========================================================
+    // FORMAT DATETIME
+    // =========================================================
+
+    const formatDateTime = (
+        value
+    ) => {
+
+        if (!value) {
+            return "—";
+        }
+
+
+        const date =
+            new Date(value);
+
+
+        if (
+            Number.isNaN(
+                date.getTime()
+            )
+        ) {
+
+            return String(value);
+
+        }
+
+
+        return date.toLocaleString(
+            "en-IN",
+            {
+                day: "2-digit",
+                month: "short",
+                year: "numeric",
+                hour: "2-digit",
+                minute: "2-digit",
+                hour12: true,
+            }
+        );
+
+    };
+
+
+    // =========================================================
+    // TRAIN DETAILS
+    // =========================================================
+
+    const trainNumber =
+        pnrData?.train?.number ||
+        pnrData?.train?.trainNumber ||
+        pnrData?.trainNumber ||
+        "—";
+
+
+    const trainName =
+        pnrData?.train?.name ||
+        pnrData?.train?.trainName ||
+        pnrData?.trainName ||
+        "Railway Journey";
+
+
+    const boarding =
+        pnrData?.journey?.boardingPoint?.code ||
+        pnrData?.journey?.boardingPoint?.name ||
+        pnrData?.boardingStation ||
+        "—";
+
+
+    const destination =
+        pnrData?.journey?.destinationPoint?.code ||
+        pnrData?.journey?.destinationPoint?.name ||
+        pnrData?.destinationStation ||
+        "—";
+
+
+    const journeyDate =
+        pnrData?.journey?.date ||
+        pnrData?.journeyDate ||
+        pnrData?.dateOfJourney ||
+        null;
+
+
+    // =========================================================
+    // STATUS LABEL
+    // =========================================================
+
+    const getStatusLabel = (
+        status
+    ) => {
+
+        switch (
+            String(status)
+                .toUpperCase()
+        ) {
+
+            case "CNF":
+                return "Confirmed";
+
+            case "RAC":
+                return "RAC";
+
+            case "CAN":
+                return "Cancelled";
+
+            case "CANCELLED":
+                return "Cancelled";
+
+            default:
+
+                if (
+                    String(status)
+                        .toUpperCase()
+                        .includes("WL")
+                ) {
+                    return "Waitlist";
+                }
+
+                return status || "Unknown";
+
+        }
+
+    };
+
+
+    // =========================================================
+    // STATUS CLASS
+    // =========================================================
+
+    const getStatusClass = (
+        status
+    ) => {
+
+        const normalized =
+            String(
+                status || "unknown"
+            )
+                .toLowerCase()
+                .replace(
+                    /\s+/g,
+                    "-"
+                );
+
+
+        if (
+            normalized === "cnf" ||
+            normalized === "confirmed"
+        ) {
+            return "confirmed";
+        }
+
+
+        if (
+            normalized === "rac"
+        ) {
+            return "rac";
+        }
+
+
+        if (
+            normalized.includes("wl") ||
+            normalized === "waitlist"
+        ) {
+            return "waitlist";
+        }
+
+
+        if (
+            normalized === "can" ||
+            normalized === "cancelled"
+        ) {
+            return "cancelled";
+        }
+
+
+        return "unknown";
+
+    };
+
 
     return (
+
         <div className="pnr-page">
 
-            <Navbar />
+            <div className="pnr-page-background" />
 
+            <main className="pnr-container">
 
-            <main className="pnr-main">
+                {/* =================================================
+                    PAGE HEADER
+                ================================================= */}
 
+                <section className="pnr-header">
 
-                {/* =========================================
-                    BACKGROUND
-                ========================================= */}
-
-                <div className="pnr-glow pnr-glow-one" />
-
-                <div className="pnr-glow pnr-glow-two" />
-
-
-                {/* =========================================
-                    HERO
-                ========================================= */}
-
-                <section className="pnr-hero">
-
-                    <div className="pnr-hero-left">
-
-                        <button
-                            type="button"
-                            className="pnr-back-button"
-                            onClick={() =>
-                                navigate(
-                                    "/dashboard"
-                                )
-                            }
-                        >
-                            ← Dashboard
-                        </button>
-
+                    <div className="pnr-header-content">
 
                         <div className="pnr-eyebrow">
-
-                            <span className="pnr-eyebrow-dot" />
-
-                            ERJA · PNR INTELLIGENCE
-
+                            <span className="pnr-live-dot" />
+                            ERJA PNR MONITOR
                         </div>
 
 
                         <h1>
-                            Check your
+                            Track your
                             <span>
-                                PNR Status
+                                PNR
                             </span>
                         </h1>
 
 
                         <p>
-                            Track your railway
-                            reservation, passenger
-                            status and berth details
-                            in one intelligent
-                            dashboard.
+                            Add and monitor your railway
+                            reservation status, passenger
+                            details and booking information
+                            in one place.
                         </p>
 
                     </div>
 
 
-                    <div className="pnr-hero-visual">
+                    <div className="pnr-header-actions">
 
-                        <div className="pnr-ring ring-one" />
-
-                        <div className="pnr-ring ring-two" />
-
-
-                        <div className="pnr-train-card">
-
-                            <div className="pnr-train-icon">
-                                🚆
-                            </div>
+                        <button
+                            type="button"
+                            className="pnr-refresh-top"
+                            onClick={loadPNRs}
+                            disabled={loadingList}
+                        >
+                            ↻ Refresh
+                        </button>
 
 
-                            <div className="pnr-track">
+                        <button
+                            type="button"
+                            className="pnr-primary-button"
+                            onClick={() => {
+                                document
+                                    .getElementById(
+                                        "pnr-input"
+                                    )
+                                    ?.focus();
+                            }}
+                        >
+                            + Add PNR
+                        </button>
 
-                                <span />
+                    </div>
 
-                                <div />
+                </section>
 
-                                <span />
 
-                            </div>
+                {/* =================================================
+                    SUMMARY
+                ================================================= */}
 
+                <section className="pnr-summary-grid">
+
+                    <div className="pnr-summary-card pnr-summary-blue">
+
+                        <div className="pnr-summary-icon">
+                            🎫
+                        </div>
+
+                        <div className="pnr-summary-content">
+
+                            <span>
+                                TOTAL PNRS
+                            </span>
 
                             <strong>
-                                ERJA
+                                {summary.total}
                             </strong>
 
+                            <small>
+                                Saved reservations
+                            </small>
+
+                        </div>
+
+                    </div>
+
+
+                    <div className="pnr-summary-card pnr-summary-green">
+
+                        <div className="pnr-summary-icon">
+                            ◉
+                        </div>
+
+                        <div className="pnr-summary-content">
+
+                            <span>
+                                MONITORING
+                            </span>
+
+                            <strong>
+                                {summary.monitoring}
+                            </strong>
 
                             <small>
-                                Reservation Intelligence
+                                Currently tracked
+                            </small>
+
+                        </div>
+
+                    </div>
+
+
+                    <div className="pnr-summary-card pnr-summary-purple">
+
+                        <div className="pnr-summary-icon">
+                            ✓
+                        </div>
+
+                        <div className="pnr-summary-content">
+
+                            <span>
+                                CONFIRMED
+                            </span>
+
+                            <strong>
+                                {summary.confirmed}
+                            </strong>
+
+                            <small>
+                                Current confirmed status
+                            </small>
+
+                        </div>
+
+                    </div>
+
+
+                    <div className="pnr-summary-card pnr-summary-orange">
+
+                        <div className="pnr-summary-icon">
+                            ★
+                        </div>
+
+                        <div className="pnr-summary-content">
+
+                            <span>
+                                SELECTED PNR
+                            </span>
+
+                            <strong>
+                                {pnrData ? "1" : "0"}
+                            </strong>
+
+                            <small>
+                                Ready to view
                             </small>
 
                         </div>
@@ -771,108 +827,99 @@ function PNR() {
                 </section>
 
 
-                {/* =========================================
-                    SEARCH
-                ========================================= */}
+                {/* =================================================
+                    ADD PNR
+                ================================================= */}
 
                 <section className="pnr-search-card">
 
-                    <div className="pnr-search-header">
+                    <div className="pnr-section-heading">
 
-                        <div className="pnr-search-icon">
-                            🎫
-                        </div>
+                        <div>
 
-
-                        <div className="pnr-search-title">
-
-                            <span>
-                                CHECK RESERVATION
+                            <span className="pnr-section-label">
+                                ADD PNR
                             </span>
 
                             <h2>
-                                Enter PNR Number
+                                Start PNR Monitoring
                             </h2>
 
                             <p>
-                                Enter your 10-digit
-                                PNR to check the
-                                latest reservation
-                                status.
+                                Enter your 10-digit PNR number
+                                to check the latest railway
+                                reservation status.
                             </p>
 
                         </div>
 
 
-                        <div className="pnr-secure">
-                            🔒 Secure
+                        <div className="pnr-ticket-icon">
+                            🎫
                         </div>
 
                     </div>
 
 
                     <form
-                        className="pnr-form"
+                        className="pnr-search-form"
                         onSubmit={
                             handleCheckPNR
                         }
                     >
 
-                        <div className="pnr-input-box">
+                        <div className="pnr-input-group">
 
-                            <input
-                                type="text"
-                                inputMode="numeric"
-                                autoComplete="off"
-                                maxLength={10}
-                                value={pnr}
-                                placeholder="Enter 10 digit PNR"
-                                onChange={(event) => {
+                            <label htmlFor="pnr-input">
+                                PNR NUMBER
+                            </label>
 
-                                    setPnr(
-                                        event.target.value
-                                            .replace(
-                                                /\D/g,
-                                                ""
-                                            )
-                                            .slice(
-                                                0,
-                                                10
-                                            )
-                                    );
+                            <div className="pnr-input-wrapper">
 
-                                    setError("");
-                                    setSuccess("");
-                                }}
-                            />
+                                <span className="pnr-input-icon">
+                                    #
+                                </span>
 
+                                <input
+                                    id="pnr-input"
+                                    type="text"
+                                    inputMode="numeric"
+                                    maxLength={10}
+                                    value={pnr}
+                                    onChange={(event) =>
+                                        setPnr(
+                                            event.target.value
+                                                .replace(
+                                                    /\D/g,
+                                                    ""
+                                                )
+                                                .slice(
+                                                    0,
+                                                    10
+                                                )
+                                        )
+                                    }
+                                    placeholder="Enter 10-digit PNR"
+                                />
 
-                            <span>
-                                {pnr.length}/10
-                            </span>
+                                <span className="pnr-character-count">
+                                    {pnr.length}/10
+                                </span>
+
+                            </div>
 
                         </div>
 
 
                         <button
                             type="submit"
-                            className="pnr-check-button"
-                            disabled={
-                                loading
-                            }
+                            className="pnr-search-button"
+                            disabled={loading}
                         >
 
-                            {loading ? (
-                                <>
-                                    <span className="pnr-spinner" />
-                                    Checking...
-                                </>
-                            ) : (
-                                <>
-                                    Check PNR
-                                    <b>→</b>
-                                </>
-                            )}
+                            {loading
+                                ? "Checking..."
+                                : "+ Monitor PNR"}
 
                         </button>
 
@@ -880,84 +927,77 @@ function PNR() {
 
 
                     {error && (
-                        <div className="pnr-alert pnr-alert-error">
 
-                            <strong>
-                                !
-                            </strong>
-
-                            <span>
-                                {error}
-                            </span>
-
+                        <div className="pnr-message pnr-error">
+                            <span>⚠</span>
+                            {error}
                         </div>
+
                     )}
 
 
                     {success && (
-                        <div className="pnr-alert pnr-alert-success">
 
-                            <strong>
-                                ✓
-                            </strong>
-
-                            <span>
-                                {success}
-                            </span>
-
+                        <div className="pnr-message pnr-success">
+                            <span>✓</span>
+                            {success}
                         </div>
+
                     )}
 
                 </section>
 
 
-                {/* =========================================
-                    RESULT
-                ========================================= */}
+                {/* =================================================
+                    SELECTED PNR
+                ================================================= */}
 
                 {pnrData && (
 
-                    <section className="pnr-result-card">
+                    <section className="pnr-details-card">
 
-                        <div className="pnr-result-top">
+                        <div className="pnr-details-header">
 
                             <div>
 
                                 <span className="pnr-section-label">
-                                    CURRENT RESERVATION
+                                    SELECTED RESERVATION
                                 </span>
 
                                 <h2>
-                                    PNR {currentPNR}
+                                    PNR {pnrData.pnr || pnr}
                                 </h2>
 
                                 <p>
-                                    {trainName}
-                                    {" · "}
-                                    Train {trainNumber}
+                                    Latest reservation
+                                    information available
+                                    for this PNR.
                                 </p>
 
                             </div>
 
 
                             <div
-                                className={`pnr-overall-status ${getStatusClass(
+                                className={`pnr-status-badge ${getStatusClass(
                                     overallStatus
                                 )}`}
                             >
-
                                 <span />
-
-                                {overallStatus}
-
+                                {getStatusLabel(
+                                    overallStatus
+                                )}
                             </div>
 
                         </div>
 
 
-                        <div className="pnr-details-grid">
+                        {/* =================================================
+                            TRAIN ROUTE
+                        ================================================= */}
 
-                            <div className="pnr-detail">
+                        <div className="pnr-route-card">
+
+                            <div className="pnr-route-station">
 
                                 <span>
                                     TRAIN
@@ -974,24 +1014,28 @@ function PNR() {
                             </div>
 
 
-                            <div className="pnr-detail">
+                            <div className="pnr-route-line">
 
-                                <span>
-                                    JOURNEY
+                                <span className="pnr-route-dot" />
+
+                                <div className="pnr-route-track">
+                                    <span />
+                                </div>
+
+                                <span className="pnr-route-train">
+                                    🚆
                                 </span>
 
-                                <strong>
-                                    {source}
-                                </strong>
+                                <div className="pnr-route-track">
+                                    <span />
+                                </div>
 
-                                <small>
-                                    → {destination}
-                                </small>
+                                <span className="pnr-route-dot" />
 
                             </div>
 
 
-                            <div className="pnr-detail">
+                            <div className="pnr-route-station pnr-route-destination">
 
                                 <span>
                                     JOURNEY DATE
@@ -1004,28 +1048,7 @@ function PNR() {
                                 </strong>
 
                                 <small>
-                                    {travelClass}
-                                    {" · "}
-                                    {quota}
-                                </small>
-
-                            </div>
-
-
-                            <div className="pnr-detail">
-
-                                <span>
-                                    FARE
-                                </span>
-
-                                <strong>
-                                    {fare === "—"
-                                        ? "—"
-                                        : `₹${fare}`}
-                                </strong>
-
-                                <small>
-                                    Reservation details
+                                    Railway reservation
                                 </small>
 
                             </div>
@@ -1033,11 +1056,83 @@ function PNR() {
                         </div>
 
 
-                        {/* PASSENGERS */}
+                        {/* =================================================
+                            RESERVATION META
+                        ================================================= */}
+
+                        <div className="pnr-meta-grid">
+
+                            <div className="pnr-meta-item">
+
+                                <span>
+                                    BOARDING
+                                </span>
+
+                                <strong>
+                                    {boarding}
+                                </strong>
+
+                            </div>
+
+
+                            <div className="pnr-meta-item">
+
+                                <span>
+                                    DESTINATION
+                                </span>
+
+                                <strong>
+                                    {destination}
+                                </strong>
+
+                            </div>
+
+
+                            <div className="pnr-meta-item">
+
+                                <span>
+                                    CLASS
+                                </span>
+
+                                <strong>
+                                    {
+                                        pnrData.booking
+                                            ?.class ||
+                                        pnrData.travelClass ||
+                                        "—"
+                                    }
+                                </strong>
+
+                            </div>
+
+
+                            <div className="pnr-meta-item">
+
+                                <span>
+                                    FARE
+                                </span>
+
+                                <strong>
+                                    {
+                                        pnrData.booking
+                                            ?.fare != null
+                                            ? `₹${pnrData.booking.fare}`
+                                            : "—"
+                                    }
+                                </strong>
+
+                            </div>
+
+                        </div>
+
+
+                        {/* =================================================
+                            PASSENGERS
+                        ================================================= */}
 
                         <div className="pnr-passengers-section">
 
-                            <div className="pnr-passengers-heading">
+                            <div className="pnr-subsection-header">
 
                                 <div>
 
@@ -1051,104 +1146,52 @@ function PNR() {
 
                                 </div>
 
-
-                                <strong>
-                                    {passengers.length}
-                                </strong>
+                                <small>
+                                    {
+                                        Array.isArray(
+                                            pnrData.passengers
+                                        )
+                                            ? pnrData.passengers.length
+                                            : 0
+                                    }{" "}
+                                    passenger(s)
+                                </small>
 
                             </div>
 
 
-                            {passengers.length === 0 ? (
-
-                                <div className="pnr-no-passengers">
-
-                                    <span>
-                                        ℹ
-                                    </span>
-
-                                    <p>
-                                        Passenger details
-                                        are not available
-                                        in the current
-                                        PNR response.
-                                    </p>
-
-                                </div>
-
-                            ) : (
+                            {Array.isArray(
+                                pnrData.passengers
+                            ) &&
+                            pnrData.passengers.length > 0 ? (
 
                                 <div className="pnr-passenger-list">
 
-                                    {passengers.map(
+                                    {pnrData.passengers.map(
                                         (
                                             passenger,
                                             index
                                         ) => {
 
                                             const status =
-                                                getValue(
-                                                    passenger,
-                                                    [
-                                                        "current.status",
-                                                        "booking.status",
-                                                        "status",
-                                                    ],
-                                                    "UNKNOWN"
+                                                getPassengerStatus(
+                                                    passenger
                                                 );
 
 
-                                            const coach =
-                                                getValue(
-                                                    passenger,
-                                                    [
-                                                        "current.coach",
-                                                        "booking.coach",
-                                                        "coach",
-                                                    ],
-                                                    ""
-                                                );
-
-
-                                            const berth =
-                                                getValue(
-                                                    passenger,
-                                                    [
-                                                        "current.berth",
-                                                        "booking.berth",
-                                                        "berth",
-                                                    ],
-                                                    ""
-                                                );
-
-
-                                            const bookingStatus =
-                                                getValue(
-                                                    passenger,
-                                                    [
-                                                        "booking.status",
-                                                    ],
-                                                    "—"
-                                                );
-
-
-                                            const currentStatus =
-                                                getValue(
-                                                    passenger,
-                                                    [
-                                                        "current.status",
-                                                    ],
-                                                    "—"
+                                            const statusType =
+                                                getStatusClass(
+                                                    status
                                                 );
 
 
                                             return (
 
                                                 <div
-                                                    className="pnr-passenger"
+                                                    className="pnr-passenger-card"
                                                     key={
-                                                        passenger?._id ||
-                                                        passenger?.id ||
+                                                        passenger._id ||
+                                                        passenger.passengerNumber ||
                                                         index
                                                     }
                                                 >
@@ -1158,67 +1201,118 @@ function PNR() {
                                                     </div>
 
 
-                                                    <div className="pnr-passenger-info">
+                                                    <div className="pnr-passenger-main">
+
+                                                        <span>
+                                                            PASSENGER
+                                                        </span>
 
                                                         <strong>
                                                             {
-                                                                passenger?.name ||
+                                                                passenger.name ||
                                                                 `Passenger ${
                                                                     index + 1
                                                                 }`
                                                             }
                                                         </strong>
 
-
-                                                        <div>
-
-                                                            <span>
-                                                                Booking:{" "}
-                                                                {
-                                                                    bookingStatus
-                                                                }
-                                                            </span>
-
-                                                            <span>
-                                                                Current:{" "}
-                                                                {
-                                                                    currentStatus
-                                                                }
-                                                            </span>
-
+                                                        <div
+                                                            className={`pnr-passenger-status ${statusType}`}
+                                                        >
+                                                            {getStatusLabel(
+                                                                status
+                                                            )}
                                                         </div>
 
                                                     </div>
 
 
-                                                    <div className="pnr-berth">
+                                                    <div className="pnr-passenger-info">
 
-                                                        <span>
-                                                            BERTH
-                                                        </span>
+                                                        <div>
 
-                                                        <strong>
-                                                            {coach || berth
-                                                                ? `${coach} ${berth}`.trim()
-                                                                : "—"}
-                                                        </strong>
+                                                            <span>
+                                                                BOOKING
+                                                            </span>
 
-                                                    </div>
+                                                            <strong>
+                                                                {
+                                                                    passenger
+                                                                        .booking
+                                                                        ?.status ||
+                                                                    "—"
+                                                                }
+                                                            </strong>
+
+                                                        </div>
 
 
-                                                    <div
-                                                        className={`pnr-passenger-status ${getStatusClass(
-                                                            status
-                                                        )}`}
-                                                    >
-                                                        {status}
+                                                        <div>
+
+                                                            <span>
+                                                                CURRENT
+                                                            </span>
+
+                                                            <strong>
+                                                                {
+                                                                    passenger
+                                                                        .current
+                                                                        ?.status ||
+                                                                    "—"
+                                                                }
+                                                            </strong>
+
+                                                        </div>
+
+
+                                                        <div>
+
+                                                            <span>
+                                                                BERTH
+                                                            </span>
+
+                                                            <strong>
+                                                                {
+                                                                    passenger
+                                                                        .current
+                                                                        ?.berth ||
+                                                                    passenger
+                                                                        .booking
+                                                                        ?.berth ||
+                                                                    "—"
+                                                                }
+                                                            </strong>
+
+                                                        </div>
+
                                                     </div>
 
                                                 </div>
 
                                             );
+
                                         }
                                     )}
+
+                                </div>
+
+                            ) : (
+
+                                <div className="pnr-empty-passengers">
+
+                                    <span>
+                                        🎫
+                                    </span>
+
+                                    <strong>
+                                        No passenger details available
+                                    </strong>
+
+                                    <p>
+                                        Passenger information
+                                        was not returned for
+                                        this PNR.
+                                    </p>
 
                                 </div>
 
@@ -1227,29 +1321,97 @@ function PNR() {
                         </div>
 
 
-                        <div className="pnr-result-actions">
+                        {/* =================================================
+                            ADDITIONAL INFORMATION
+                        ================================================= */}
+
+                        <div className="pnr-info-grid">
+
+                            <div className="pnr-info-card">
+
+                                <span>
+                                    OVERALL STATUS
+                                </span>
+
+                                <strong>
+                                    {getStatusLabel(
+                                        overallStatus
+                                    )}
+                                </strong>
+
+                            </div>
+
+
+                            <div className="pnr-info-card">
+
+                                <span>
+                                    TRAIN
+                                </span>
+
+                                <strong>
+                                    {trainNumber}
+                                </strong>
+
+                            </div>
+
+
+                            <div className="pnr-info-card">
+
+                                <span>
+                                    LAST CHECKED
+                                </span>
+
+                                <strong>
+                                    {formatDateTime(
+                                        pnrData.lastCheckedAt
+                                    )}
+                                </strong>
+
+                            </div>
+
+
+                            <div className="pnr-info-card">
+
+                                <span>
+                                    PNR
+                                </span>
+
+                                <strong>
+                                    {pnrData.pnr || pnr}
+                                </strong>
+
+                            </div>
+
+                        </div>
+
+
+                        {/* =================================================
+                            ACTIONS
+                        ================================================= */}
+
+                        <div className="pnr-actions">
 
                             <button
                                 type="button"
-                                className="pnr-refresh"
+                                className="pnr-refresh-button"
                                 onClick={
                                     handleRefresh
                                 }
-                                disabled={
-                                    loading
-                                }
+                                disabled={loading}
                             >
-                                ↻ Refresh Status
+                                ↻{" "}
+                                {loading
+                                    ? "Checking..."
+                                    : "Refresh Status"}
                             </button>
 
 
                             <button
                                 type="button"
-                                className="pnr-delete"
+                                className="pnr-delete-button"
                                 onClick={() =>
                                     handleDelete(
-                                        pnrData?._id ||
-                                        pnrData?.id
+                                        pnrData._id
                                     )
                                 }
                             >
@@ -1263,17 +1425,17 @@ function PNR() {
                 )}
 
 
-                {/* =========================================
+                {/* =================================================
                     SAVED PNRS
-                ========================================= */}
+                ================================================= */}
 
                 <section className="pnr-saved-section">
 
-                    <div className="pnr-section-heading">
+                    <div className="pnr-section-heading pnr-saved-heading">
 
                         <div>
 
-                            <span>
+                            <span className="pnr-section-label">
                                 YOUR RESERVATIONS
                             </span>
 
@@ -1281,43 +1443,62 @@ function PNR() {
                                 Saved PNRs
                             </h2>
 
+                            <p>
+                                Select a saved PNR to view
+                                its latest reservation details.
+                            </p>
+
                         </div>
 
 
-                        <div className="pnr-count">
-                            {savedPNRs.length}
+                        <div className="pnr-count-box">
+
+                            <strong>
+                                {savedPNRs.length}
+                            </strong>
+
+                            <span>
+                                PNRS
+                            </span>
+
                         </div>
 
                     </div>
 
 
-                    {listLoading ? (
+                    {loadingList ? (
 
-                        <div className="pnr-loading">
+                        <div className="pnr-empty-state">
 
-                            <span className="pnr-spinner dark" />
+                            <div className="pnr-loading-ring" />
+
+                            <h3>
+                                Loading PNRs...
+                            </h3>
 
                             <p>
-                                Loading your reservations...
+                                Fetching your saved
+                                reservations.
                             </p>
 
                         </div>
 
                     ) : savedPNRs.length === 0 ? (
 
-                        <div className="pnr-empty">
+                        <div className="pnr-empty-state">
 
                             <div className="pnr-empty-icon">
                                 🎫
                             </div>
 
                             <h3>
-                                No saved PNRs
+                                No saved PNRs yet
                             </h3>
 
                             <p>
-                                Check a PNR and it
-                                will appear here.
+                                Enter a 10-digit PNR above
+                                to start building your
+                                monitored reservation list.
                             </p>
 
                         </div>
@@ -1327,54 +1508,36 @@ function PNR() {
                         <div className="pnr-saved-grid">
 
                             {savedPNRs.map(
-                                (
-                                    item
-                                ) => {
+                                (item) => {
 
-                                    const itemStatus =
-                                        getValue(
-                                            item,
-                                            [
-                                                "passengers.0.current.status",
-                                                "passengers.0.booking.status",
-                                                "status",
-                                            ],
-                                            "—"
-                                        );
+                                    const savedStatus =
+                                        item
+                                            ?.passengers?.[0]
+                                            ?.current
+                                            ?.status ||
+                                        item
+                                            ?.passengers?.[0]
+                                            ?.booking
+                                            ?.status ||
+                                        "—";
 
 
-                                    const itemTrain =
-                                        getValue(
-                                            item,
-                                            [
-                                                "train.number",
-                                                "train.trainNumber",
-                                                "trainNumber",
-                                            ],
-                                            "—"
-                                        );
-
-
-                                    const itemPNR =
-                                        getValue(
-                                            item,
-                                            [
-                                                "pnr",
-                                                "pnrNumber",
-                                            ],
-                                            "—"
-                                        );
+                                    const isSelected =
+                                        pnrData?._id ===
+                                        item._id;
 
 
                                     return (
 
                                         <button
                                             type="button"
-                                            className="pnr-saved-card"
+                                            className={`pnr-saved-card ${
+                                                isSelected
+                                                    ? "selected"
+                                                    : ""
+                                            }`}
                                             key={
-                                                item?._id ||
-                                                item?.id ||
-                                                itemPNR
+                                                item._id
                                             }
                                             onClick={() =>
                                                 openSavedPNR(
@@ -1388,27 +1551,34 @@ function PNR() {
                                             </div>
 
 
-                                            <div className="pnr-saved-info">
+                                            <div className="pnr-saved-main">
 
                                                 <span>
                                                     PNR
                                                 </span>
 
                                                 <strong>
-                                                    {itemPNR}
+                                                    {item.pnr}
                                                 </strong>
 
                                             </div>
 
 
-                                            <div className="pnr-saved-info">
+                                            <div className="pnr-saved-train">
 
                                                 <span>
                                                     TRAIN
                                                 </span>
 
                                                 <strong>
-                                                    {itemTrain}
+                                                    {
+                                                        item
+                                                            ?.train
+                                                            ?.number ||
+                                                        item
+                                                            ?.trainNumber ||
+                                                        "—"
+                                                    }
                                                 </strong>
 
                                             </div>
@@ -1416,20 +1586,18 @@ function PNR() {
 
                                             <div
                                                 className={`pnr-saved-status ${getStatusClass(
-                                                    itemStatus
+                                                    savedStatus
                                                 )}`}
                                             >
-                                                {itemStatus}
+                                                {getStatusLabel(
+                                                    savedStatus
+                                                )}
                                             </div>
-
-
-                                            <span className="pnr-saved-arrow">
-                                                →
-                                            </span>
 
                                         </button>
 
                                     );
+
                                 }
                             )}
 
@@ -1440,16 +1608,15 @@ function PNR() {
                 </section>
 
 
-                {/* =========================================
-                    INFORMATION
-                ========================================= */}
+                {/* =================================================
+                    INFORMATION NOTE
+                ================================================= */}
 
-                <section className="pnr-information">
+                <section className="pnr-note">
 
-                    <div className="pnr-information-icon">
-                        !
+                    <div className="pnr-note-icon">
+                        ⚠
                     </div>
-
 
                     <div>
 
@@ -1458,22 +1625,22 @@ function PNR() {
                         </strong>
 
                         <p>
-                            Railway reservation status
-                            may change after chart
-                            preparation. Always verify
-                            the latest status before
-                            travelling.
+                            Railway reservation status may
+                            change after chart preparation.
+                            Always verify the latest status
+                            before travelling.
                         </p>
 
                     </div>
 
                 </section>
 
-
             </main>
 
         </div>
+
     );
+
 }
 
 

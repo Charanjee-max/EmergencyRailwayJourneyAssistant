@@ -1,41 +1,74 @@
 /* =========================================================
-   ERJA - GLOBAL 3D DESIGN SYSTEM
+   ERJA - LIQUID GLASS DESIGN SYSTEM
    Emergency Railway Journey Assistant
    ========================================================= */
 
 :root {
+  /* Brand */
   --erja-primary: #1769c2;
-  --erja-primary-dark: #0d4f9e;
-  --erja-primary-light: #e8f3ff;
+  --erja-primary-dark: #0b478f;
+  --erja-primary-light: #dff0ff;
+  --erja-blue-glow: rgba(23, 105, 194, 0.28);
 
-  --erja-success: #2f9e44;
-  --erja-warning: #f08c00;
-  --erja-danger: #d63333;
+  /* Railway status */
+  --erja-success: #1f9d63;
+  --erja-warning: #d88a00;
+  --erja-danger: #d64545;
+  --erja-info: #2878c8;
 
-  --erja-bg: #eef3f8;
-  --erja-surface: rgba(255, 255, 255, 0.92);
-  --erja-text: #172033;
-  --erja-muted: #64748b;
-  --erja-border: rgba(15, 23, 42, 0.08);
+  /* Surfaces */
+  --erja-bg: #eaf1f8;
+  --erja-bg-dark: #071421;
 
-  --erja-radius-sm: 10px;
-  --erja-radius-md: 16px;
-  --erja-radius-lg: 22px;
+  --erja-glass: rgba(255, 255, 255, 0.58);
+  --erja-glass-strong: rgba(255, 255, 255, 0.72);
+  --erja-glass-soft: rgba(255, 255, 255, 0.38);
 
+  --erja-dark-glass: rgba(8, 25, 43, 0.72);
+
+  /* Text */
+  --erja-text: #142235;
+  --erja-text-soft: #40536b;
+  --erja-muted: #6c7d91;
+  --erja-white: #ffffff;
+
+  /* Borders */
+  --erja-border: rgba(255, 255, 255, 0.68);
+  --erja-border-dark: rgba(255, 255, 255, 0.12);
+
+  /* Radius */
+  --erja-radius-xs: 8px;
+  --erja-radius-sm: 12px;
+  --erja-radius-md: 18px;
+  --erja-radius-lg: 26px;
+  --erja-radius-xl: 34px;
+  --erja-radius-pill: 999px;
+
+  /* Shadows */
   --erja-shadow-sm:
-    0 4px 12px rgba(15, 23, 42, 0.08);
+    0 5px 16px rgba(20, 43, 70, 0.08);
 
   --erja-shadow-md:
-    0 10px 28px rgba(15, 23, 42, 0.12);
+    0 14px 35px rgba(20, 43, 70, 0.12);
 
   --erja-shadow-lg:
-    0 18px 45px rgba(15, 23, 42, 0.16);
+    0 24px 65px rgba(20, 43, 70, 0.17);
 
+  --erja-shadow-glass:
+    0 18px 50px rgba(20, 43, 70, 0.14);
+
+  /* Neomorphic */
+  --erja-raised-light:
+    -7px -7px 16px rgba(255, 255, 255, 0.92),
+    8px 8px 18px rgba(40, 65, 92, 0.12);
+
+  /* Transitions */
   --erja-transition:
-    transform 0.22s ease,
-    box-shadow 0.22s ease,
-    background 0.22s ease,
-    border-color 0.22s ease;
+    transform 0.25s ease,
+    box-shadow 0.25s ease,
+    background 0.25s ease,
+    border-color 0.25s ease,
+    opacity 0.25s ease;
 }
 
 
@@ -53,6 +86,7 @@ html {
 
 body {
   margin: 0;
+
   min-width: 320px;
 
   font-family:
@@ -61,6 +95,7 @@ body {
     BlinkMacSystemFont,
     "Segoe UI",
     Roboto,
+    Helvetica,
     Arial,
     sans-serif;
 
@@ -68,20 +103,25 @@ body {
 
   background:
     radial-gradient(
-      circle at 10% 10%,
-      rgba(23, 105, 194, 0.08),
-      transparent 28%
+      circle at 8% 8%,
+      rgba(53, 137, 219, 0.18),
+      transparent 26%
     ),
     radial-gradient(
-      circle at 90% 20%,
-      rgba(47, 158, 68, 0.06),
-      transparent 25%
+      circle at 90% 12%,
+      rgba(58, 175, 136, 0.11),
+      transparent 24%
+    ),
+    radial-gradient(
+      circle at 50% 100%,
+      rgba(23, 105, 194, 0.10),
+      transparent 32%
     ),
     linear-gradient(
       135deg,
-      #f7faff 0%,
-      var(--erja-bg) 50%,
-      #e9f0f7 100%
+      #f8fbff 0%,
+      #edf4fa 48%,
+      #e3edf6 100%
     );
 
   background-attachment: fixed;
@@ -90,10 +130,30 @@ body {
   text-rendering: optimizeLegibility;
 }
 
+body::selection {
+  background: rgba(23, 105, 194, 0.22);
+}
 
-/* =========================================================
-   LINKS
-   ========================================================= */
+::selection {
+  background: rgba(23, 105, 194, 0.22);
+  color: var(--erja-text);
+}
+
+img {
+  max-width: 100%;
+  display: block;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}
+
+button {
+  cursor: pointer;
+}
 
 a {
   color: inherit;
@@ -102,80 +162,116 @@ a {
 
 
 /* =========================================================
-   BUTTON BASE
-   ========================================================= */
+   ROOT
+========================================================= */
 
-button {
-  font: inherit;
-  cursor: pointer;
-}
-
-button,
-.erja-button {
-  transition: var(--erja-transition);
+#root {
+  min-height: 100vh;
 }
 
 
 /* =========================================================
-   3D BUTTON
-   ========================================================= */
+   LIQUID BACKGROUND
+========================================================= */
 
-.erja-button {
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  border-radius: var(--erja-radius-sm);
+.erja-liquid-background {
+  position: relative;
+  overflow: hidden;
+}
 
-  padding: 12px 22px;
+.erja-liquid-background::before,
+.erja-liquid-background::after {
+  content: "";
 
-  color: white;
+  position: absolute;
+
+  width: 420px;
+  height: 420px;
+
+  border-radius: 50%;
+
+  pointer-events: none;
+
+  filter: blur(35px);
+
+  opacity: 0.35;
+
+  z-index: -1;
+}
+
+.erja-liquid-background::before {
+  top: -160px;
+  left: -120px;
 
   background:
-    linear-gradient(
-      145deg,
-      #2479d5,
-      var(--erja-primary-dark)
+    radial-gradient(
+      circle,
+      rgba(23, 105, 194, 0.28),
+      transparent 68%
     );
 
-  box-shadow:
-    0 6px 0 #093d7b,
-    0 10px 22px rgba(13, 79, 158, 0.25);
-
-  transform: translateY(0);
+  animation: erjaLiquidMoveOne 12s ease-in-out infinite;
 }
 
-.erja-button:hover {
-  transform: translateY(-3px);
+.erja-liquid-background::after {
+  right: -150px;
+  bottom: -180px;
 
-  box-shadow:
-    0 8px 0 #093d7b,
-    0 16px 28px rgba(13, 79, 158, 0.28);
+  background:
+    radial-gradient(
+      circle,
+      rgba(34, 154, 111, 0.20),
+      transparent 68%
+    );
+
+  animation: erjaLiquidMoveTwo 15s ease-in-out infinite;
 }
 
-.erja-button:active {
-  transform: translateY(3px);
+@keyframes erjaLiquidMoveOne {
+  0%,
+  100% {
+    transform: translate(0, 0) scale(1);
+  }
 
-  box-shadow:
-    0 2px 0 #093d7b,
-    0 5px 12px rgba(13, 79, 158, 0.2);
+  50% {
+    transform: translate(90px, 50px) scale(1.15);
+  }
+}
+
+@keyframes erjaLiquidMoveTwo {
+  0%,
+  100% {
+    transform: translate(0, 0) scale(1);
+  }
+
+  50% {
+    transform: translate(-70px, -45px) scale(1.12);
+  }
 }
 
 
 /* =========================================================
-   3D CARD
-   ========================================================= */
+   GLASS CARD
+========================================================= */
 
 .erja-card {
   position: relative;
 
-  background: var(--erja-surface);
+  background:
+    linear-gradient(
+      135deg,
+      rgba(255, 255, 255, 0.70),
+      rgba(255, 255, 255, 0.40)
+    );
 
-  border: 1px solid rgba(255, 255, 255, 0.85);
+  border: 1px solid var(--erja-border);
 
   border-radius: var(--erja-radius-lg);
 
-  box-shadow: var(--erja-shadow-md);
+  box-shadow: var(--erja-shadow-glass);
 
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(22px) saturate(135%);
+  -webkit-backdrop-filter: blur(22px) saturate(135%);
 
   transition: var(--erja-transition);
 }
@@ -183,40 +279,125 @@ button,
 .erja-card:hover {
   transform: translateY(-4px);
 
-  box-shadow: var(--erja-shadow-lg);
-}
-
-
-/* =========================================================
-   RAISED CARD
-   ========================================================= */
-
-.erja-raised {
   box-shadow:
-    8px 8px 20px rgba(15, 23, 42, 0.10),
-    -5px -5px 15px rgba(255, 255, 255, 0.9);
+    0 25px 65px rgba(20, 43, 70, 0.17);
 }
 
 
 /* =========================================================
-   STATUS BADGES
-   ========================================================= */
+   GLASS BUTTON
+========================================================= */
+
+.erja-button {
+  display: inline-flex;
+
+  align-items: center;
+  justify-content: center;
+
+  gap: 9px;
+
+  min-height: 46px;
+
+  padding: 11px 20px;
+
+  border: 1px solid rgba(255, 255, 255, 0.48);
+
+  border-radius: var(--erja-radius-pill);
+
+  color: white;
+
+  background:
+    linear-gradient(
+      135deg,
+      #2782db,
+      #0e55a5
+    );
+
+  box-shadow:
+    0 10px 24px rgba(23, 105, 194, 0.25),
+    inset 0 1px 0 rgba(255, 255, 255, 0.35);
+
+  transition: var(--erja-transition);
+}
+
+.erja-button:hover {
+  transform: translateY(-2px);
+
+  box-shadow:
+    0 15px 30px rgba(23, 105, 194, 0.30),
+    inset 0 1px 0 rgba(255, 255, 255, 0.45);
+}
+
+.erja-button:active {
+  transform: translateY(1px);
+}
+
+
+/* =========================================================
+   SECONDARY GLASS BUTTON
+========================================================= */
+
+.erja-button-secondary {
+  color: var(--erja-primary);
+
+  background:
+    rgba(255, 255, 255, 0.48);
+
+  border-color:
+    rgba(255, 255, 255, 0.80);
+
+  box-shadow:
+    var(--erja-raised-light);
+}
+
+.erja-button-secondary:hover {
+  color: var(--erja-primary-dark);
+
+  background:
+    rgba(255, 255, 255, 0.65);
+}
+
+
+/* =========================================================
+   SUBTLE NEOMORPHIC CONTROL
+========================================================= */
+
+.erja-neomorphic {
+  background: rgba(239, 246, 252, 0.72);
+
+  border:
+    1px solid rgba(255, 255, 255, 0.85);
+
+  box-shadow: var(--erja-raised-light);
+}
+
+
+/* =========================================================
+   STATUS
+========================================================= */
 
 .erja-status {
   display: inline-flex;
+
   align-items: center;
-  gap: 7px;
+
+  gap: 8px;
 
   padding: 7px 13px;
 
-  border-radius: 999px;
+  border-radius: var(--erja-radius-pill);
 
-  font-size: 13px;
-  font-weight: 700;
+  font-size: 12px;
 
-  box-shadow:
-    inset 0 1px 2px rgba(255, 255, 255, 0.8),
-    0 3px 8px rgba(15, 23, 42, 0.08);
+  font-weight: 750;
+
+  letter-spacing: 0.2px;
+
+  background: rgba(255, 255, 255, 0.55);
+
+  border: 1px solid rgba(255, 255, 255, 0.75);
+
+  backdrop-filter: blur(12px);
 }
 
 .erja-status::before {
@@ -225,48 +406,60 @@ button,
   width: 8px;
   height: 8px;
 
+  flex-shrink: 0;
+
   border-radius: 50%;
 
   background: currentColor;
 
   box-shadow:
-    0 0 0 4px rgba(255, 255, 255, 0.35);
+    0 0 0 4px rgba(255, 255, 255, 0.32);
 }
 
 .erja-status-success {
   color: var(--erja-success);
-  background: #e7f7eb;
 }
 
 .erja-status-warning {
   color: var(--erja-warning);
-  background: #fff4dc;
 }
 
 .erja-status-danger {
   color: var(--erja-danger);
-  background: #ffe8e8;
+}
+
+.erja-status-info {
+  color: var(--erja-info);
 }
 
 
 /* =========================================================
-   3D INPUT
-   ========================================================= */
+   INPUTS
+========================================================= */
 
 input,
 select,
 textarea {
-  border: 1px solid rgba(15, 23, 42, 0.12);
-  border-radius: 12px;
+  width: 100%;
 
-  background: rgba(255, 255, 255, 0.85);
+  border:
+    1px solid rgba(20, 43, 70, 0.10);
+
+  border-radius: var(--erja-radius-sm);
+
+  background:
+    rgba(255, 255, 255, 0.72);
 
   color: var(--erja-text);
+
+  box-shadow:
+    inset 0 2px 5px rgba(20, 43, 70, 0.035);
 
   transition:
     border-color 0.2s ease,
     box-shadow 0.2s ease,
-    transform 0.2s ease;
+    transform 0.2s ease,
+    background 0.2s ease;
 }
 
 input:focus,
@@ -274,51 +467,80 @@ select:focus,
 textarea:focus {
   outline: none;
 
-  border-color: var(--erja-primary);
+  border-color:
+    rgba(23, 105, 194, 0.45);
+
+  background:
+    rgba(255, 255, 255, 0.88);
 
   box-shadow:
-    0 0 0 4px rgba(23, 105, 194, 0.12),
-    0 5px 15px rgba(23, 105, 194, 0.08);
-
-  transform: translateY(-1px);
+    0 0 0 4px rgba(23, 105, 194, 0.10),
+    0 8px 20px rgba(23, 105, 194, 0.08);
 }
 
 
 /* =========================================================
-   PAGE CONTAINER
-   ========================================================= */
+   PAGE
+========================================================= */
 
 .erja-page {
   width: min(1200px, calc(100% - 40px));
 
   margin: 0 auto;
 
-  padding: 40px 0 60px;
+  padding: 40px 0 70px;
 }
-
-
-/* =========================================================
-   PAGE TITLE
-   ========================================================= */
 
 .erja-page-title {
-  color: var(--erja-primary);
+  margin: 0;
 
-  font-size: clamp(30px, 4vw, 46px);
+  color: var(--erja-text);
 
-  font-weight: 800;
+  font-size: clamp(32px, 5vw, 54px);
 
-  letter-spacing: -0.8px;
+  line-height: 1.05;
 
-  text-shadow:
-    0 2px 0 rgba(255, 255, 255, 0.8),
-    0 5px 12px rgba(23, 105, 194, 0.12);
+  font-weight: 850;
+
+  letter-spacing: -1.5px;
 }
 
 
 /* =========================================================
-   FLOATING EFFECT
-   ========================================================= */
+   GLOW
+========================================================= */
+
+.erja-glow {
+  position: relative;
+}
+
+.erja-glow::after {
+  content: "";
+
+  position: absolute;
+
+  inset: -25px;
+
+  z-index: -1;
+
+  border-radius: 50%;
+
+  background:
+    radial-gradient(
+      circle,
+      rgba(23, 105, 194, 0.20),
+      transparent 65%
+    );
+
+  filter: blur(25px);
+
+  pointer-events: none;
+}
+
+
+/* =========================================================
+   FLOATING
+========================================================= */
 
 @keyframes erjaFloat {
   0%,
@@ -327,55 +549,100 @@ textarea:focus {
   }
 
   50% {
-    transform: translateY(-4px);
+    transform: translateY(-7px);
   }
 }
 
 .erja-floating {
-  animation: erjaFloat 4s ease-in-out infinite;
+  animation:
+    erjaFloat 4.5s ease-in-out infinite;
 }
 
 
 /* =========================================================
-   MONITORING PULSE
-   ========================================================= */
+   PULSE
+========================================================= */
 
 @keyframes erjaPulse {
   0% {
     box-shadow:
-      0 0 0 0 rgba(47, 158, 68, 0.35);
+      0 0 0 0 rgba(31, 157, 99, 0.35);
   }
 
   70% {
     box-shadow:
-      0 0 0 10px rgba(47, 158, 68, 0);
+      0 0 0 12px rgba(31, 157, 99, 0);
   }
 
   100% {
     box-shadow:
-      0 0 0 0 rgba(47, 158, 68, 0);
+      0 0 0 0 rgba(31, 157, 99, 0);
   }
 }
 
 .erja-pulse {
-  animation: erjaPulse 2s infinite;
+  animation:
+    erjaPulse 2.2s infinite;
 }
 
 
 /* =========================================================
-   RESPONSIVE
-   ========================================================= */
+   SCROLL REVEAL HELPER
+========================================================= */
 
-@media (max-width: 768px) {
-  .erja-page {
-    width: min(100% - 24px, 1200px);
-    padding-top: 24px;
+.erja-reveal {
+  animation:
+    erjaReveal 0.75s ease both;
+}
+
+@keyframes erjaReveal {
+  from {
+    opacity: 0;
+    transform: translateY(22px);
   }
 
-  .erja-page-title {
-    font-size: 32px;
+  to {
+    opacity: 1;
+    transform: translateY(0);
   }
 }
+
+
+/* =========================================================
+   SCROLLING TICKER
+========================================================= */
+
+.erja-ticker {
+  width: 100%;
+
+  overflow: hidden;
+
+  white-space: nowrap;
+}
+
+.erja-ticker-track {
+  display: inline-flex;
+
+  width: max-content;
+
+  animation:
+    erjaTicker 28s linear infinite;
+}
+
+@keyframes erjaTicker {
+  from {
+    transform: translateX(0);
+  }
+
+  to {
+    transform: translateX(-50%);
+  }
+}
+
+
+/* =========================================================
+   REDUCED MOTION
+========================================================= */
 
 @media (prefers-reduced-motion: reduce) {
   *,
@@ -384,5 +651,23 @@ textarea:focus {
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+
+/* =========================================================
+   RESPONSIVE
+========================================================= */
+
+@media (max-width: 768px) {
+  .erja-page {
+    width: min(100% - 24px, 1200px);
+
+    padding-top: 26px;
+  }
+
+  .erja-page-title {
+    font-size: 36px;
   }
 }

@@ -337,6 +337,82 @@ class ChartWorkflowService {
 
 
     // =========================================================
+    // GET CHART CLASSES
+    // =========================================================
+
+    getChartClasses(chart = {}, preferredClass = "") {
+
+        const classes = new Set();
+
+        const addClass = (value) => {
+            const normalized = String(value || "")
+                .trim()
+                .toUpperCase();
+
+            if (normalized) {
+                classes.add(normalized);
+            }
+        };
+
+        const prefixMap = {
+            H: "1A",
+            A: "2A",
+            B: "3A",
+            M: "3E",
+            S: "SL",
+            D: "2S",
+            C: "CC",
+            E: "EC",
+        };
+
+        const scan = (item) => {
+            if (!item) return;
+
+            if (typeof item === "string") {
+                const text = item.trim().toUpperCase();
+                const matches = text.match(/\b(?:H|A|B|M|S|D|C|E)\d{1,2}\b/g) || [];
+                matches.forEach((coach) => addClass(prefixMap[coach.charAt(0)]));
+                return;
+            }
+
+            if (typeof item !== "object") return;
+
+            addClass(
+                item.classCode ||
+                item.class ||
+                item.className ||
+                item.travelClass ||
+                item.cls
+            );
+
+            const coachName = String(
+                item.coachName ||
+                item.coach ||
+                item.coachCode ||
+                item.code ||
+                ""
+            ).trim().toUpperCase();
+
+            const matches = coachName.match(/\b(?:H|A|B|M|S|D|C|E)\d{1,2}\b/g) || [];
+            matches.forEach((coach) => addClass(prefixMap[coach.charAt(0)]));
+        };
+
+        if (Array.isArray(chart.coaches)) chart.coaches.forEach(scan);
+        if (Array.isArray(chart.cdd)) chart.cdd.forEach(scan);
+
+        // Keep the user's preferred class in the request even if the
+        // composition payload did not expose it in a directly parseable field.
+        addClass(preferredClass);
+
+        const order = ["1A", "2A", "3A", "3E", "SL", "2S", "CC", "EC"];
+        return Array.from(classes).sort(
+            (a, b) => (order.indexOf(a) === -1 ? 99 : order.indexOf(a)) -
+                      (order.indexOf(b) === -1 ? 99 : order.indexOf(b))
+        );
+    }
+
+
+    // =========================================================
     // CLEAR RECOMMENDATIONS
     // =========================================================
 
@@ -1151,90 +1227,124 @@ class ChartWorkflowService {
             // =================================================
             // FETCH REAL VACANT BERTHS
             // =================================================
+            //
+            // Always fetch the preferred class first. If mixed-class
+            // travel is explicitly enabled, also fetch every class
+            // exposed by the prepared chart composition. This allows
+            // the optimizer to find split/mixed-class paths even when
+            // the preferred class has no direct berth covering the
+            // complete journey.
+            // =================================================
 
-            let vacancyResponse;
+            let vacantBerths = [];
 
-
-            try {
-
-                console.log(
-                    "\n========================================"
+            const chartClasses =
+                this.getChartClasses(
+                    chart,
+                    enabledClass.class
                 );
 
+            const classesToCheck =
+                journey.allowMixedClass
+                    ? chartClasses
+                    : [enabledClass.class];
 
-                console.log(
-                    "🚆 Calling IRCTC Vacant Berth API"
-                );
+            console.log(
+                "\n========== VACANCY CLASSES TO CHECK =========="
+            );
 
+            console.log(
+                "Mixed Class Enabled:",
+                Boolean(journey.allowMixedClass)
+            );
 
-                console.log(
-                    "========================================"
-                );
+            console.log(
+                "Classes:",
+                classesToCheck
+            );
 
+            for (const classCode of classesToCheck) {
+                try {
+                    console.log(
+                        `\n🚆 Fetching IRCTC vacant berths for class ${classCode}`
+                    );
 
-                vacancyResponse =
-                    await chartService
-                        .fetchVacantBerth(
-
+                    const vacancyResponse =
+                        await chartService.fetchVacantBerth(
                             journey.trainNumber,
-
                             journeyDate,
-
                             journey.boardingStation,
-
-                            enabledClass.class,
-
+                            classCode,
                             1
                         );
 
-            } catch (
-                error
-            ) {
+                    const classVacancies =
+                        Array.isArray(vacancyResponse?.vbd)
+                            ? vacancyResponse.vbd
+                            : [];
 
-                console.log(
-                    "\n========================================"
-                );
+                    console.log(
+                        `✅ ${classCode}: ${classVacancies.length} vacant berth records`
+                    );
 
+                    vacantBerths.push(
+                        ...classVacancies.map((vacancy) => ({
+                            ...vacancy,
+                            classCode:
+                                vacancy.classCode ||
+                                vacancy.class ||
+                                vacancy.travelClass ||
+                                vacancy.cls ||
+                                classCode,
+                        }))
+                    );
+                } catch (error) {
+                    console.log(
+                        `⚠️ Vacancy request failed for class ${classCode}:`,
+                        error.message
+                    );
 
-                console.log(
-                    "⚠️ IRCTC VACANCY REQUEST FAILED"
-                );
-
-
-                console.log(
-                    "========================================"
-                );
-
-
-                console.log(
-                    "Error:",
-                    error.message
-                );
-
-
-                await this.clearRecommendations(
-                    journey._id
-                );
-
-
-                return null;
+                    // Preferred-class failure remains fatal when mixed
+                    // class is disabled. For mixed mode, continue so a
+                    // different available class can still form a valid
+                    // recommendation.
+                    if (!journey.allowMixedClass && classCode === enabledClass.class) {
+                        await this.clearRecommendations(journey._id);
+                        return null;
+                    }
+                }
             }
 
+            // Remove exact duplicate vacancy records that can occur
+            // when IRCTC exposes the same berth through multiple
+            // composition entries.
+            const vacancyMap = new Map();
+
+            vacantBerths.forEach((vacancy) => {
+                const key = JSON.stringify([
+                    vacancy.coachName || vacancy.coach || vacancy.coachCode || "",
+                    vacancy.berthNumber ?? vacancy.berth ?? vacancy.berthNo ?? "",
+                    vacancy.from || vacancy.fromStation || vacancy.fromStn || vacancy.fromCode || "",
+                    vacancy.to || vacancy.toStation || vacancy.toStn || vacancy.toCode || "",
+                    vacancy.classCode || vacancy.class || vacancy.travelClass || vacancy.cls || "",
+                    vacancy.splitNo ?? "",
+                ]);
+
+                if (!vacancyMap.has(key)) {
+                    vacancyMap.set(key, vacancy);
+                }
+            });
+
+            vacantBerths = Array.from(vacancyMap.values());
 
             // =================================================
-            // EXTRACT VACANCIES
+            // FINAL VACANCY SET
             // =================================================
-
-            const vacantBerths =
-                vacancyResponse?.vbd ||
-                [];
-
 
             console.log(
                 "\n✅ REAL VACANT BERTHS RECEIVED:",
                 vacantBerths.length
             );
-
 
             console.dir(
                 vacantBerths,
@@ -1243,15 +1353,11 @@ class ChartWorkflowService {
                 }
             );
 
-
             // =================================================
             // NO VACANCIES
             // =================================================
 
-            if (
-                vacantBerths.length ===
-                0
-            ) {
+            if (vacantBerths.length === 0) {
 
                 console.log(
                     "\nℹ️ IRCTC returned no vacant berths."

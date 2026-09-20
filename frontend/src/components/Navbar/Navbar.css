@@ -1,35 +1,75 @@
-/* =========================================
-   ERJA NAVBAR
-========================================= */
+/* =========================================================
+   ERJA LIQUID GLASS NAVBAR
+   ========================================================= */
 
 .navbar {
-    min-height: 70px;
 
-    background: #1565c0;
+    position: sticky;
 
-    color: white;
+    top: 14px;
+
+    z-index: 1000;
+
+    width:
+        calc(100% - 28px);
+
+    min-height: 72px;
+
+    margin:
+        14px auto 0;
+
+    padding:
+        10px 16px;
 
     display: flex;
+
     align-items: center;
 
-    padding: 0 30px;
+    gap: 14px;
 
-    box-sizing: border-box;
+    color: #eef6ff;
+
+    background:
+        linear-gradient(
+            135deg,
+            rgba(16, 43, 78, 0.84),
+            rgba(11, 65, 117, 0.70)
+        );
+
+    border:
+        1px solid
+        rgba(255, 255, 255, 0.18);
+
+    border-radius: 24px;
+
+    backdrop-filter:
+        blur(24px)
+        saturate(145%);
+
+    -webkit-backdrop-filter:
+        blur(24px)
+        saturate(145%);
 
     box-shadow:
-        0 3px 10px rgba(0, 0, 0, 0.15);
+        0 18px 55px
+        rgba(8, 35, 65, 0.20),
 
-    position: relative;
+        inset 0 1px 0
+        rgba(255, 255, 255, 0.16);
 
-    z-index: 100;
 }
 
 
-/* =========================================
-   LOGO
-========================================= */
+/* =========================================================
+   BRAND
+   ========================================================= */
 
 .logo {
+
+    border: 0;
+
+    outline: none;
+
     display: flex;
 
     align-items: center;
@@ -38,24 +78,99 @@
 
     min-width: 120px;
 
-    font-size: 25px;
-    font-weight: 800;
+    padding:
+        9px 12px;
+
+    color: white;
+
+    background:
+        rgba(255, 255, 255, 0.08);
+
+    border:
+        1px solid
+        rgba(255, 255, 255, 0.12);
+
+    border-radius: 16px;
 
     cursor: pointer;
 
-    user-select: none;
+    font-family: inherit;
+
+    transition:
+        transform 0.25s ease,
+        background 0.25s ease,
+        box-shadow 0.25s ease;
+
 }
 
-.logo span {
-    letter-spacing: 1px;
+
+.logo:hover {
+
+    transform:
+        translateY(-2px);
+
+    background:
+        rgba(255, 255, 255, 0.13);
+
+    box-shadow:
+        0 8px 24px
+        rgba(0, 0, 0, 0.16);
+
 }
 
 
-/* =========================================
-   NAVIGATION LINKS
-========================================= */
+.logo-train {
+
+    width: 34px;
+
+    height: 34px;
+
+    display: flex;
+
+    align-items: center;
+
+    justify-content: center;
+
+    border-radius: 11px;
+
+    background:
+        linear-gradient(
+            145deg,
+            rgba(255,255,255,.22),
+            rgba(255,255,255,.06)
+        );
+
+    box-shadow:
+        inset 2px 2px 5px
+        rgba(255,255,255,.10),
+
+        inset -2px -2px 5px
+        rgba(0,0,0,.12);
+
+    font-size: 18px;
+
+}
+
+
+.logo-text {
+
+    font-size: 19px;
+
+    font-weight: 900;
+
+    letter-spacing: 1.8px;
+
+}
+
+
+/* =========================================================
+   LINKS
+   ========================================================= */
 
 .nav-links {
+
+    flex: 1;
+
     display: flex;
 
     align-items: center;
@@ -64,249 +179,672 @@
 
     gap: 5px;
 
-    flex: 1;
+    overflow-x: auto;
 
-    margin: 0 20px;
+    scrollbar-width: none;
+
 }
 
+
+.nav-links::-webkit-scrollbar {
+
+    display: none;
+
+}
+
+
 .nav-link {
+
+    flex-shrink: 0;
+
+    position: relative;
+
     display: flex;
 
     align-items: center;
+
     justify-content: center;
 
-    padding: 9px 13px;
+    gap: 7px;
 
-    border-radius: 8px;
+    padding:
+        10px 12px;
 
-    color: rgba(255, 255, 255, 0.88);
+    color:
+        rgba(
+            239,
+            247,
+            255,
+            0.78
+        );
+
+    border:
+        1px solid transparent;
+
+    border-radius: 14px;
+
+    font-size: 12px;
+
+    font-weight: 750;
+
+    white-space: nowrap;
 
     text-decoration: none;
 
-    font-size: 12px;
+    transition:
+        transform 0.22s ease,
+        color 0.22s ease,
+        background 0.22s ease,
+        border-color 0.22s ease,
+        box-shadow 0.22s ease;
+
+}
+
+
+.nav-link span {
+
+    font-size: 14px;
+
+}
+
+
+.nav-link:hover {
+
+    color: white;
+
+    background:
+        rgba(
+            255,
+            255,
+            255,
+            .09
+        );
+
+    border-color:
+        rgba(
+            255,
+            255,
+            255,
+            .10
+        );
+
+    transform:
+        translateY(-1px);
+
+}
+
+
+.nav-link.active {
+
+    color: white;
+
+    background:
+        linear-gradient(
+            135deg,
+            rgba(
+                120,
+                202,
+                255,
+                .22
+            ),
+            rgba(
+                255,
+                255,
+                255,
+                .08
+            )
+        );
+
+    border-color:
+        rgba(
+            145,
+            218,
+            255,
+            .20
+        );
+
+    box-shadow:
+        inset 0 1px 0
+        rgba(
+            255,
+            255,
+            255,
+            .12
+        ),
+
+        0 8px 22px
+        rgba(
+            0,
+            0,
+            0,
+            .12
+        );
+
+}
+
+
+/* =========================================================
+   NOTIFICATION NAVIGATION
+   ========================================================= */
+
+.notification-nav-link {
+
+    position: relative;
+
+}
+
+
+/* =========================================================
+   NOTIFICATION ICON WRAPPER
+   ========================================================= */
+
+.notification-icon-wrapper {
+
+    position: relative;
+
+    width: 22px;
+
+    height: 22px;
+
+    display: inline-flex;
+
+    align-items: center;
+
+    justify-content: center;
+
+    flex-shrink: 0;
+
+}
+
+
+.notification-icon-wrapper > span:first-child {
+
+    display: flex;
+
+    align-items: center;
+
+    justify-content: center;
+
+    font-size: 14px;
+
+    line-height: 1;
+
+}
+
+
+/* =========================================================
+   UNREAD NOTIFICATION BADGE
+   ========================================================= */
+
+.notification-badge {
+
+    position: absolute;
+
+    top: -8px;
+
+    right: -10px;
+
+    min-width: 17px;
+
+    height: 17px;
+
+    padding:
+        0 4px;
+
+    display: flex;
+
+    align-items: center;
+
+    justify-content: center;
+
+    border-radius: 999px;
+
+    color: white;
+
+    background:
+        linear-gradient(
+            135deg,
+            #ff4d6d,
+            #ff1744
+        );
+
+    border:
+        2px solid
+        rgba(
+            16,
+            43,
+            78,
+            0.95
+        );
+
+    box-shadow:
+        0 3px 10px
+        rgba(
+            255,
+            23,
+            68,
+            0.40
+        );
+
+    font-size: 8px;
+
+    font-weight: 900;
+
+    line-height: 1;
+
+    letter-spacing: 0;
+
+    pointer-events: none;
+
+    animation:
+        notificationBadgePulse
+        2.2s
+        ease-in-out
+        infinite;
+
+}
+
+
+@keyframes notificationBadgePulse {
+
+    0%,
+    100% {
+
+        transform:
+            scale(1);
+
+        box-shadow:
+            0 3px 10px
+            rgba(
+                255,
+                23,
+                68,
+                0.40
+            );
+
+    }
+
+    50% {
+
+        transform:
+            scale(1.08);
+
+        box-shadow:
+            0 4px 14px
+            rgba(
+                255,
+                23,
+                68,
+                0.58
+            );
+
+    }
+
+}
+
+
+/* =========================================================
+   RIGHT SIDE
+   ========================================================= */
+
+.nav-right {
+
+    display: flex;
+
+    align-items: center;
+
+    justify-content: flex-end;
+
+    gap: 10px;
+
+}
+
+
+/* =========================================================
+   SYSTEM STATUS
+   ========================================================= */
+
+.nav-status {
+
+    display: flex;
+
+    align-items: center;
+
+    gap: 6px;
+
+    padding:
+        8px 10px;
+
+    border-radius: 12px;
+
+    background:
+        rgba(
+            48,
+            196,
+            124,
+            .10
+        );
+
+    border:
+        1px solid
+        rgba(
+            80,
+            225,
+            151,
+            .15
+        );
+
+    color:
+        rgba(
+            220,
+            255,
+            236,
+            .88
+        );
+
+    font-size: 10px;
+
     font-weight: 700;
 
     white-space: nowrap;
 
-    transition:
-        background 0.2s ease,
-        color 0.2s ease,
-        transform 0.2s ease;
 }
 
-.nav-link:hover {
-    background: rgba(255, 255, 255, 0.14);
 
-    color: white;
+.status-dot {
 
-    transform: translateY(-1px);
-}
+    width: 7px;
 
-.nav-link.active {
-    background: rgba(255, 255, 255, 0.20);
+    height: 7px;
 
-    color: white;
+    border-radius: 50%;
+
+    background: #54e69a;
 
     box-shadow:
-        inset 0 0 0 1px rgba(255, 255, 255, 0.10);
+        0 0 0 4px
+        rgba(
+            84,
+            230,
+            154,
+            .10
+        ),
+
+        0 0 15px
+        rgba(
+            84,
+            230,
+            154,
+            .55
+        );
+
+    animation:
+        navbarPulse
+        2s
+        ease-in-out
+        infinite;
+
 }
 
 
-/* =========================================
-   RIGHT SIDE
-========================================= */
+@keyframes navbarPulse {
 
-.nav-right {
-    display: flex;
+    0%,
+    100% {
 
-    align-items: center;
+        opacity: .65;
 
-    gap: 15px;
+    }
 
-    min-width: 185px;
+    50% {
 
-    justify-content: flex-end;
+        opacity: 1;
+
+    }
+
 }
+
+
+/* =========================================================
+   USERNAME
+   ========================================================= */
 
 .username {
-    font-size: 12px;
 
-    font-weight: 600;
+    font-size: 11px;
+
+    font-weight: 650;
+
+    color:
+        rgba(
+            240,
+            247,
+            255,
+            .78
+        );
 
     white-space: nowrap;
+
 }
 
 
-/* =========================================
+/* =========================================================
    LOGOUT
-========================================= */
+   ========================================================= */
 
 .logout-btn {
-    background: white;
 
-    color: #1565c0;
+    border:
+        1px solid
+        rgba(
+            255,
+            255,
+            255,
+            .16
+        );
 
-    border: none;
+    padding:
+        9px 14px;
 
-    padding: 9px 17px;
+    border-radius: 13px;
 
-    border-radius: 8px;
+    background:
+        rgba(
+            255,
+            255,
+            255,
+            .10
+        );
 
-    cursor: pointer;
+    color: white;
+
+    font-family: inherit;
 
     font-size: 11px;
 
     font-weight: 800;
 
-    white-space: nowrap;
+    cursor: pointer;
 
     transition:
-        background 0.2s ease,
-        transform 0.2s ease,
-        box-shadow 0.2s ease;
+        transform .22s ease,
+        background .22s ease,
+        box-shadow .22s ease;
 
-    box-shadow:
-        0 3px 7px rgba(0, 0, 0, 0.12);
 }
+
 
 .logout-btn:hover {
-    background: #e3f2fd;
 
-    transform: translateY(-1px);
+    transform:
+        translateY(-1px);
+
+    background:
+        rgba(
+            255,
+            255,
+            255,
+            .16
+        );
 
     box-shadow:
-        0 5px 10px rgba(0, 0, 0, 0.16);
+        0 8px 22px
+        rgba(
+            0,
+            0,
+            0,
+            .15
+        );
+
 }
+
 
 .logout-btn:active {
-    transform: translateY(1px);
+
+    transform:
+        translateY(1px);
+
 }
 
 
-/* =========================================
+/* =========================================================
    TABLET
-========================================= */
+   ========================================================= */
 
-@media (max-width: 1000px) {
+@media (max-width: 1100px) {
 
     .navbar {
-        padding: 0 18px;
+
+        width:
+            calc(100% - 20px);
+
+        padding:
+            9px 12px;
+
     }
 
-    .logo {
-        min-width: auto;
 
-        font-size: 22px;
+    .nav-status {
+
+        display: none;
+
     }
 
-    .nav-links {
-        gap: 2px;
-
-        margin: 0 10px;
-    }
-
-    .nav-link {
-        padding: 8px 8px;
-
-        font-size: 10px;
-    }
-
-    .nav-right {
-        min-width: auto;
-
-        gap: 9px;
-    }
 
     .username {
+
         display: none;
+
     }
 
 }
 
 
-/* =========================================
-   MOBILE
-========================================= */
+/* =========================================================
+   MOBILE / SMALL TABLET
+   ========================================================= */
 
-@media (max-width: 700px) {
+@media (max-width: 800px) {
 
     .navbar {
-        min-height: auto;
 
-        padding: 12px 14px;
+        position: relative;
+
+        top: 0;
+
+        margin-top: 8px;
+
+        border-radius: 20px;
 
         flex-wrap: wrap;
 
-        gap: 10px;
     }
 
-    .logo {
-        font-size: 21px;
-    }
-
-    .nav-right {
-        margin-left: auto;
-    }
 
     .nav-links {
+
         order: 3;
 
         width: 100%;
-
-        margin: 0;
-
-        overflow-x: auto;
 
         justify-content: flex-start;
 
         padding-bottom: 2px;
 
-        scrollbar-width: none;
-    }
-
-    .nav-links::-webkit-scrollbar {
-        display: none;
-    }
-
-    .nav-link {
-        flex-shrink: 0;
-
-        padding: 8px 11px;
-
-        font-size: 10px;
-    }
-
-    .logout-btn {
-        padding: 8px 13px;
     }
 
 }
 
 
-/* =========================================
-   VERY SMALL MOBILE
-========================================= */
+/* =========================================================
+   SMALL MOBILE
+   ========================================================= */
 
-@media (max-width: 420px) {
+@media (max-width: 520px) {
 
     .navbar {
-        padding: 10px;
+
+        width:
+            calc(100% - 12px);
+
+        padding: 8px;
+
+        border-radius: 18px;
+
     }
+
 
     .logo {
-        font-size: 19px;
+
+        min-width: auto;
+
     }
+
+
+    .logo-text {
+
+        font-size: 17px;
+
+    }
+
 
     .nav-link {
-        padding: 7px 9px;
 
-        font-size: 9px;
-    }
-
-    .logout-btn {
-        padding: 7px 11px;
+        padding:
+            9px 10px;
 
         font-size: 10px;
+
+    }
+
+
+    .nav-link span {
+
+        font-size: 13px;
+
+    }
+
+
+    .logout-btn {
+
+        padding:
+            8px 11px;
+
+    }
+
+
+    .notification-badge {
+
+        top: -7px;
+
+        right: -9px;
+
+        min-width: 16px;
+
+        height: 16px;
+
+        font-size: 7px;
+
     }
 
 }

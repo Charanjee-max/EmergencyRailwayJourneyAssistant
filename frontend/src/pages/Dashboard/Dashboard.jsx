@@ -1,86 +1,180 @@
-import { useEffect, useState } from "react";
+import {
+    useCallback,
+    useEffect,
+    useMemo,
+    useState,
+} from "react";
+
 import { useNavigate } from "react-router-dom";
 
 import "./Dashboard.css";
 
 import Navbar from "../../components/Navbar/Navbar";
-import SummaryCard from "../../components/SummaryCard/SummaryCard";
 
 import { getJourneys } from "../../api/journeyAPI";
 import { getRecommendations } from "../../api/recommendationAPI";
+import { getNotifications } from "../../api/notificationAPI";
 
 
 function Dashboard() {
 
     const navigate = useNavigate();
 
-    const [journeys, setJourneys] = useState([]);
-    const [latestRecommendation, setLatestRecommendation] = useState(null);
 
-    const [loading, setLoading] = useState(true);
+    // =========================================================
+    // STATE
+    // =========================================================
+
+    const [journeys, setJourneys] = useState([]);
+
+    const [latestRecommendation, setLatestRecommendation] =
+        useState(null);
+
+    const [recommendationTotal, setRecommendationTotal] =
+        useState(0);
+
+    const [notifications, setNotifications] =
+        useState([]);
+
+    const [unreadCount, setUnreadCount] =
+        useState(0);
+
+    const [loading, setLoading] =
+        useState(true);
+
     const [recommendationLoading, setRecommendationLoading] =
         useState(false);
 
-    const [error, setError] = useState("");
+    const [notificationLoading, setNotificationLoading] =
+        useState(false);
+
+    const [error, setError] =
+        useState("");
 
 
     // =========================================================
     // LOAD DASHBOARD
     // =========================================================
 
-    useEffect(() => {
-        loadDashboard();
-    }, []);
+    const loadDashboard = useCallback(
+        async () => {
+
+            setLoading(true);
+            setError("");
+
+            try {
+
+                const [
+                    journeyResponse,
+                    notificationResponse,
+                ] = await Promise.all([
+                    getJourneys(),
+                    getNotifications(10),
+                ]);
 
 
-    const loadDashboard = async () => {
-
-        setLoading(true);
-        setError("");
-
-        try {
-
-            const response = await getJourneys();
-
-            const journeyData =
-                response?.data?.data || [];
-
-            setJourneys(journeyData);
+                const journeyData =
+                    journeyResponse?.data?.data || [];
 
 
-            if (journeyData.length > 0) {
+                const notificationData =
+                    notificationResponse?.data?.data || [];
 
-                await loadLatestRecommendation(
-                    journeyData
+
+                const notificationUnread =
+                    notificationResponse?.data?.unreadCount || 0;
+
+
+                setJourneys(
+                    Array.isArray(journeyData)
+                        ? journeyData
+                        : []
                 );
 
-            } else {
 
-                setLatestRecommendation(null);
+                setNotifications(
+                    Array.isArray(notificationData)
+                        ? notificationData
+                        : []
+                );
+
+
+                setUnreadCount(
+                    Number(notificationUnread) || 0
+                );
+
+
+                if (journeyData.length > 0) {
+
+                    await loadLatestRecommendation(
+                        journeyData
+                    );
+
+                } else {
+
+                    setLatestRecommendation(null);
+                    setRecommendationTotal(0);
+
+                }
+
+            } catch (err) {
+
+                console.error(
+                    "Failed to load dashboard:",
+                    err
+                );
+
+                setError(
+                    err.response?.data?.message ||
+                    "Unable to load dashboard data."
+                );
+
+            } finally {
+
+                setLoading(false);
 
             }
 
-        } catch (err) {
-
-            console.error(
-                "Failed to load dashboard:",
-                err
-            );
-
-            setError(
-                "Unable to load dashboard data."
-            );
-
-        } finally {
-
-            setLoading(false);
-
-        }
-    };
+        },
+        []
+    );
 
 
     // =========================================================
-    // LOAD LATEST RECOMMENDATION
+    // INITIAL LOAD
+    // =========================================================
+
+    useEffect(() => {
+
+        loadDashboard();
+
+    }, [loadDashboard]);
+
+
+    // =========================================================
+    // PERIODIC DASHBOARD REFRESH
+    // =========================================================
+
+    useEffect(() => {
+
+        const interval =
+            setInterval(
+                () => {
+                    loadDashboard();
+                },
+                30000
+            );
+
+
+        return () => {
+            clearInterval(interval);
+        };
+
+    }, [loadDashboard]);
+
+
+    // =========================================================
+    // LOAD RECOMMENDATIONS
     // =========================================================
 
     const loadLatestRecommendation = async (
@@ -102,7 +196,7 @@ function Dashboard() {
                 );
 
 
-            const recommendations = [];
+            const allRecommendations = [];
 
 
             results.forEach(
@@ -136,16 +230,21 @@ function Dashboard() {
                         data.forEach(
                             (recommendation) => {
 
-                                recommendations.push({
+                                allRecommendations.push({
                                     ...recommendation,
+
                                     journeyId:
                                         journey._id,
+
                                     journeyDate:
                                         journey.journeyDate,
+
                                     trainNumber:
                                         journey.trainNumber,
+
                                     boardingStation:
                                         journey.boardingStation,
+
                                     destinationStation:
                                         journey.destinationStation,
                                 });
@@ -155,16 +254,21 @@ function Dashboard() {
 
                     } else {
 
-                        recommendations.push({
+                        allRecommendations.push({
                             ...data,
+
                             journeyId:
                                 journey._id,
+
                             journeyDate:
                                 journey.journeyDate,
+
                             trainNumber:
                                 journey.trainNumber,
+
                             boardingStation:
                                 journey.boardingStation,
+
                             destinationStation:
                                 journey.destinationStation,
                         });
@@ -175,8 +279,13 @@ function Dashboard() {
             );
 
 
+            setRecommendationTotal(
+                allRecommendations.length
+            );
+
+
             if (
-                recommendations.length === 0
+                allRecommendations.length === 0
             ) {
 
                 setLatestRecommendation(null);
@@ -185,7 +294,7 @@ function Dashboard() {
             }
 
 
-            recommendations.sort(
+            allRecommendations.sort(
                 (a, b) => {
 
                     const dateA =
@@ -197,6 +306,7 @@ function Dashboard() {
                             0
                         );
 
+
                     const dateB =
                         new Date(
                             b.analyzedAt ||
@@ -206,6 +316,7 @@ function Dashboard() {
                             0
                         );
 
+
                     return dateB - dateA;
 
                 }
@@ -213,9 +324,8 @@ function Dashboard() {
 
 
             setLatestRecommendation(
-                recommendations[0]
+                allRecommendations[0]
             );
-
 
         } catch (err) {
 
@@ -225,12 +335,53 @@ function Dashboard() {
             );
 
             setLatestRecommendation(null);
+            setRecommendationTotal(0);
 
         } finally {
 
             setRecommendationLoading(false);
 
         }
+
+    };
+
+
+    // =========================================================
+    // REFRESH NOTIFICATIONS ONLY
+    // =========================================================
+
+    const refreshNotifications = async () => {
+
+        setNotificationLoading(true);
+
+        try {
+
+            const response =
+                await getNotifications(10);
+
+
+            setNotifications(
+                response?.data?.data || []
+            );
+
+
+            setUnreadCount(
+                response?.data?.unreadCount || 0
+            );
+
+        } catch (err) {
+
+            console.error(
+                "Failed to refresh notifications:",
+                err
+            );
+
+        } finally {
+
+            setNotificationLoading(false);
+
+        }
+
     };
 
 
@@ -258,27 +409,13 @@ function Dashboard() {
         }
 
 
-        return strategy
+        return String(strategy)
             .replaceAll("_", " ")
             .toLowerCase()
             .replace(
                 /\b\w/g,
-                (char) =>
-                    char.toUpperCase()
+                (char) => char.toUpperCase()
             );
-
-    };
-
-
-    const getScore = (
-        recommendation
-    ) => {
-
-        return (
-            recommendation?.score ??
-            recommendation?.confidence ??
-            "-"
-        );
 
     };
 
@@ -293,8 +430,9 @@ function Dashboard() {
         ) {
 
             return (
-                recommendation.tickets[0]
-                    ?.coach || "-"
+                recommendation.tickets[0]?.coach ||
+                recommendation.tickets[0]?.coachCode ||
+                "-"
             );
 
         }
@@ -302,8 +440,36 @@ function Dashboard() {
 
         return (
             recommendation?.coach ||
+            recommendation?.coachCode ||
             "-"
         );
+
+    };
+
+
+    const getRecommendationSegments = (
+        recommendation
+    ) => {
+
+        if (
+            !recommendation
+        ) {
+            return 0;
+        }
+
+
+        if (
+            Array.isArray(
+                recommendation.tickets
+            )
+        ) {
+
+            return recommendation.tickets.length;
+
+        }
+
+
+        return 0;
 
     };
 
@@ -429,54 +595,130 @@ function Dashboard() {
     };
 
 
+    const formatNotificationTime = (
+        date
+    ) => {
+
+        if (!date) {
+            return "";
+        }
+
+
+        const parsed =
+            new Date(date);
+
+
+        if (
+            Number.isNaN(
+                parsed.getTime()
+            )
+        ) {
+            return "";
+        }
+
+
+        return parsed.toLocaleString(
+            "en-IN",
+            {
+                day: "2-digit",
+                month: "short",
+                hour: "2-digit",
+                minute: "2-digit",
+            }
+        );
+
+    };
+
+
+    const getNotificationIcon = (
+        type
+    ) => {
+
+        switch (
+            String(type || "").toUpperCase()
+        ) {
+
+            case "CHART_UPDATE":
+                return "📋";
+
+            case "SEAT_AVAILABLE":
+                return "🎟️";
+
+            case "JOURNEY_UPDATE":
+                return "🚆";
+
+            case "SYSTEM":
+                return "⚙️";
+
+            default:
+                return "🔔";
+
+        }
+
+    };
+
+
+    const getNotificationClass = (
+        notification
+    ) => {
+
+        if (
+            !notification?.isRead
+        ) {
+            return "notification-item unread";
+        }
+
+
+        return "notification-item";
+
+    };
+
+
     // =========================================================
     // COUNTS
     // =========================================================
 
     const monitoringCount =
-        journeys.filter(
-            (journey) => {
+        useMemo(
+            () =>
+                journeys.filter(
+                    (journey) => {
 
-                const status =
-                    String(
-                        journey.status ||
-                        ""
-                    ).toUpperCase();
+                        const status =
+                            String(
+                                journey.status ||
+                                ""
+                            ).toUpperCase();
 
 
-                return (
-                    status === "PENDING" ||
-                    status === "ACTIVE" ||
-                    status === "MONITORING" ||
-                    status ===
-                        "CHART_PREPARED" ||
-                    status ===
-                        "RECOMMENDATION_READY"
-                );
+                        return (
+                            status === "PENDING" ||
+                            status === "ACTIVE" ||
+                            status === "MONITORING" ||
+                            status ===
+                                "CHART_PREPARED" ||
+                            status ===
+                                "RECOMMENDATION_READY"
+                        );
 
-            }
-        ).length;
+                    }
+                ).length,
+            [journeys]
+        );
 
 
     const completedCount =
-        journeys.filter(
-            (journey) =>
-                String(
-                    journey.status || ""
-                ).toUpperCase() ===
-                "COMPLETED"
-        ).length;
-
-
-    const recommendationCount =
-        latestRecommendation
-            ? 1
-            : 0;
-
-
-    // Alerts are not currently supplied
-    // by the Dashboard API.
-    const alertCount = 0;
+        useMemo(
+            () =>
+                journeys.filter(
+                    (journey) =>
+                        String(
+                            journey.status || ""
+                        ).toUpperCase() ===
+                        "COMPLETED"
+                ).length,
+            [journeys]
+        );
 
 
     // =========================================================
@@ -509,8 +751,9 @@ function Dashboard() {
                         </h2>
 
                         <p>
-                            Fetching journeys
-                            and recommendations...
+                            Fetching journeys,
+                            availability and
+                            notifications...
                         </p>
 
                     </section>
@@ -567,7 +810,7 @@ function Dashboard() {
                             Monitor your railway
                             journeys, analyze
                             availability, and discover
-                            smarter booking strategies.
+                            practical booking strategies.
 
                         </p>
 
@@ -632,17 +875,19 @@ function Dashboard() {
                         <div className="route-line">
 
                             <span className="station-node">
-                                SC
+                                ERJA
                             </span>
 
                             <div className="route-track">
+
                                 <span className="moving-train">
                                     🚆
                                 </span>
+
                             </div>
 
                             <span className="station-node">
-                                BZA
+                                LIVE
                             </span>
 
                         </div>
@@ -748,7 +993,7 @@ function Dashboard() {
                             </span>
 
                             <strong>
-                                {recommendationCount}
+                                {recommendationTotal}
                             </strong>
 
                             <small>
@@ -760,27 +1005,38 @@ function Dashboard() {
                     </div>
 
 
-                    <div className="stat-card stat-purple">
+                    <div
+                        className="stat-card stat-purple notification-stat-card"
+                        onClick={() =>
+                            navigate(
+                                "/notifications"
+                            )
+                        }
+                    >
 
                         <div className="stat-icon">
-                            ✓
+                            🔔
                         </div>
 
                         <div className="stat-content">
 
                             <span>
-                                COMPLETED
+                                NOTIFICATIONS
                             </span>
 
                             <strong>
-                                {completedCount}
+                                {unreadCount}
                             </strong>
 
                             <small>
-                                Journey history
+                                Unread alerts
                             </small>
 
                         </div>
+
+                        {unreadCount > 0 && (
+                            <span className="stat-alert-dot"></span>
+                        )}
 
                     </div>
 
@@ -981,7 +1237,156 @@ function Dashboard() {
 
 
                     {/* =================================================
-                        AI RECOMMENDATION
+                        NOTIFICATIONS
+                    ================================================= */}
+
+                    <div className="dashboard-card notifications-card">
+
+                        <div className="card-heading">
+
+                            <div>
+
+                                <span className="card-kicker">
+                                    LIVE UPDATES
+                                </span>
+
+                                <h2>
+                                    Notifications
+                                </h2>
+
+                            </div>
+
+
+                            <button
+                                className="text-action"
+                                onClick={() =>
+                                    navigate(
+                                        "/notifications"
+                                    )
+                                }
+                            >
+                                View All
+                                <span>→</span>
+                            </button>
+
+                        </div>
+
+
+                        {notificationLoading ? (
+
+                            <div className="notificationLoading">
+                                Checking latest alerts...
+                            </div>
+
+                        ) : notifications.length === 0 ? (
+
+                            <div className="empty-notifications">
+
+                                <div className="notification-empty-icon">
+                                    🔔
+                                </div>
+
+                                <h3>
+                                    No notifications
+                                </h3>
+
+                                <p>
+                                    ERJA will notify you when
+                                    your journey status or
+                                    railway availability changes.
+                                </p>
+
+                            </div>
+
+                        ) : (
+
+                            <div className="notification-list">
+
+                                {notifications
+                                    .slice(0, 4)
+                                    .map(
+                                        (notification) => (
+
+                                            <div
+                                                key={
+                                                    notification._id
+                                                }
+                                                className={
+                                                    getNotificationClass(
+                                                        notification
+                                                    )
+                                                }
+                                                onClick={() =>
+                                                    navigate(
+                                                        "/notifications"
+                                                    )
+                                                }
+                                            >
+
+                                                <div className="notification-icon">
+
+                                                    {getNotificationIcon(
+                                                        notification.type
+                                                    )}
+
+                                                </div>
+
+
+                                                <div className="notification-content">
+
+                                                    <strong>
+                                                        {
+                                                            notification.title ||
+                                                            "ERJA Notification"
+                                                        }
+                                                    </strong>
+
+                                                    <p>
+                                                        {
+                                                            notification.message ||
+                                                            "A journey update is available."
+                                                        }
+                                                    </p>
+
+                                                    <span>
+                                                        {
+                                                            formatNotificationTime(
+                                                                notification.createdAt
+                                                            )
+                                                        }
+                                                    </span>
+
+                                                </div>
+
+
+                                                {!notification.isRead && (
+                                                    <span className="unread-dot"></span>
+                                                )}
+
+                                            </div>
+
+                                        )
+                                    )}
+
+                            </div>
+
+                        )}
+
+
+                        <button
+                            className="notification-refresh"
+                            onClick={
+                                refreshNotifications
+                            }
+                        >
+                            ↻ Refresh notifications
+                        </button>
+
+                    </div>
+
+
+                    {/* =================================================
+                        RECOMMENDATION
                     ================================================= */}
 
                     <div className="dashboard-card recommendation-card">
@@ -1001,7 +1406,7 @@ function Dashboard() {
                             </div>
 
                             <div className="ai-badge">
-                                AI
+                                ERJA
                             </div>
 
                         </div>
@@ -1012,9 +1417,11 @@ function Dashboard() {
                             <div className="recommendation-loading">
 
                                 <div className="ai-loader">
+
                                     <span></span>
                                     <span></span>
                                     <span></span>
+
                                 </div>
 
                                 <h3>
@@ -1041,8 +1448,7 @@ function Dashboard() {
                                     <div>
 
                                         <span>
-                                            BEST AVAILABLE
-                                            STRATEGY
+                                            CURRENT STRATEGY
                                         </span>
 
                                         <h3>
@@ -1111,12 +1517,12 @@ function Dashboard() {
                                     <div>
 
                                         <span>
-                                            COACH
+                                            SEGMENTS
                                         </span>
 
                                         <strong>
                                             {
-                                                getCoach(
+                                                getRecommendationSegments(
                                                     latestRecommendation
                                                 )
                                             }
@@ -1128,16 +1534,15 @@ function Dashboard() {
                                     <div>
 
                                         <span>
-                                            SCORE
+                                            COACH
                                         </span>
 
                                         <strong>
                                             {
-                                                getScore(
+                                                getCoach(
                                                     latestRecommendation
                                                 )
                                             }
-
                                         </strong>
 
                                     </div>
@@ -1179,8 +1584,8 @@ function Dashboard() {
                                 <p>
                                     Once ERJA analyzes
                                     your journey, the
-                                    best booking strategy
-                                    will appear here.
+                                    available booking
+                                    strategy will appear here.
                                 </p>
 
 
@@ -1210,7 +1615,56 @@ function Dashboard() {
 
 
                 {/* =================================================
-                    SAFETY / AVAILABILITY WARNING
+                    CHART PREPARED NOTICE
+                ================================================= */}
+
+                {notifications.some(
+                    (notification) =>
+                        String(
+                            notification.type || ""
+                        ).toUpperCase() ===
+                        "CHART_UPDATE"
+                ) && (
+
+                    <section className="chart-prepared-banner">
+
+                        <div className="chart-banner-icon">
+                            📋
+                        </div>
+
+                        <div className="chart-banner-content">
+
+                            <strong>
+                                Chart preparation update received
+                            </strong>
+
+                            <p>
+                                ERJA has detected a chart status
+                                update for one of your monitored
+                                journeys. Open notifications to
+                                see the details.
+                            </p>
+
+                        </div>
+
+                        <button
+                            onClick={() =>
+                                navigate(
+                                    "/notifications"
+                                )
+                            }
+                        >
+                            Open
+                            <span>→</span>
+                        </button>
+
+                    </section>
+
+                )}
+
+
+                {/* =================================================
+                    AVAILABILITY WARNING
                 ================================================= */}
 
                 <section className="availability-warning">
@@ -1228,8 +1682,8 @@ function Dashboard() {
                         <p>
                             Recommended berths may become
                             unavailable or be booked by another
-                            passenger before you complete your
-                            booking.
+                            passenger before you complete
+                            your booking.
                         </p>
 
                     </div>
@@ -1238,18 +1692,29 @@ function Dashboard() {
 
 
                 {/* =================================================
-                    FOOTER STATUS
+                    FOOTER
                 ================================================= */}
 
                 <div className="dashboard-footer">
 
                     <span className="footer-status">
+
                         <i></i>
+
                         ERJA monitoring system active
+
                     </span>
 
                     <span>
-                        Emergency Railway Journey Assistant
+                        Last dashboard refresh:
+                        {" "}
+                        {new Date().toLocaleTimeString(
+                            "en-IN",
+                            {
+                                hour: "2-digit",
+                                minute: "2-digit",
+                            }
+                        )}
                     </span>
 
                 </div>

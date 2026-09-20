@@ -1,5 +1,12 @@
-import { useCallback, useEffect, useState } from "react";
+import {
+    useCallback,
+    useEffect,
+    useState,
+} from "react";
+
 import { useNavigate } from "react-router-dom";
+
+import Navbar from "../../components/Navbar/Navbar";
 
 import {
     getNotifications,
@@ -12,47 +19,78 @@ import {
 import "./Notifications.css";
 
 
-export default function Notifications() {
+function Notifications() {
 
     const navigate = useNavigate();
 
-    const [notifications, setNotifications] = useState([]);
-    const [unreadCount, setUnreadCount] = useState(0);
 
-    const [loading, setLoading] = useState(true);
-    const [refreshing, setRefreshing] = useState(false);
+    // =========================================================
+    // STATE
+    // =========================================================
 
-    const [error, setError] = useState("");
+    const [notifications, setNotifications] =
+        useState([]);
+
+    const [unreadCount, setUnreadCount] =
+        useState(0);
+
+    const [loading, setLoading] =
+        useState(true);
+
+    const [refreshing, setRefreshing] =
+        useState(false);
+
     const [actionLoading, setActionLoading] =
-        useState(null);
+        useState(false);
+
+    const [error, setError] =
+        useState("");
+
+    const [filter, setFilter] =
+        useState("ALL");
 
 
-    // =========================================
+    // =========================================================
     // LOAD NOTIFICATIONS
-    // =========================================
+    // =========================================================
 
     const loadNotifications = useCallback(
-        async (isRefresh = false) => {
+        async (
+            showLoader = true
+        ) => {
 
             try {
 
-                if (isRefresh) {
-                    setRefreshing(true);
-                } else {
+                if (showLoader) {
                     setLoading(true);
+                } else {
+                    setRefreshing(true);
                 }
 
                 setError("");
 
+
                 const response =
-                    await getNotifications();
+                    await getNotifications(50);
+
+
+                const data =
+                    response?.data?.data || [];
+
+
+                const count =
+                    response?.data?.unreadCount || 0;
+
 
                 setNotifications(
-                    response?.data?.data || []
+                    Array.isArray(data)
+                        ? data
+                        : []
                 );
 
+
                 setUnreadCount(
-                    response?.data?.unreadCount || 0
+                    Number(count) || 0
                 );
 
             } catch (err) {
@@ -61,6 +99,7 @@ export default function Notifications() {
                     "Failed to load notifications:",
                     err
                 );
+
 
                 setError(
                     err.response?.data?.message ||
@@ -73,41 +112,88 @@ export default function Notifications() {
                 setRefreshing(false);
 
             }
+
         },
         []
     );
 
 
+    // =========================================================
+    // INITIAL LOAD
+    // =========================================================
+
     useEffect(() => {
+
         loadNotifications();
+
     }, [loadNotifications]);
 
 
-    // =========================================
-    // MARK ONE READ
-    // =========================================
+    // =========================================================
+    // AUTO REFRESH
+    // =========================================================
 
-    const handleMarkRead = async (id) => {
+    useEffect(() => {
+
+        const interval =
+            setInterval(
+                () => {
+                    loadNotifications(false);
+                },
+                30000
+            );
+
+
+        return () => {
+            clearInterval(interval);
+        };
+
+    }, [loadNotifications]);
+
+
+    // =========================================================
+    // MARK ONE AS READ
+    // =========================================================
+
+    const handleMarkAsRead = async (
+        notification
+    ) => {
+
+        if (
+            notification.isRead
+        ) {
+            return;
+        }
+
 
         try {
 
-            setActionLoading(id);
-
-            await markNotificationAsRead(id);
-
-            setNotifications((previous) =>
-                previous.map((notification) =>
-                    notification._id === id
-                        ? {
-                            ...notification,
-                            isRead: true,
-                        }
-                        : notification
-                )
+            await markNotificationAsRead(
+                notification._id
             );
 
-            setUnreadCount((previous) =>
-                Math.max(previous - 1, 0)
+
+            setNotifications(
+                (current) =>
+                    current.map(
+                        (item) =>
+                            item._id ===
+                            notification._id
+                                ? {
+                                      ...item,
+                                      isRead: true,
+                                  }
+                                : item
+                    )
+            );
+
+
+            setUnreadCount(
+                (current) =>
+                    Math.max(
+                        0,
+                        current - 1
+                    )
             );
 
         } catch (err) {
@@ -117,90 +203,116 @@ export default function Notifications() {
                 err
             );
 
-            setError(
-                err.response?.data?.message ||
-                "Unable to update notification."
-            );
-
-        } finally {
-
-            setActionLoading(null);
-
         }
+
     };
 
 
-    // =========================================
-    // MARK ALL READ
-    // =========================================
+    // =========================================================
+    // MARK ALL AS READ
+    // =========================================================
 
-    const handleMarkAllRead = async () => {
+    const handleMarkAllAsRead =
+        async () => {
 
-        if (unreadCount === 0) {
-            return;
-        }
-
-        try {
-
-            setActionLoading("all");
-
-            await markAllNotificationsAsRead();
-
-            setNotifications((previous) =>
-                previous.map((notification) => ({
-                    ...notification,
-                    isRead: true,
-                }))
-            );
-
-            setUnreadCount(0);
-
-        } catch (err) {
-
-            console.error(
-                "Failed to mark all notifications:",
-                err
-            );
-
-            setError(
-                err.response?.data?.message ||
-                "Unable to update notifications."
-            );
-
-        } finally {
-
-            setActionLoading(null);
-
-        }
-    };
+            if (
+                unreadCount === 0
+            ) {
+                return;
+            }
 
 
-    // =========================================
+            try {
+
+                setActionLoading(true);
+
+
+                await markAllNotificationsAsRead();
+
+
+                setNotifications(
+                    (current) =>
+                        current.map(
+                            (notification) => ({
+                                ...notification,
+                                isRead: true,
+                            })
+                        )
+                );
+
+
+                setUnreadCount(0);
+
+            } catch (err) {
+
+                console.error(
+                    "Failed to mark all notifications as read:",
+                    err
+                );
+
+                setError(
+                    err.response?.data?.message ||
+                    "Unable to mark notifications as read."
+                );
+
+            } finally {
+
+                setActionLoading(false);
+
+            }
+
+        };
+
+
+    // =========================================================
     // DELETE ONE
-    // =========================================
+    // =========================================================
 
     const handleDelete = async (
-        id,
-        wasUnread
+        notificationId
     ) => {
 
         try {
 
-            setActionLoading(`delete-${id}`);
+            setActionLoading(true);
 
-            await deleteNotification(id);
 
-            setNotifications((previous) =>
-                previous.filter(
+            const target =
+                notifications.find(
                     (notification) =>
-                        notification._id !== id
-                )
+                        notification._id ===
+                        notificationId
+                );
+
+
+            await deleteNotification(
+                notificationId
             );
 
-            if (wasUnread) {
-                setUnreadCount((previous) =>
-                    Math.max(previous - 1, 0)
+
+            setNotifications(
+                (current) =>
+                    current.filter(
+                        (notification) =>
+                            notification._id !==
+                            notificationId
+                    )
+            );
+
+
+            if (
+                target &&
+                !target.isRead
+            ) {
+
+                setUnreadCount(
+                    (current) =>
+                        Math.max(
+                            0,
+                            current - 1
+                        )
                 );
+
             }
 
         } catch (err) {
@@ -217,82 +329,193 @@ export default function Notifications() {
 
         } finally {
 
-            setActionLoading(null);
+            setActionLoading(false);
 
         }
+
     };
 
 
-    // =========================================
+    // =========================================================
     // DELETE ALL
-    // =========================================
+    // =========================================================
 
-    const handleDeleteAll = async () => {
+    const handleDeleteAll =
+        async () => {
 
-        if (notifications.length === 0) {
-            return;
+            if (
+                notifications.length === 0
+            ) {
+                return;
+            }
+
+
+            const confirmed =
+                window.confirm(
+                    "Delete all notifications?"
+                );
+
+
+            if (!confirmed) {
+                return;
+            }
+
+
+            try {
+
+                setActionLoading(true);
+
+
+                await deleteAllNotifications();
+
+
+                setNotifications([]);
+                setUnreadCount(0);
+
+            } catch (err) {
+
+                console.error(
+                    "Failed to delete all notifications:",
+                    err
+                );
+
+                setError(
+                    err.response?.data?.message ||
+                    "Unable to delete notifications."
+                );
+
+            } finally {
+
+                setActionLoading(false);
+
+            }
+
+        };
+
+
+    // =========================================================
+    // NOTIFICATION HELPERS
+    // =========================================================
+
+    const getNotificationIcon = (
+        type
+    ) => {
+
+        switch (
+            String(
+                type || ""
+            ).toUpperCase()
+        ) {
+
+            case "CHART_UPDATE":
+                return "📋";
+
+            case "SEAT_AVAILABLE":
+                return "🎟️";
+
+            case "JOURNEY_UPDATE":
+                return "🚆";
+
+            case "SYSTEM":
+                return "⚙️";
+
+            default:
+                return "🔔";
+
         }
 
-        const confirmed =
-            window.confirm(
-                "Delete all notifications?"
-            );
-
-        if (!confirmed) {
-            return;
-        }
-
-        try {
-
-            setActionLoading("delete-all");
-
-            await deleteAllNotifications();
-
-            setNotifications([]);
-            setUnreadCount(0);
-
-        } catch (err) {
-
-            console.error(
-                "Failed to delete notifications:",
-                err
-            );
-
-            setError(
-                err.response?.data?.message ||
-                "Unable to delete notifications."
-            );
-
-        } finally {
-
-            setActionLoading(null);
-
-        }
     };
 
 
-    // =========================================
-    // FORMAT DATE
-    // =========================================
+    const getNotificationTypeName = (
+        type
+    ) => {
 
-    const formatDate = (date) => {
+        switch (
+            String(
+                type || ""
+            ).toUpperCase()
+        ) {
+
+            case "CHART_UPDATE":
+                return "Chart Update";
+
+            case "SEAT_AVAILABLE":
+                return "Seat Available";
+
+            case "JOURNEY_UPDATE":
+                return "Journey Update";
+
+            case "SYSTEM":
+                return "System";
+
+            default:
+                return "Notification";
+
+        }
+
+    };
+
+
+    const getNotificationClass = (
+        notification
+    ) => {
+
+        const type =
+            String(
+                notification.type || ""
+            ).toLowerCase();
+
+
+        if (
+            type === "chart_update"
+        ) {
+            return "notificationTypeChart";
+        }
+
+
+        if (
+            type === "seat_available"
+        ) {
+            return "notificationTypeSeat";
+        }
+
+
+        if (
+            type === "journey_update"
+        ) {
+            return "notificationTypeJourney";
+        }
+
+
+        return "notificationTypeSystem";
+
+    };
+
+
+    const formatTime = (
+        date
+    ) => {
 
         if (!date) {
-            return "Unknown time";
+            return "";
         }
 
-        const parsedDate =
+
+        const parsed =
             new Date(date);
+
 
         if (
             Number.isNaN(
-                parsedDate.getTime()
+                parsed.getTime()
             )
         ) {
-            return "Unknown time";
+            return "";
         }
 
-        return parsedDate.toLocaleString(
+
+        return parsed.toLocaleString(
             "en-IN",
             {
                 day: "2-digit",
@@ -302,182 +525,215 @@ export default function Notifications() {
                 minute: "2-digit",
             }
         );
+
     };
 
 
-    // =========================================
-    // NOTIFICATION ICON
-    // =========================================
+    const filteredNotifications =
+        notifications.filter(
+            (notification) => {
 
-    const getNotificationIcon = (type) => {
-
-        switch (type) {
-
-            case "SEAT_AVAILABLE":
-                return "🎟️";
-
-            case "JOURNEY_UPDATE":
-                return "🚆";
-
-            case "RECOMMENDATION":
-                return "✨";
-
-            case "CHART_PREPARED":
-                return "📋";
-
-            case "ALERT":
-                return "⚠️";
-
-            case "SUCCESS":
-                return "✓";
-
-            default:
-                return "🔔";
-        }
-    };
+                if (
+                    filter === "UNREAD"
+                ) {
+                    return !notification.isRead;
+                }
 
 
-    const getNotificationType =
-        (type) => {
+                if (
+                    filter === "CHART"
+                ) {
+                    return (
+                        String(
+                            notification.type ||
+                            ""
+                        ).toUpperCase() ===
+                        "CHART_UPDATE"
+                    );
+                }
 
-            switch (type) {
 
-                case "SEAT_AVAILABLE":
-                    return "Seat Availability";
+                if (
+                    filter === "SEATS"
+                ) {
+                    return (
+                        String(
+                            notification.type ||
+                            ""
+                        ).toUpperCase() ===
+                        "SEAT_AVAILABLE"
+                    );
+                }
 
-                case "JOURNEY_UPDATE":
-                    return "Journey Update";
 
-                case "RECOMMENDATION":
-                    return "Recommendation";
+                return true;
 
-                case "CHART_PREPARED":
-                    return "Chart Update";
-
-                case "ALERT":
-                    return "Important Alert";
-
-                case "SUCCESS":
-                    return "Success";
-
-                default:
-                    return "System Notification";
             }
+        );
+
+
+    // =========================================================
+    // NOTIFICATION CLICK
+    // =========================================================
+
+    const handleNotificationClick =
+        async (
+            notification
+        ) => {
+
+            await handleMarkAsRead(
+                notification
+            );
+
+
+            if (
+                notification.journeyId
+            ) {
+
+                navigate(
+                    `/recommendation/${notification.journeyId}`
+                );
+
+            }
+
         };
 
 
-    // =========================================
+    // =========================================================
     // LOADING
-    // =========================================
+    // =========================================================
 
     if (loading) {
 
         return (
-            <div className="notifications-page">
 
-                <div className="notifications-state-card">
+            <>
 
-                    <div className="notifications-state-icon">
-                        🔔
-                    </div>
+                <Navbar />
 
-                    <span className="notifications-eyebrow">
-                        ERJA NOTIFICATION CENTER
-                    </span>
+                <main className="notificationsPage">
 
-                    <h2>
-                        Loading Notifications
-                    </h2>
+                    <section className="notificationsLoading">
 
-                    <p>
-                        Checking your latest journey
-                        updates and alerts...
-                    </p>
+                        <div className="notificationsLoader">
+                            🔔
+                        </div>
 
-                    <div className="notifications-loading-bar">
-                        <div />
-                    </div>
+                        <h1>
+                            Loading notifications
+                        </h1>
 
-                </div>
+                        <p>
+                            Checking your latest ERJA
+                            journey updates...
+                        </p>
 
-            </div>
+                    </section>
+
+                </main>
+
+            </>
+
         );
+
     }
 
 
-    // =========================================
-    // MAIN
-    // =========================================
+    // =========================================================
+    // PAGE
+    // =========================================================
 
     return (
-        <div className="notifications-page">
 
-            {/* =================================
-                HEADER
-            ================================== */}
+        <>
 
-            <header className="notifications-header">
+            <Navbar />
 
-                <button
-                    className="notifications-back-btn"
-                    onClick={() =>
-                        navigate("/dashboard")
-                    }
-                >
-                    ← Back to Dashboard
-                </button>
 
-                <span className="notifications-eyebrow">
-                    ERJA NOTIFICATION CENTER
-                </span>
+            <main className="notificationsPage">
 
-                <div className="notifications-title-row">
+                {/* =================================================
+                    HEADER
+                ================================================= */}
+
+                <header className="notificationsHeader">
 
                     <div>
+
+                        <button
+                            className="notificationBackButton"
+                            onClick={() =>
+                                navigate(
+                                    "/dashboard"
+                                )
+                            }
+                        >
+                            ← Dashboard
+                        </button>
+
+
+                        <div className="notificationEyebrow">
+                            ERJA ALERT CENTER
+                        </div>
+
 
                         <h1>
                             Notifications
                         </h1>
 
+
                         <p>
-                            Stay updated with your
-                            journey monitoring activity.
+                            Stay updated on chart preparation,
+                            seat availability and journey status.
                         </p>
 
                     </div>
 
 
-                    {unreadCount > 0 && (
+                    <div className="notificationHeaderActions">
 
-                        <div className="unread-counter">
-
-                            <strong>
-                                {unreadCount}
-                            </strong>
-
-                            <span>
-                                Unread
-                            </span>
-
-                        </div>
-
-                    )}
-
-                </div>
-
-            </header>
+                        <button
+                            className="notificationRefreshButton"
+                            onClick={() =>
+                                loadNotifications(
+                                    false
+                                )
+                            }
+                            disabled={
+                                refreshing
+                            }
+                        >
+                            {refreshing
+                                ? "Refreshing..."
+                                : "↻ Refresh"}
+                        </button>
 
 
-            <main className="notifications-content">
+                        <button
+                            className="markAllButton"
+                            onClick={
+                                handleMarkAllAsRead
+                            }
+                            disabled={
+                                unreadCount === 0 ||
+                                actionLoading
+                            }
+                        >
+                            ✓ Mark all read
+                        </button>
+
+                    </div>
+
+                </header>
 
 
-                {/* =================================
+                {/* =================================================
                     ERROR
-                ================================== */}
+                ================================================= */}
 
                 {error && (
 
-                    <div className="notification-alert">
+                    <div className="notificationError">
 
                         <span>
                             ⚠️
@@ -489,10 +745,10 @@ export default function Notifications() {
 
                         <button
                             onClick={() =>
-                                setError("")
+                                loadNotifications()
                             }
                         >
-                            ×
+                            Retry
                         </button>
 
                     </div>
@@ -500,31 +756,32 @@ export default function Notifications() {
                 )}
 
 
-                {/* =================================
-                    TOOLBAR
-                ================================== */}
+                {/* =================================================
+                    SUMMARY
+                ================================================= */}
 
-                <section className="notifications-toolbar">
+                <section className="notificationSummary">
 
-                    <div className="toolbar-left">
+                    <div className="notificationSummaryMain">
 
-                        <div className="toolbar-icon">
+                        <div className="notificationSummaryIcon">
                             🔔
                         </div>
 
                         <div>
 
                             <span>
-                                ACTIVITY
+                                ALERT STATUS
                             </span>
 
                             <strong>
-                                {notifications.length}{" "}
-                                notification
-                                {notifications.length !==
-                                1
-                                    ? "s"
-                                    : ""}
+                                {unreadCount > 0
+                                    ? `${unreadCount} unread ${
+                                          unreadCount === 1
+                                              ? "notification"
+                                              : "notifications"
+                                      }`
+                                    : "All notifications read"}
                             </strong>
 
                         </div>
@@ -532,254 +789,371 @@ export default function Notifications() {
                     </div>
 
 
-                    <div className="toolbar-actions">
+                    <div className="notificationSummaryStats">
 
-                        <button
-                            className="toolbar-btn"
-                            onClick={() =>
-                                loadNotifications(true)
-                            }
-                            disabled={refreshing}
-                        >
-                            {refreshing
-                                ? "Refreshing..."
-                                : "↻ Refresh"}
-                        </button>
+                        <div>
 
+                            <strong>
+                                {notifications.length}
+                            </strong>
 
-                        <button
-                            className="toolbar-btn"
-                            onClick={
-                                handleMarkAllRead
-                            }
-                            disabled={
-                                unreadCount === 0 ||
-                                actionLoading === "all"
-                            }
-                        >
-                            ✓ Mark All Read
-                        </button>
+                            <span>
+                                Total
+                            </span>
+
+                        </div>
 
 
-                        <button
-                            className="toolbar-delete-btn"
-                            onClick={
-                                handleDeleteAll
-                            }
-                            disabled={
-                                notifications.length === 0 ||
-                                actionLoading ===
-                                    "delete-all"
-                            }
-                        >
-                            🗑 Delete All
-                        </button>
+                        <div>
+
+                            <strong>
+                                {unreadCount}
+                            </strong>
+
+                            <span>
+                                Unread
+                            </span>
+
+                        </div>
 
                     </div>
 
                 </section>
 
 
-                {/* =================================
-                    EMPTY
-                ================================== */}
+                {/* =================================================
+                    FILTERS
+                ================================================= */}
 
-                {notifications.length === 0 && (
+                <div className="notificationFilters">
 
-                    <div className="notifications-empty">
+                    <button
+                        className={
+                            filter === "ALL"
+                                ? "active"
+                                : ""
+                        }
+                        onClick={() =>
+                            setFilter("ALL")
+                        }
+                    >
+                        All
+                        <span>
+                            {notifications.length}
+                        </span>
+                    </button>
 
-                        <div className="empty-bell">
-                            🔔
+
+                    <button
+                        className={
+                            filter === "UNREAD"
+                                ? "active"
+                                : ""
+                        }
+                        onClick={() =>
+                            setFilter("UNREAD")
+                        }
+                    >
+                        Unread
+                        <span>
+                            {unreadCount}
+                        </span>
+                    </button>
+
+
+                    <button
+                        className={
+                            filter === "CHART"
+                                ? "active"
+                                : ""
+                        }
+                        onClick={() =>
+                            setFilter("CHART")
+                        }
+                    >
+                        Chart
+                    </button>
+
+
+                    <button
+                        className={
+                            filter === "SEATS"
+                                ? "active"
+                                : ""
+                        }
+                        onClick={() =>
+                            setFilter("SEATS")
+                        }
+                    >
+                        Seats
+                    </button>
+
+                </div>
+
+
+                {/* =================================================
+                    NOTIFICATION LIST
+                ================================================= */}
+
+                <section className="notificationPanel">
+
+                    <div className="notificationPanelHeader">
+
+                        <div>
+
+                            <span>
+                                LIVE UPDATES
+                            </span>
+
+                            <h2>
+                                {filter === "ALL"
+                                    ? "All notifications"
+                                    : filter === "UNREAD"
+                                    ? "Unread notifications"
+                                    : filter === "CHART"
+                                    ? "Chart notifications"
+                                    : "Seat availability notifications"}
+                            </h2>
+
                         </div>
 
-                        <span className="notifications-eyebrow">
-                            ALL CLEAR
-                        </span>
 
-                        <h2>
-                            No Notifications
-                        </h2>
+                        {notifications.length > 0 && (
 
-                        <p>
-                            You're all caught up.
-                            ERJA will notify you when
-                            there is an important journey
-                            update or availability event.
-                        </p>
+                            <button
+                                className="deleteAllButton"
+                                onClick={
+                                    handleDeleteAll
+                                }
+                                disabled={
+                                    actionLoading
+                                }
+                            >
+                                Delete all
+                            </button>
 
-                        <button
-                            className="empty-dashboard-btn"
-                            onClick={() =>
-                                navigate("/dashboard")
-                            }
-                        >
-                            ← Back to Dashboard
-                        </button>
+                        )}
 
                     </div>
 
-                )}
 
+                    {filteredNotifications.length === 0 ? (
 
-                {/* =================================
-                    NOTIFICATION LIST
-                ================================== */}
+                        <div className="notificationsEmpty">
 
-                {notifications.length > 0 && (
+                            <div className="notificationsEmptyIcon">
+                                {filter === "UNREAD"
+                                    ? "✓"
+                                    : "🔔"}
+                            </div>
 
-                    <section className="notification-list">
+                            <h3>
+                                {filter === "UNREAD"
+                                    ? "You're all caught up"
+                                    : "No notifications found"}
+                            </h3>
 
-                        {notifications.map(
-                            (notification) => (
+                            <p>
+                                {filter === "UNREAD"
+                                    ? "There are no unread ERJA alerts right now."
+                                    : "New journey and railway availability updates will appear here."}
+                            </p>
 
-                                <article
-                                    key={
-                                        notification._id
-                                    }
-                                    className={`notification-card ${
-                                        notification.isRead
-                                            ? "read"
-                                            : "unread"
-                                    }`}
-                                >
+                        </div>
 
-                                    {/* Unread indicator */}
+                    ) : (
 
-                                    {!notification.isRead && (
-                                        <div className="unread-indicator" />
-                                    )}
+                        <div className="notificationsList">
 
+                            {filteredNotifications.map(
+                                (notification) => (
 
-                                    {/* Icon */}
-
-                                    <div
-                                        className={`notification-icon ${
-                                            notification.type
-                                                ?.toLowerCase()
+                                    <article
+                                        key={
+                                            notification._id
+                                        }
+                                        className={`notificationCard ${
+                                            notification.isRead
+                                                ? "read"
+                                                : "unread"
                                         }`}
                                     >
-                                        {getNotificationIcon(
-                                            notification.type
-                                        )}
-                                    </div>
 
+                                        {/* =================================
+                                            ICON
+                                        ================================= */}
 
-                                    {/* Content */}
-
-                                    <div className="notification-body">
-
-                                        <div className="notification-meta">
-
-                                            <span className="notification-type">
-                                                {getNotificationType(
-                                                    notification.type
-                                                )}
-                                            </span>
-
-                                            {!notification.isRead && (
-                                                <span className="new-badge">
-                                                    NEW
-                                                </span>
+                                        <button
+                                            className={`notificationTypeIcon ${getNotificationClass(
+                                                notification
+                                            )}`}
+                                            onClick={() =>
+                                                handleNotificationClick(
+                                                    notification
+                                                )
+                                            }
+                                        >
+                                            {getNotificationIcon(
+                                                notification.type
                                             )}
-
-                                        </div>
-
-
-                                        <h2>
-                                            {notification.title}
-                                        </h2>
-
-                                        <p>
-                                            {notification.message}
-                                        </p>
+                                        </button>
 
 
-                                        <div className="notification-footer">
+                                        {/* =================================
+                                            CONTENT
+                                        ================================= */}
 
-                                            <span>
-                                                🕐{" "}
-                                                {formatDate(
-                                                    notification.createdAt
-                                                )}
-                                            </span>
+                                        <div
+                                            className="notificationCardContent"
+                                            onClick={() =>
+                                                handleNotificationClick(
+                                                    notification
+                                                )
+                                            }
+                                        >
+
+                                            <div className="notificationCardTop">
+
+                                                <div className="notificationTitleArea">
+
+                                                    {!notification.isRead && (
+                                                        <span className="newBadge">
+                                                            NEW
+                                                        </span>
+                                                    )}
+
+                                                    <span className="notificationTypeLabel">
+                                                        {
+                                                            getNotificationTypeName(
+                                                                notification.type
+                                                            )
+                                                        }
+                                                    </span>
+
+                                                </div>
+
+
+                                                <time>
+                                                    {formatTime(
+                                                        notification.createdAt
+                                                    )}
+                                                </time>
+
+                                            </div>
+
+
+                                            <h3>
+                                                {
+                                                    notification.title ||
+                                                    "ERJA Notification"
+                                                }
+                                            </h3>
+
+
+                                            <p>
+                                                {
+                                                    notification.message ||
+                                                    "A new journey update is available."
+                                                }
+                                            </p>
 
 
                                             {notification.journeyId && (
 
-                                                <button
-                                                    className="journey-link"
-                                                    onClick={() =>
-                                                        navigate(
-                                                            `/journey/${notification.journeyId}`
-                                                        )
-                                                    }
-                                                >
-                                                    View Journey →
-                                                </button>
+                                                <div className="notificationJourneyTag">
+
+                                                    <span>
+                                                        Journey update
+                                                    </span>
+
+                                                    <b>
+                                                        View journey →
+                                                    </b>
+
+                                                </div>
 
                                             )}
 
                                         </div>
 
-                                    </div>
 
+                                        {/* =================================
+                                            ACTIONS
+                                        ================================= */}
 
-                                    {/* Actions */}
+                                        <div className="notificationActions">
 
-                                    <div className="notification-actions">
+                                            {!notification.isRead && (
 
-                                        {!notification.isRead && (
+                                                <button
+                                                    title="Mark as read"
+                                                    onClick={() =>
+                                                        handleMarkAsRead(
+                                                            notification
+                                                        )
+                                                    }
+                                                    disabled={
+                                                        actionLoading
+                                                    }
+                                                >
+                                                    ✓
+                                                </button>
+
+                                            )}
+
 
                                             <button
-                                                className="read-btn"
+                                                title="Delete"
                                                 onClick={() =>
-                                                    handleMarkRead(
+                                                    handleDelete(
                                                         notification._id
                                                     )
                                                 }
                                                 disabled={
-                                                    actionLoading ===
-                                                    notification._id
+                                                    actionLoading
                                                 }
                                             >
-                                                {actionLoading ===
-                                                notification._id
-                                                    ? "..."
-                                                    : "✓ Read"}
+                                                ×
                                             </button>
 
-                                        )}
+                                        </div>
+
+                                    </article>
+
+                                )
+                            )}
+
+                        </div>
+
+                    )}
+
+                </section>
 
 
-                                        <button
-                                            className="delete-btn"
-                                            onClick={() =>
-                                                handleDelete(
-                                                    notification._id,
-                                                    !notification.isRead
-                                                )
-                                            }
-                                            disabled={
-                                                actionLoading ===
-                                                `delete-${notification._id}`
-                                            }
-                                        >
-                                            🗑
-                                        </button>
+                {/* =================================================
+                    FOOTER NOTE
+                ================================================= */}
 
-                                    </div>
+                <div className="notificationsFooter">
 
-                                </article>
+                    <span>
+                        <i></i>
+                        ERJA notification service active
+                    </span>
 
-                            )
-                        )}
+                    <span>
+                        Automatically refreshed every 30 seconds
+                    </span>
 
-                    </section>
-
-                )}
+                </div>
 
             </main>
 
-        </div>
+        </>
+
     );
+
 }
+
+
+export default Notifications;

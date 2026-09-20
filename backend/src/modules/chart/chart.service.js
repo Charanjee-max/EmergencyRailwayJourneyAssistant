@@ -256,13 +256,25 @@ class ChartService {
           chartStatus.chartTwoFlag || 0
         );
 
+      const chartOneDate =
+        data.chartOneDate ||
+        null;
+
+      const chartTwoDate =
+        data.chartTwoDate ||
+        null;
+
+      // IRCTC has been observed returning additional prepared
+      // states. In particular, chartOneFlag = 4 has appeared
+      // together with a valid chartOneDate after chart preparation.
+      // Treat those documented/observed prepared states as prepared.
       const chartOnePrepared =
-        chartOneFlag === 1 ||
-        chartOneFlag === 3;
+        [1, 3, 4].includes(chartOneFlag) ||
+        Boolean(chartOneDate);
 
       const chartTwoPrepared =
-        chartTwoFlag === 1 ||
-        chartTwoFlag === 3;
+        [1, 3, 4].includes(chartTwoFlag) ||
+        Boolean(chartTwoDate);
 
       const chartPrepared =
         chartOnePrepared ||
@@ -300,14 +312,6 @@ class ChartService {
       // =====================================================
       // RAW CHART DATES
       // =====================================================
-
-      const chartOneDate =
-        data.chartOneDate ||
-        null;
-
-      const chartTwoDate =
-        data.chartTwoDate ||
-        null;
 
       console.log(
         "Chart One Date:",

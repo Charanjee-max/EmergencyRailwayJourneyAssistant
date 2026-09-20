@@ -89,7 +89,8 @@ class ReservationGraphBuilder {
         const edges =
             this.buildEdges(
                 vacancies,
-                chart
+                chart,
+                stations
             );
 
 
@@ -104,7 +105,8 @@ class ReservationGraphBuilder {
 
         console.log(
             "Chart Prepared:",
-            chart.prepared
+            chart.prepared ??
+            chart.chartPrepared
         );
 
 
@@ -147,7 +149,8 @@ class ReservationGraphBuilder {
         return {
 
             chartPrepared:
-                chart.prepared,
+                chart.prepared ??
+                chart.chartPrepared,
 
             nodes,
 
@@ -265,7 +268,8 @@ class ReservationGraphBuilder {
 
     buildEdges(
         vacancies = [],
-        chart = {}
+        chart = {},
+        stations = []
     ) {
 
         if (
@@ -292,6 +296,15 @@ class ReservationGraphBuilder {
         const coachClassMap =
             this.buildCoachClassMap(
                 chart
+            );
+
+        // IRCTC vacant-berth records are not guaranteed to be returned
+        // in the same direction as the train timetable. Normalize every
+        // vacancy segment to the actual train route direction before
+        // creating graph edges.
+        const routeIndex =
+            this.buildStationOrderMap(
+                stations
             );
 
 
@@ -388,6 +401,28 @@ class ReservationGraphBuilder {
                         ""
                     );
 
+
+                // ------------------------------------------------
+                // NORMALIZE VACANCY DIRECTION
+                // ----------------------------------------------------
+                //
+                // Example: if the train route is MUGR -> ... -> SC
+                // but IRCTC returns a vacancy as SC -> MUGR, reverse
+                // that segment so the graph follows the train route.
+                // ----------------------------------------------------
+
+                const normalizedDirection =
+                    this.normalizeEdgeDirection(
+                        from,
+                        to,
+                        routeIndex
+                    );
+
+                const edgeFrom =
+                    normalizedDirection.from;
+
+                const edgeTo =
+                    normalizedDirection.to;
 
                 // ------------------------------------------------
                 // COACH
@@ -495,7 +530,7 @@ class ReservationGraphBuilder {
                 // ------------------------------------------------
 
                 const edgeKey =
-                    `${from}_${to}_${travelClass}`;
+                    `${edgeFrom}_${edgeTo}_${travelClass}`;
 
 
                 // ------------------------------------------------
@@ -512,9 +547,9 @@ class ReservationGraphBuilder {
                         edgeKey,
                         {
 
-                            from,
+                            from: edgeFrom,
 
-                            to,
+                            to: edgeTo,
 
                             class:
                                 travelClass,
@@ -608,9 +643,9 @@ class ReservationGraphBuilder {
                         vacancy.cabinCoupeNo ||
                         null,
 
-                    from,
+                    from: edgeFrom,
 
-                    to,
+                    to: edgeTo,
 
                     splitNo:
                         vacancy.splitNo ??
@@ -828,6 +863,77 @@ class ReservationGraphBuilder {
 
 
     // ========================================================
+    // BUILD STATION ORDER MAP
+    // ========================================================
+
+    buildStationOrderMap(
+        stations = []
+    ) {
+
+        const map = new Map();
+
+        if (!Array.isArray(stations)) {
+            return map;
+        }
+
+        stations.forEach((station, index) => {
+            const code =
+                typeof station === "string"
+                    ? this.normalizeStationCode(station)
+                    : this.normalizeStationCode(
+                        station?.code ||
+                        station?.stationCode ||
+                        station?.station_code ||
+                        ""
+                    );
+
+            if (code) {
+                map.set(code, index);
+            }
+        });
+
+        return map;
+    }
+
+
+    // ========================================================
+    // NORMALIZE EDGE DIRECTION
+    // ========================================================
+
+    normalizeEdgeDirection(
+        from,
+        to,
+        routeIndex
+    ) {
+
+        const fromIndex = routeIndex.get(from);
+        const toIndex = routeIndex.get(to);
+
+        if (
+            Number.isFinite(fromIndex) &&
+            Number.isFinite(toIndex) &&
+            fromIndex > toIndex
+        ) {
+            console.log(
+                `↔️ Reversed vacancy direction ${from} → ${to} to match train route ${to} → ${from}.`
+            );
+
+            return {
+                from: to,
+                to: from,
+                reversed: true,
+            };
+        }
+
+        return {
+            from,
+            to,
+            reversed: false,
+        };
+    }
+
+
+    // ========================================================
     // BUILD COACH → CLASS MAP
     // ========================================================
 
@@ -839,58 +945,83 @@ class ReservationGraphBuilder {
             new Map();
 
 
-        const coaches =
-            Array.isArray(
-                chart.coaches
-            )
-                ? chart.coaches
-                : [];
+        const coachSources = [];
 
+        if (Array.isArray(chart.coaches)) {
+            coachSources.push(...chart.coaches);
+        }
 
-        coaches.forEach(
-            (coachData) => {
+        if (Array.isArray(chart.cdd)) {
+            coachSources.push(...chart.cdd);
+        }
 
-                if (
-                    !coachData ||
-                    typeof coachData !==
-                        "object"
-                ) {
+        const prefixMap = {
+            H: "1A",
+            A: "2A",
+            B: "3A",
+            M: "3E",
+            S: "SL",
+            D: "2S",
+            C: "CC",
+            E: "EC",
+        };
 
+        const addCoach = (coach, classCode) => {
+            const normalizedCoach = this.normalizeCoach(coach);
+            let normalizedClass = this.normalizeClassCode(classCode);
+
+            if (!normalizedClass && normalizedCoach) {
+                const match = normalizedCoach.match(/^(H|A|B|M|S|D|C|E)\d{1,2}$/);
+                if (match) {
+                    normalizedClass = prefixMap[match[1]] || "";
+                }
+            }
+
+            if (normalizedCoach && normalizedClass) {
+                map.set(normalizedCoach, normalizedClass);
+            }
+        };
+
+        const scanCoachData = (coachData) => {
+
+                if (!coachData) {
                     return;
                 }
 
+                if (typeof coachData === "string") {
+                    const matches = coachData.match(/\b(?:H|A|B|M|S|D|C|E)\d{1,2}\b/g) || [];
+                    matches.forEach((coach) => addCoach(coach, ""));
+                    return;
+                }
 
                 const coach =
-                    this.normalizeCoach(
-                        coachData.coachName ||
-                        coachData.coach ||
-                        coachData.coachCode ||
-                        ""
-                    );
-
+                    coachData.coachName ||
+                    coachData.coach ||
+                    coachData.coachCode ||
+                    coachData.code ||
+                    "";
 
                 const classCode =
-                    this.normalizeClassCode(
-                        coachData.classCode ||
-                        coachData.class ||
-                        coachData.travelClass ||
-                        coachData.cls ||
-                        ""
-                    );
+                    coachData.classCode ||
+                    coachData.class ||
+                    coachData.travelClass ||
+                    coachData.cls ||
+                    coachData.className ||
+                    "";
 
+                addCoach(coach, classCode);
+        };
 
-                if (
-                    coach &&
-                    classCode
-                ) {
+        coachSources.forEach(scanCoachData);
 
-                    map.set(
-                        coach,
-                        classCode
-                    );
-                }
+        // Some IRCTC CDD payloads encode several coaches inside one
+        // free-form string. Scan all string values as a fallback.
+        chart.cdd?.forEach?.((item) => {
+            if (typeof item === "string") {
+                const matches = item.toUpperCase().match(/\b(?:H|A|B|M|S|D|C|E)\d{1,2}\b/g) || [];
+                matches.forEach((coach) => addCoach(coach, ""));
             }
-        );
+        });
 
 
         return map;

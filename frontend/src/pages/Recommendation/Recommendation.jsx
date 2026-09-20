@@ -1,14 +1,73 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 
 import { getRecommendations } from "../../api/recommendationAPI";
 import "./Recommendation.css";
 
 function formatStrategy(strategy = "") {
-    return strategy
+    return String(strategy)
         .replaceAll("_", " ")
         .toLowerCase()
         .replace(/\b\w/g, (char) => char.toUpperCase());
+}
+
+function getStrategyIcon(strategy = "") {
+    const value = String(strategy).toLowerCase();
+
+    if (value.includes("direct")) {
+        return "🎯";
+    }
+
+    if (value.includes("mixed")) {
+        return "🔀";
+    }
+
+    if (value.includes("split")) {
+        return "🧩";
+    }
+
+    if (value.includes("multi")) {
+        return "🛤️";
+    }
+
+    if (value.includes("tte")) {
+        return "👨‍✈️";
+    }
+
+    return "⚡";
+}
+
+function getStrategyDescription(strategy = "") {
+    const value = String(strategy).toLowerCase();
+
+    if (value.includes("direct")) {
+        return "One ticket covers the complete journey.";
+    }
+
+    if (value.includes("mixed")) {
+        return "Different classes are combined to cover the complete journey.";
+    }
+
+    if (value.includes("split")) {
+        return "Multiple tickets cover different sections of the same journey.";
+    }
+
+    if (value.includes("multi")) {
+        return "Multiple connected journey segments are used to complete the route.";
+    }
+
+    if (value.includes("tte")) {
+        return "This option depends on onboard ticketing or TTE assistance.";
+    }
+
+    return "A booking strategy generated from current railway availability.";
+}
+
+function getAvailabilityLabel(summary = {}) {
+    const count = summary.count ?? summary.available ?? summary.quantity ?? 0;
+    const classCode = summary.class || summary.classCode || "Class";
+
+    return `${count} ${classCode} seat${Number(count) === 1 ? "" : "s"} available`;
 }
 
 function Recommendation() {
@@ -37,8 +96,12 @@ function Recommendation() {
                 response.data
             );
 
+            const data = response.data?.data;
+
             setRecommendations(
-                response.data?.data || []
+                Array.isArray(data)
+                    ? data
+                    : []
             );
         } catch (err) {
             console.error(
@@ -59,36 +122,91 @@ function Recommendation() {
         loadRecommendations();
     }, [loadRecommendations]);
 
+    const recommendationStats = useMemo(() => {
+        let totalTickets = 0;
+        let mixedClassCount = 0;
+        let directCount = 0;
 
-    // =========================================
-    // LOADING
-    // =========================================
+        recommendations.forEach((recommendation) => {
+            totalTickets += Array.isArray(recommendation.tickets)
+                ? recommendation.tickets.length
+                : 0;
+
+            const strategy = String(
+                recommendation.strategy || ""
+            ).toLowerCase();
+
+            if (strategy.includes("mixed")) {
+                mixedClassCount += 1;
+            }
+
+            if (strategy.includes("direct")) {
+                directCount += 1;
+            }
+        });
+
+        return {
+            totalTickets,
+            mixedClassCount,
+            directCount,
+        };
+    }, [recommendations]);
+
+
+    /* =====================================================
+       LOADING
+       ===================================================== */
 
     if (loading) {
         return (
-            <div className="recommendation-page">
+            <div className="recommendationPage">
 
-                <div className="recommendation-loading">
+                <div className="recommendationLoading">
 
-                    <div className="loading-orb">
-                        🤖
-                    </div>
+                    <div className="loadingGlassCard">
 
-                    <div className="empty-label">
-                        ERJA BOOKING ENGINE
-                    </div>
+                        <div className="loadingIcon">
+                            🤖
+                        </div>
 
-                    <h2>
-                        Analyzing Your Journey
-                    </h2>
+                        <div className="pageEyebrow">
+                            ERJA BOOKING ENGINE
+                        </div>
 
-                    <p>
-                        ERJA is checking available seats
-                        and calculating the best booking strategy.
-                    </p>
+                        <h1>
+                            Analyzing your journey
+                        </h1>
 
-                    <div className="loading-bar">
-                        <div></div>
+                        <p>
+                            ERJA is checking the current chart,
+                            available berths and possible booking
+                            combinations.
+                        </p>
+
+                        <div className="loadingProgress">
+                            <span></span>
+                        </div>
+
+                        <div className="loadingSteps">
+
+                            <span className="loadingStep active">
+                                Chart
+                            </span>
+
+                            <span className="loadingStep active">
+                                Vacancy
+                            </span>
+
+                            <span className="loadingStep">
+                                Graph
+                            </span>
+
+                            <span className="loadingStep">
+                                Strategy
+                            </span>
+
+                        </div>
+
                     </div>
 
                 </div>
@@ -99,76 +217,66 @@ function Recommendation() {
 
 
     return (
-        <div className="recommendation-page">
+        <div className="recommendationPage">
 
-            {/* =====================================
+            {/* =================================================
                 HEADER
-            ====================================== */}
+            ================================================= */}
 
-            <header className="recommendation-header">
+            <header className="recommendationHeader">
 
                 <button
-                    className="back-btn"
+                    className="backButton"
                     onClick={() => navigate("/dashboard")}
                 >
-                    ← Back to Dashboard
+                    ← Dashboard
                 </button>
 
-                <div className="page-label">
-                    ERJA BOOKING ENGINE
+                <div className="headerContent">
+
+                    <div className="pageEyebrow">
+                        ERJA BOOKING ENGINE
+                    </div>
+
+                    <h1>
+                        Journey Recommendations
+                    </h1>
+
+                    <p>
+                        Current railway availability converted into
+                        practical booking strategies.
+                    </p>
+
                 </div>
 
-                <h1>
-                    Journey Recommendations
-                </h1>
-
-                <p>
-                    Smart booking strategies generated
-                    from your current journey availability.
-                </p>
-
-                {recommendations.length > 0 && (
-                    <div className="recommendation-summary">
-
-                        <span>
-                            ✨ {recommendations.length}{" "}
-                            recommendation
-                            {recommendations.length > 1
-                                ? "s"
-                                : ""}
-                        </span>
-
-                        <span className="summary-dot">
-                            •
-                        </span>
-
-                        <span>
-                            Ranked by ERJA Strategy Engine
-                        </span>
-
-                    </div>
-                )}
+                <button
+                    className="refreshButton"
+                    onClick={loadRecommendations}
+                    disabled={loading}
+                >
+                    ↻ Refresh
+                </button>
 
             </header>
 
 
-            {/* =====================================
+            {/* =================================================
                 ERROR
-            ====================================== */}
+            ================================================= */}
 
             {error && (
-                <div className="error-card">
+                <section className="stateCard errorCard">
 
-                    <div className="state-icon">
+                    <div className="stateIcon">
                         ⚠️
                     </div>
 
-                    <div className="empty-label">
-                        ERJA BOOKING ENGINE
+                    <div className="pageEyebrow">
+                        BOOKING ENGINE
                     </div>
 
                     <h2>
-                        Unable to Load Recommendations
+                        Unable to load recommendations
                     </h2>
 
                     <p>
@@ -176,392 +284,520 @@ function Recommendation() {
                     </p>
 
                     <button
-                        className="retry-btn"
+                        className="primaryAction"
                         onClick={loadRecommendations}
                     >
                         Try Again
                     </button>
 
-                </div>
+                </section>
             )}
 
 
-            {/* =====================================
+            {/* =================================================
                 EMPTY
-            ====================================== */}
+            ================================================= */}
 
-            {!error &&
-                recommendations.length === 0 && (
-                    <div className="empty-card">
+            {!error && recommendations.length === 0 && (
+                <section className="stateCard emptyCard">
 
-                        <div className="empty-icon">
-                            🔎
-                        </div>
+                    <div className="stateIcon">
+                        🔎
+                    </div>
 
-                        <div className="empty-label">
-                            BOOKING ENGINE
-                        </div>
+                    <div className="pageEyebrow">
+                        NO CURRENT STRATEGY
+                    </div>
 
-                        <h2>
-                            No Recommendations Found
-                        </h2>
+                    <h2>
+                        No booking combination found
+                    </h2>
 
-                        <p>
-                            ERJA currently has no active
-                            booking strategy for this journey.
-                            Recommendations will appear when
-                            suitable availability is detected.
-                        </p>
+                    <p>
+                        ERJA has not found a valid seat combination
+                        for this journey at the moment. This can happen
+                        when the chart is not prepared, no suitable
+                        vacancy is available, or the current vacancy
+                        cannot cover the complete journey.
+                    </p>
+
+                    <div className="emptyActions">
 
                         <button
-                            className="back-dashboard-btn"
-                            onClick={() =>
-                                navigate("/dashboard")
-                            }
+                            className="primaryAction"
+                            onClick={loadRecommendations}
                         >
-                            ← Back to Dashboard
+                            ↻ Check Again
+                        </button>
+
+                        <button
+                            className="secondaryAction"
+                            onClick={() => navigate("/dashboard")}
+                        >
+                            ← Dashboard
                         </button>
 
                     </div>
-                )}
+
+                </section>
+            )}
 
 
-            {/* =====================================
+            {/* =================================================
                 RECOMMENDATIONS
-            ====================================== */}
+            ================================================= */}
 
-            {!error &&
-                recommendations.length > 0 && (
+            {!error && recommendations.length > 0 && (
 
-                    <main className="recommendations-list">
+                <main className="recommendationContent">
+
+                    {/* =================================================
+                        SUMMARY
+                    ================================================= */}
+
+                    <section className="availabilityOverview">
+
+                        <div className="overviewIntro">
+
+                            <div className="pageEyebrow">
+                                CURRENT AVAILABILITY
+                            </div>
+
+                            <h2>
+                                {recommendations.length} valid
+                                {" "}
+                                {recommendations.length === 1
+                                    ? "strategy"
+                                    : "strategies"}
+                            </h2>
+
+                            <p>
+                                Review the available journey
+                                combinations below before booking.
+                            </p>
+
+                        </div>
+
+
+                        <div className="overviewStats">
+
+                            <div className="overviewStat">
+
+                                <strong>
+                                    {recommendationStats.totalTickets}
+                                </strong>
+
+                                <span>
+                                    Ticket segments
+                                </span>
+
+                            </div>
+
+
+                            <div className="overviewStat">
+
+                                <strong>
+                                    {recommendationStats.directCount}
+                                </strong>
+
+                                <span>
+                                    Direct options
+                                </span>
+
+                            </div>
+
+
+                            <div className="overviewStat">
+
+                                <strong>
+                                    {recommendationStats.mixedClassCount}
+                                </strong>
+
+                                <span>
+                                    Mixed options
+                                </span>
+
+                            </div>
+
+                        </div>
+
+                    </section>
+
+
+                    {/* =================================================
+                        STRATEGY CARDS
+                    ================================================= */}
+
+                    <div className="recommendationsList">
 
                         {recommendations.map(
-                            (recommendation, index) => (
+                            (recommendation, index) => {
 
-                                <article
-                                    className={`recommendation-card ${
-                                        index === 0
-                                            ? "top-recommendation"
-                                            : ""
-                                    }`}
-                                    key={
-                                        recommendation.rank ??
-                                        recommendation.strategy ??
-                                        index
-                                    }
-                                >
+                                const strategy =
+                                    recommendation.strategy || "";
 
-                                    {/* =================================
-                                        TOP SECTION
-                                    ================================== */}
+                                const tickets =
+                                    Array.isArray(
+                                        recommendation.tickets
+                                    )
+                                        ? recommendation.tickets
+                                        : [];
 
-                                    <div className="recommendation-top">
+                                const vacancySummary =
+                                    Array.isArray(
+                                        recommendation.vacancySummary
+                                    )
+                                        ? recommendation.vacancySummary
+                                        : [];
 
-                                        <div className="recommendation-title">
+                                const instructions =
+                                    Array.isArray(
+                                        recommendation.instructions
+                                    )
+                                        ? recommendation.instructions
+                                        : [];
 
-                                            <div className="rank-row">
+                                const warnings =
+                                    Array.isArray(
+                                        recommendation.warnings
+                                    )
+                                        ? recommendation.warnings
+                                        : [];
 
-                                                <span className="rank-badge">
-                                                    #{recommendation.rank ??
-                                                        index + 1}
-                                                </span>
+                                const isFirst =
+                                    index === 0;
 
-                                                {index === 0 && (
-                                                    <span className="best-badge">
-                                                        ⭐ BEST OPTION
-                                                    </span>
-                                                )}
+                                const isMixed =
+                                    String(strategy)
+                                        .toLowerCase()
+                                        .includes("mixed");
+
+                                const isDirect =
+                                    String(strategy)
+                                        .toLowerCase()
+                                        .includes("direct");
+
+                                return (
+                                    <article
+                                        className={`recommendationCard ${
+                                            isFirst
+                                                ? "featuredRecommendation"
+                                                : ""
+                                        }`}
+                                        key={
+                                            recommendation._id ||
+                                            recommendation.rank ||
+                                            `${strategy}-${index}`
+                                        }
+                                    >
+
+                                        {/* =================================
+                                            CARD HEADER
+                                        ================================= */}
+
+                                        <div className="recommendationCardHeader">
+
+                                            <div className="strategyIdentity">
+
+                                                <div className="strategyIcon">
+                                                    {getStrategyIcon(
+                                                        strategy
+                                                    )}
+                                                </div>
+
+                                                <div>
+
+                                                    <div className="rankLine">
+
+                                                        <span className="rankBadge">
+                                                            #
+                                                            {recommendation.rank ??
+                                                                index + 1}
+                                                        </span>
+
+                                                        {isFirst && (
+                                                            <span className="currentOptionBadge">
+                                                                PRIMARY OPTION
+                                                            </span>
+                                                        )}
+
+                                                        {isDirect && (
+                                                            <span className="typeBadge directBadge">
+                                                                DIRECT
+                                                            </span>
+                                                        )}
+
+                                                        {isMixed && (
+                                                            <span className="typeBadge mixedBadge">
+                                                                MIXED CLASS
+                                                            </span>
+                                                        )}
+
+                                                    </div>
+
+                                                    <h2>
+                                                        {recommendation.title ||
+                                                            formatStrategy(
+                                                                strategy
+                                                            )}
+                                                    </h2>
+
+                                                    <p>
+                                                        {getStrategyDescription(
+                                                            strategy
+                                                        )}
+                                                    </p>
+
+                                                </div>
 
                                             </div>
 
-                                            <h2>
-                                                {recommendation.title ||
-                                                    formatStrategy(
-                                                        recommendation.strategy
+                                        </div>
+
+
+                                        {/* =================================
+                                            REASON
+                                        ================================= */}
+
+                                        <section className="reasonBlock">
+
+                                            <div className="sectionLabel">
+                                                <span>
+                                                    01
+                                                </span>
+
+                                                Why this strategy
+                                            </div>
+
+                                            <p>
+                                                {recommendation.reason ||
+                                                    "This strategy is based on the current availability returned by ERJA."}
+                                            </p>
+
+                                        </section>
+
+
+                                        {/* =================================
+                                            AVAILABILITY
+                                        ================================= */}
+
+                                        {vacancySummary.length > 0 && (
+
+                                            <section className="availabilityBlock">
+
+                                                <div className="sectionLabel">
+                                                    <span>
+                                                        02
+                                                    </span>
+
+                                                    Availability detected
+                                                </div>
+
+                                                <div className="availabilityGrid">
+
+                                                    {vacancySummary.map(
+                                                        (
+                                                            summary,
+                                                            summaryIndex
+                                                        ) => (
+
+                                                            <div
+                                                                className="availabilityCard"
+                                                                key={
+                                                                    summaryIndex
+                                                                }
+                                                            >
+
+                                                                <div className="availabilityNumber">
+                                                                    {summary.count ??
+                                                                        summary.available ??
+                                                                        summary.quantity ??
+                                                                        0}
+                                                                </div>
+
+                                                                <div className="availabilityInfo">
+
+                                                                    <strong>
+                                                                        {summary.class ||
+                                                                            summary.classCode ||
+                                                                            "Class"}
+                                                                    </strong>
+
+                                                                    <span>
+                                                                        {getAvailabilityLabel(
+                                                                            summary
+                                                                        )}
+                                                                    </span>
+
+                                                                </div>
+
+                                                                <div className="availabilityDot"></div>
+
+                                                            </div>
+
+                                                        )
                                                     )}
-                                            </h2>
 
-                                        </div>
+                                                </div>
 
+                                            </section>
 
-                                        {/* Confidence */}
-
-                                        <div className="confidence">
-
-                                            <span>
-                                                Confidence
-                                            </span>
-
-                                            <strong>
-                                                {recommendation.confidence ??
-                                                    `${recommendation.score ?? 0}%`}
-                                            </strong>
-
-                                            <small>
-                                                ERJA score
-                                            </small>
-
-                                        </div>
-
-                                    </div>
+                                        )}
 
 
-                                    {/* =================================
-                                        STRATEGY
-                                    ================================== */}
+                                        {/* =================================
+                                            TICKET SEGMENTS
+                                        ================================= */}
 
-                                    <div className="strategy-box">
+                                        <section className="ticketBlock">
 
-                                        <div className="strategy-icon">
-                                            ⚡
-                                        </div>
+                                            <div className="sectionLabel">
+                                                <span>
+                                                    03
+                                                </span>
 
-                                        <div>
-
-                                            <span className="strategy-label">
-                                                RECOMMENDED STRATEGY
-                                            </span>
-
-                                            <strong>
-                                                {formatStrategy(
-                                                    recommendation.strategy
-                                                )}
-                                            </strong>
-
-                                        </div>
-
-                                    </div>
+                                                Booking segments
+                                            </div>
 
 
-                                    {/* =================================
-                                        REASON
-                                    ================================== */}
+                                            {tickets.length > 0 ? (
 
-                                    <section className="reason-section">
+                                                <div className="ticketTimeline">
 
-                                        <div className="section-heading">
+                                                    {tickets.map(
+                                                        (
+                                                            ticket,
+                                                            ticketIndex
+                                                        ) => {
 
-                                            <span>
-                                                01
-                                            </span>
+                                                            const from =
+                                                                ticket.from ||
+                                                                ticket.fromStation ||
+                                                                "—";
 
-                                            <h3>
-                                                Why this is recommended
-                                            </h3>
+                                                            const to =
+                                                                ticket.to ||
+                                                                ticket.toStation ||
+                                                                "—";
 
-                                        </div>
+                                                            const classCode =
+                                                                ticket.class ||
+                                                                ticket.classCode ||
+                                                                "—";
 
-                                        <p>
-                                            {recommendation.reason ||
-                                                "This strategy provides a suitable booking option based on current availability."}
-                                        </p>
-                                        {recommendation.vacancySummary &&
-    recommendation.vacancySummary.length > 0 && (
+                                                            const coach =
+                                                                ticket.coach ||
+                                                                ticket.coachCode ||
+                                                                "";
 
-        <div className="availability-summary">
+                                                            const berth =
+                                                                ticket.berth ||
+                                                                ticket.berthNumber ||
+                                                                "";
 
-            {recommendation.vacancySummary.map(
-                (summary, summaryIndex) => (
-
-                    <div
-                        className="availability-item"
-                        key={summaryIndex}
-                    >
-
-                        <div className="availability-count">
-                            {summary.count}
-                        </div>
-
-                        <div className="availability-details">
-
-                            <strong>
-                                {summary.class} direct berths available
-                            </strong>
-
-                            <span>
-                                Current IRCTC availability
-                            </span>
-
-                        </div>
-
-                    </div>
-
-                )
-            )}
-
-        </div>
-    )}
-
-                                    </section>
-
-
-                                    {/* =================================
-                                        TICKETS
-                                    ================================== */}
-
-                                    <section className="tickets-section">
-
-                                        <div className="section-heading">
-
-                                            <span>
-                                                02
-                                            </span>
-
-                                            <h3>
-                                                Ticket Details
-                                            </h3>
-
-                                        </div>
-
-
-                                        {recommendation.tickets &&
-                                        recommendation.tickets.length >
-                                            0 ? (
-
-                                            <div className="table-container">
-
-                                                <table>
-
-                                                    <thead>
-
-                                                        <tr>
-                                                            <th>
-                                                                Ticket
-                                                            </th>
-
-                                                            <th>
-                                                                From
-                                                            </th>
-
-                                                            <th>
-                                                                To
-                                                            </th>
-
-                                                            <th>
-                                                                Class
-                                                            </th>
-
-                                                            <th>
-                                                                Coach
-                                                            </th>
-
-                                                            <th>
-                                                                Berth
-                                                            </th>
-                                                        </tr>
-
-                                                    </thead>
-
-
-                                                    <tbody>
-
-                                                        {recommendation.tickets.map(
-                                                            (
-                                                                ticket,
-                                                                ticketIndex
-                                                            ) => (
-
-                                                                <tr
+                                                            return (
+                                                                <div
+                                                                    className="ticketSegment"
                                                                     key={
                                                                         ticketIndex
                                                                     }
                                                                 >
 
-                                                                    <td>
-
-                                                                        <span className="ticket-number">
-                                                                            {ticketIndex +
-                                                                                1}
-                                                                        </span>
-
-                                                                        Ticket{" "}
+                                                                    <div className="segmentNumber">
                                                                         {ticketIndex +
                                                                             1}
+                                                                    </div>
 
-                                                                    </td>
+                                                                    <div className="segmentMain">
 
+                                                                        <div className="segmentRoute">
 
-                                                                    <td className="station-code">
-                                                                        {ticket.from ||
-                                                                            "—"}
-                                                                    </td>
+                                                                            <div className="segmentStation">
 
+                                                                                <strong>
+                                                                                    {from}
+                                                                                </strong>
 
-                                                                    <td className="station-code">
-                                                                        {ticket.to ||
-                                                                            "—"}
-                                                                    </td>
+                                                                            </div>
 
+                                                                            <div className="segmentLine">
 
-                                                                    <td>
+                                                                                <span></span>
 
-                                                                        <span className="class-badge">
-                                                                            {ticket.class ||
-                                                                                "—"}
-                                                                        </span>
+                                                                            </div>
 
-                                                                    </td>
+                                                                            <div className="segmentStation destination">
 
+                                                                                <strong>
+                                                                                    {to}
+                                                                                </strong>
 
-                                                                    <td>
-                                                                        {ticket.coach ||
-                                                                            "Not assigned"}
-                                                                    </td>
+                                                                            </div>
 
-
-                                                                    <td>
-                                                                        {ticket.berth ||
-                                                                            "Not assigned"}
-                                                                    </td>
-
-                                                                </tr>
-
-                                                            )
-                                                        )}
-
-                                                    </tbody>
-
-                                                </table>
-
-                                            </div>
-
-                                        ) : (
-
-                                            <p className="no-ticket-data">
-                                                No ticket details available.
-                                            </p>
-
-                                        )}
-
-                                    </section>
+                                                                        </div>
 
 
-                                    {/* =================================
-                                        INSTRUCTIONS
-                                    ================================== */}
+                                                                        <div className="segmentDetails">
 
-                                    {recommendation.instructions &&
-                                        recommendation.instructions
-                                            .length > 0 && (
+                                                                            <span className="classPill">
+                                                                                {classCode}
+                                                                            </span>
 
-                                            <section className="instructions-section">
+                                                                            {coach && (
+                                                                                <span>
+                                                                                    Coach {coach}
+                                                                                </span>
+                                                                            )}
 
-                                                <div className="section-heading">
+                                                                            {berth && (
+                                                                                <span>
+                                                                                    Berth {berth}
+                                                                                </span>
+                                                                            )}
 
-                                                    <span>
-                                                        03
-                                                    </span>
+                                                                        </div>
 
-                                                    <h3>
-                                                        Booking Instructions
-                                                    </h3>
+                                                                    </div>
+
+                                                                </div>
+                                                            );
+                                                        }
+                                                    )}
 
                                                 </div>
 
+                                            ) : (
 
-                                                <ol>
+                                                <div className="noTicketData">
+                                                    Ticket-level details are
+                                                    not available for this
+                                                    recommendation yet.
+                                                </div>
 
-                                                    {recommendation.instructions.map(
+                                            )}
+
+                                        </section>
+
+
+                                        {/* =================================
+                                            BOOKING INSTRUCTIONS
+                                        ================================= */}
+
+                                        {instructions.length > 0 && (
+
+                                            <section className="instructionBlock">
+
+                                                <div className="sectionLabel">
+                                                    <span>
+                                                        04
+                                                    </span>
+
+                                                    Booking steps
+                                                </div>
+
+                                                <ol className="instructionList">
+
+                                                    {instructions.map(
                                                         (
                                                             instruction,
                                                             instructionIndex
@@ -573,7 +809,7 @@ function Recommendation() {
                                                                 }
                                                             >
 
-                                                                <span className="instruction-number">
+                                                                <span className="instructionNumber">
                                                                     {instructionIndex +
                                                                         1}
                                                                 </span>
@@ -596,17 +832,15 @@ function Recommendation() {
                                         )}
 
 
-                                    {/* =================================
-                                        WARNINGS
-                                    ================================== */}
+                                        {/* =================================
+                                            WARNINGS
+                                        ================================= */}
 
-                                    {recommendation.warnings &&
-                                        recommendation.warnings.length >
-                                            0 && (
+                                        {warnings.length > 0 && (
 
-                                            <section className="warnings-section">
+                                            <section className="warningBlock">
 
-                                                <div className="warning-header">
+                                                <div className="warningTitle">
 
                                                     <span>
                                                         ⚠️
@@ -614,13 +848,15 @@ function Recommendation() {
 
                                                     <div>
 
-                                                        <h3>
-                                                            Important Warnings
-                                                        </h3>
+                                                        <strong>
+                                                            Important before booking
+                                                        </strong>
 
-                                                        <p>
-                                                            Please review before booking
-                                                        </p>
+                                                        <span>
+                                                            Check these conditions
+                                                            before purchasing the
+                                                            tickets.
+                                                        </span>
 
                                                     </div>
 
@@ -629,7 +865,7 @@ function Recommendation() {
 
                                                 <ul>
 
-                                                    {recommendation.warnings.map(
+                                                    {warnings.map(
                                                         (
                                                             warning,
                                                             warningIndex
@@ -652,14 +888,62 @@ function Recommendation() {
 
                                         )}
 
-                                </article>
 
-                            )
+                                        {/* =================================
+                                            CARD FOOTER
+                                        ================================= */}
+
+                                        <div className="recommendationFooter">
+
+                                            <span>
+                                                Generated from current
+                                                railway availability
+                                            </span>
+
+                                            <span>
+                                                {tickets.length > 0
+                                                    ? `${tickets.length} ticket ${
+                                                        tickets.length === 1
+                                                            ? "segment"
+                                                            : "segments"
+                                                    }`
+                                                    : "Availability based"}
+                                            </span>
+
+                                        </div>
+
+                                    </article>
+                                );
+                            }
                         )}
 
-                    </main>
+                    </div>
 
-                )}
+
+                    {/* =================================================
+                        FOOTER NOTE
+                    ================================================= */}
+
+                    <section className="recommendationNote">
+
+                        <span className="noteIcon">
+                            ℹ️
+                        </span>
+
+                        <p>
+                            Railway availability can change at any time.
+                            ERJA's recommendations represent the vacancy
+                            detected during the latest monitoring cycle.
+                            Verify the final availability and booking rules
+                            on the official railway booking system before
+                            completing your reservation.
+                        </p>
+
+                    </section>
+
+                </main>
+
+            )}
 
         </div>
     );

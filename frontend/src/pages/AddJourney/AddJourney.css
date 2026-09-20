@@ -1,174 +1,349 @@
 /* =========================================================
-   ERJA - ADD JOURNEY PAGE UI
-   PART 5
+   ERJA — ADD JOURNEY
+   LIQUID GLASS UI
    ========================================================= */
 
-/* ---------- PAGE ---------- */
+:root {
+  --erja-bg: #f4f7fb;
+  --erja-surface: rgba(255, 255, 255, 0.82);
+  --erja-surface-strong: rgba(255, 255, 255, 0.94);
+  --erja-border: rgba(148, 163, 184, 0.22);
+  --erja-border-strong: rgba(148, 163, 184, 0.34);
+
+  --erja-text: #172033;
+  --erja-text-soft: #526071;
+  --erja-text-muted: #7b8798;
+
+  --erja-primary: #315fc9;
+  --erja-primary-dark: #244ca8;
+  --erja-primary-soft: #edf3ff;
+
+  --erja-success: #23824b;
+  --erja-success-soft: #edf9f1;
+
+  --erja-danger: #c63e4a;
+  --erja-danger-soft: #fff1f3;
+
+  --erja-shadow:
+    0 20px 55px rgba(27, 43, 72, 0.08);
+
+  --erja-shadow-soft:
+    0 10px 30px rgba(27, 43, 72, 0.06);
+
+  --erja-radius-lg: 24px;
+  --erja-radius-md: 17px;
+  --erja-radius-sm: 12px;
+}
+
+
+/* =========================================================
+   PAGE
+   ========================================================= */
 
 .addJourneyPage {
   min-height: 100vh;
-  padding: 28px 40px 50px;
-  background: #f5f7fb;
-  color: #172033;
   box-sizing: border-box;
+  padding: 30px 42px 60px;
+
+  background:
+    radial-gradient(
+      circle at 8% 0%,
+      rgba(91, 135, 231, 0.12),
+      transparent 30%
+    ),
+    radial-gradient(
+      circle at 94% 12%,
+      rgba(119, 172, 255, 0.10),
+      transparent 28%
+    ),
+    linear-gradient(
+      180deg,
+      #f8faff 0%,
+      #f3f6fb 100%
+    );
+
+  color: var(--erja-text);
 }
+
+
+/* =========================================================
+   BACK BUTTON
+   ========================================================= */
 
 .backButton {
   display: inline-flex;
   align-items: center;
   gap: 8px;
+
+  margin: 0 0 22px;
+  padding: 9px 5px;
+
   border: none;
   background: transparent;
-  color: #526071;
-  font-size: 15px;
-  font-weight: 600;
+
+  color: var(--erja-text-soft);
+
+  font-size: 14px;
+  font-weight: 700;
+
   cursor: pointer;
-  padding: 8px 4px;
-  margin-bottom: 22px;
+
+  transition:
+    color 0.2s ease,
+    transform 0.2s ease;
 }
 
 .backButton:hover {
-  color: #172033;
+  color: var(--erja-primary);
+  transform: translateX(-2px);
 }
 
 
-/* ---------- MAIN LAYOUT ---------- */
+/* =========================================================
+   MAIN LAYOUT
+   ========================================================= */
 
 .addJourneyLayout {
   width: 100%;
-  max-width: 1250px;
+  max-width: 1320px;
   margin: 0 auto;
+
   display: grid;
-  grid-template-columns: 330px minmax(0, 1fr);
+  grid-template-columns: 340px minmax(0, 1fr);
+
   gap: 28px;
   align-items: start;
 }
 
 
-/* ---------- LEFT INFORMATION PANEL ---------- */
+/* =========================================================
+   LEFT INFORMATION PANEL
+   ========================================================= */
 
 .journeyInfo {
-  background: #ffffff;
-  border: 1px solid #e5e9f0;
-  border-radius: 18px;
-  padding: 28px;
-  box-shadow: 0 8px 30px rgba(20, 35, 60, 0.06);
   position: sticky;
   top: 24px;
+
+  padding: 30px;
+
+  border: 1px solid var(--erja-border);
+  border-radius: var(--erja-radius-lg);
+
+  background:
+    linear-gradient(
+      145deg,
+      rgba(255, 255, 255, 0.92),
+      rgba(245, 249, 255, 0.76)
+    );
+
+  box-shadow: var(--erja-shadow);
+
+  backdrop-filter: blur(22px);
+  -webkit-backdrop-filter: blur(22px);
 }
 
 .infoBadge {
   display: inline-flex;
   align-items: center;
   justify-content: center;
+
   padding: 7px 12px;
+
+  border: 1px solid rgba(49, 95, 201, 0.12);
   border-radius: 999px;
-  background: #eef4ff;
-  color: #315ec9;
-  font-size: 12px;
-  font-weight: 700;
-  margin-bottom: 16px;
+
+  background: rgba(237, 243, 255, 0.9);
+
+  color: var(--erja-primary);
+
+  font-size: 11px;
+  font-weight: 800;
+
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+
+  margin-bottom: 17px;
 }
 
 .journeyInfo h1 {
-  margin: 0 0 12px;
-  font-size: 28px;
-  line-height: 1.2;
-  font-weight: 750;
-  color: #172033;
+  margin: 0 0 13px;
+
+  color: var(--erja-text);
+
+  font-size: 29px;
+  line-height: 1.18;
+  font-weight: 800;
+  letter-spacing: -0.025em;
 }
 
 .infoDescription {
   margin: 0;
-  color: #667085;
-  font-size: 14px;
-  line-height: 1.65;
+
+  color: var(--erja-text-soft);
+
+  font-size: 13px;
+  line-height: 1.7;
 }
 
+
+/* =========================================================
+   JOURNEY STEPS
+   ========================================================= */
+
 .journeySteps {
-  margin-top: 28px;
   display: flex;
   flex-direction: column;
-  gap: 18px;
+
+  gap: 17px;
+
+  margin-top: 30px;
 }
 
 .journeyStep {
   display: flex;
   align-items: flex-start;
+
   gap: 12px;
 }
 
 .stepIcon {
-  width: 34px;
-  height: 34px;
-  min-width: 34px;
-  border-radius: 10px;
-  background: #f0f4fa;
+  width: 37px;
+  height: 37px;
+  min-width: 37px;
+
   display: flex;
   align-items: center;
   justify-content: center;
+
+  border: 1px solid rgba(49, 95, 201, 0.10);
+  border-radius: 12px;
+
+  background:
+    linear-gradient(
+      145deg,
+      #f1f5ff,
+      #e8efff
+    );
+
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.9);
+
   font-size: 16px;
 }
 
 .journeyStep strong {
   display: block;
-  color: #273449;
-  font-size: 14px;
-  margin-bottom: 3px;
+
+  margin: 1px 0 4px;
+
+  color: var(--erja-text);
+
+  font-size: 13px;
+  font-weight: 750;
 }
 
 .journeyStep span {
   display: block;
-  color: #7a8596;
+
+  color: var(--erja-text-muted);
+
   font-size: 12px;
-  line-height: 1.45;
+  line-height: 1.5;
 }
 
 
-/* ---------- FORM CARD ---------- */
+/* =========================================================
+   FORM CARD
+   ========================================================= */
 
 .journeyCard {
-  background: #ffffff;
-  border: 1px solid #e5e9f0;
-  border-radius: 18px;
-  padding: 32px;
-  box-shadow: 0 8px 30px rgba(20, 35, 60, 0.06);
+  position: relative;
+
+  min-width: 0;
+
+  padding: 34px;
+
+  border: 1px solid var(--erja-border);
+  border-radius: var(--erja-radius-lg);
+
+  background:
+    linear-gradient(
+      145deg,
+      rgba(255, 255, 255, 0.96),
+      rgba(249, 251, 255, 0.88)
+    );
+
+  box-shadow: var(--erja-shadow);
+
+  backdrop-filter: blur(22px);
+  -webkit-backdrop-filter: blur(22px);
 }
+
+
+/* =========================================================
+   CARD HEADER
+   ========================================================= */
 
 .cardHeader {
   display: flex;
   align-items: center;
+
   gap: 14px;
+
   margin-bottom: 30px;
 }
 
 .cardTrainIcon {
-  width: 46px;
-  height: 46px;
-  min-width: 46px;
-  border-radius: 13px;
-  background: #edf3ff;
+  width: 50px;
+  height: 50px;
+  min-width: 50px;
+
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 22px;
+
+  border: 1px solid rgba(49, 95, 201, 0.12);
+  border-radius: 15px;
+
+  background:
+    linear-gradient(
+      145deg,
+      #eef4ff,
+      #e5edff
+    );
+
+  box-shadow:
+    0 8px 20px rgba(49, 95, 201, 0.08),
+    inset 0 1px 0 rgba(255, 255, 255, 0.95);
+
+  font-size: 23px;
 }
 
 .cardLabel {
   margin: 0;
-  color: #172033;
-  font-size: 22px;
-  font-weight: 750;
+
+  color: var(--erja-text);
+
+  font-size: 23px;
+  line-height: 1.2;
+  font-weight: 800;
+
+  letter-spacing: -0.02em;
 }
 
 .cardHeader p {
-  margin: 4px 0 0;
-  color: #788396;
+  margin: 5px 0 0;
+
+  color: var(--erja-text-muted);
+
   font-size: 13px;
+  line-height: 1.5;
 }
 
 
-/* ---------- FORM GROUP ---------- */
+/* =========================================================
+   FORM
+   ========================================================= */
 
 .formGroup {
   margin-bottom: 24px;
@@ -176,15 +351,23 @@
 
 .formGroup > label {
   display: block;
+
   margin-bottom: 9px;
-  color: #273449;
-  font-size: 14px;
-  font-weight: 700;
+
+  color: #263247;
+
+  font-size: 13px;
+  font-weight: 750;
 }
 
 .formGroup > label span {
-  color: #e25555;
+  color: var(--erja-danger);
 }
+
+
+/* =========================================================
+   INPUT WRAPPER
+   ========================================================= */
 
 .inputWrapper {
   position: relative;
@@ -195,26 +378,53 @@
 .formGroup input,
 .formGroup select {
   width: 100%;
-  min-height: 48px;
+  min-height: 50px;
+
   box-sizing: border-box;
-  border: 1px solid #d8dee8;
-  border-radius: 10px;
-  padding: 0 14px;
-  background: #ffffff;
-  color: #172033;
+
+  border: 1px solid rgba(148, 163, 184, 0.30);
+  border-radius: 13px;
+
+  padding: 0 15px;
+
+  background:
+    rgba(255, 255, 255, 0.82);
+
+  color: var(--erja-text);
+
   font-size: 14px;
+  font-weight: 550;
+
   outline: none;
+
+  box-shadow:
+    inset 0 1px 2px rgba(20, 35, 60, 0.025);
+
   transition:
     border-color 0.2s ease,
-    box-shadow 0.2s ease;
+    box-shadow 0.2s ease,
+    background 0.2s ease,
+    transform 0.2s ease;
+}
+
+.inputWrapper input:hover,
+.inputWrapper select:hover,
+.formGroup input:hover,
+.formGroup select:hover {
+  border-color: rgba(100, 126, 174, 0.40);
 }
 
 .inputWrapper input:focus,
 .inputWrapper select:focus,
 .formGroup input:focus,
 .formGroup select:focus {
-  border-color: #4675d8;
-  box-shadow: 0 0 0 3px rgba(70, 117, 216, 0.1);
+  border-color: rgba(49, 95, 201, 0.58);
+
+  background: rgba(255, 255, 255, 0.96);
+
+  box-shadow:
+    0 0 0 4px rgba(49, 95, 201, 0.09),
+    0 8px 20px rgba(49, 95, 201, 0.05);
 }
 
 .inputWrapper input::placeholder,
@@ -223,65 +433,142 @@
 }
 
 
-/* ---------- TRAIN SEARCH ---------- */
+/* =========================================================
+   DATE INPUT
+   ========================================================= */
+
+input[type="date"] {
+  color-scheme: light;
+}
+
+input[type="date"]::-webkit-calendar-picker-indicator {
+  cursor: pointer;
+  opacity: 0.65;
+}
+
+
+/* =========================================================
+   TRAIN AUTOCOMPLETE
+   ========================================================= */
 
 .trainAutocompleteWrapper {
   position: relative;
 }
 
+.trainInputWrapper {
+  display: flex;
+  align-items: center;
+}
+
+.trainInputWrapper > span {
+  position: absolute;
+  left: 15px;
+  z-index: 2;
+
+  pointer-events: none;
+
+  font-size: 17px;
+}
+
+.trainInputWrapper input {
+  padding-left: 44px;
+  padding-right: 44px;
+}
+
 .trainSearchSpinner {
   position: absolute;
+
   right: 15px;
   top: 50%;
-  transform: translateY(-50%);
+
   width: 17px;
   height: 17px;
-  border: 2px solid #dbe2ee;
-  border-top-color: #4675d8;
+
+  transform: translateY(-50%);
+
+  border: 2px solid #dce4f0;
+  border-top-color: var(--erja-primary);
   border-radius: 50%;
+
   animation: erjaSpin 0.7s linear infinite;
 }
 
+
+/* =========================================================
+   TRAIN SUGGESTIONS
+   ========================================================= */
+
 .trainSuggestionsDropdown {
   position: absolute;
+
   left: 0;
   right: 0;
-  top: calc(100% + 6px);
-  z-index: 100;
-  background: #ffffff;
-  border: 1px solid #dce2eb;
-  border-radius: 12px;
-  box-shadow: 0 14px 35px rgba(20, 35, 60, 0.14);
-  max-height: 280px;
+  top: calc(100% + 8px);
+
+  z-index: 500;
+
+  max-height: 300px;
+
   overflow-y: auto;
+
+  padding: 6px;
+
+  border: 1px solid rgba(148, 163, 184, 0.25);
+  border-radius: 16px;
+
+  background:
+    rgba(255, 255, 255, 0.94);
+
+  box-shadow:
+    0 22px 55px rgba(20, 35, 60, 0.14);
+
+  backdrop-filter: blur(22px);
+  -webkit-backdrop-filter: blur(22px);
 }
 
 .trainSuggestion {
   width: 100%;
+
   display: flex;
   align-items: center;
+
   gap: 12px;
-  padding: 13px 15px;
+
+  padding: 12px;
+
   border: none;
-  background: #ffffff;
-  cursor: pointer;
+  border-radius: 11px;
+
+  background: transparent;
+
   text-align: left;
-  transition: background 0.15s ease;
+
+  cursor: pointer;
+
+  transition:
+    background 0.16s ease,
+    transform 0.16s ease;
 }
 
 .trainSuggestion:hover {
-  background: #f5f8fd;
+  background: #f3f6fd;
+  transform: translateX(2px);
 }
 
 .trainSuggestionIcon {
-  width: 34px;
-  height: 34px;
-  min-width: 34px;
-  border-radius: 9px;
-  background: #eef4ff;
+  width: 37px;
+  height: 37px;
+  min-width: 37px;
+
   display: flex;
   align-items: center;
   justify-content: center;
+
+  border: 1px solid rgba(49, 95, 201, 0.10);
+  border-radius: 10px;
+
+  background: #eef4ff;
+
   font-size: 16px;
 }
 
@@ -292,93 +579,234 @@
 
 .trainSuggestionContent strong {
   display: block;
-  color: #172033;
-  font-size: 14px;
+
   margin-bottom: 3px;
+
+  color: var(--erja-text);
+
+  font-size: 14px;
+  font-weight: 800;
 }
 
 .trainSuggestionContent span {
   display: block;
-  color: #778397;
+
+  color: var(--erja-text-muted);
+
   font-size: 12px;
+
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
 .trainSuggestionArrow {
-  color: #9aa4b3;
-  font-size: 16px;
+  color: #9aa6b7;
+  font-size: 17px;
 }
 
 
-/* ---------- TRAIN VERIFIED ---------- */
+/* =========================================================
+   VERIFIED TRAIN
+   ========================================================= */
 
-.classVerified {
-  margin-top: 10px;
-  padding: 12px 14px;
-  border: 1px solid #d9e8dc;
-  background: #f3faf4;
+.trainVerifiedCard {
+  display: flex;
+  align-items: center;
+
+  gap: 12px;
+
+  margin-top: 12px;
+  padding: 13px 14px;
+
+  border: 1px solid rgba(35, 130, 75, 0.15);
+  border-radius: 14px;
+
+  background:
+    linear-gradient(
+      145deg,
+      rgba(237, 249, 241, 0.95),
+      rgba(246, 252, 248, 0.86)
+    );
+
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.85);
+}
+
+.trainVerifiedIcon {
+  width: 34px;
+  height: 34px;
+  min-width: 34px;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
   border-radius: 10px;
-  color: #27733a;
-  font-size: 13px;
-  font-weight: 600;
+
+  background: #dcf4e5;
+
+  color: var(--erja-success);
+
+  font-size: 15px;
+  font-weight: 900;
 }
 
-.classVerified strong {
-  color: #1f6631;
+.trainVerifiedInfo {
+  flex: 1;
+  min-width: 0;
+}
+
+.trainVerifiedInfo strong {
+  display: block;
+
+  margin-bottom: 3px;
+
+  color: #236e42;
+
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.trainVerifiedInfo span {
+  display: block;
+
+  color: #4f6f5b;
+
+  font-size: 12px;
+
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.viewTimetableButton {
+  flex-shrink: 0;
+
+  min-height: 36px;
+
+  padding: 0 12px;
+
+  border: 1px solid rgba(49, 95, 201, 0.14);
+  border-radius: 10px;
+
+  background: rgba(255, 255, 255, 0.78);
+
+  color: var(--erja-primary);
+
+  font-size: 11px;
+  font-weight: 800;
+
+  cursor: pointer;
+
+  transition:
+    background 0.2s ease,
+    transform 0.2s ease;
+}
+
+.viewTimetableButton:hover {
+  background: #ffffff;
+  transform: translateY(-1px);
 }
 
 
-/* ---------- ERROR / SUCCESS ---------- */
+/* =========================================================
+   ERROR / SUCCESS
+   ========================================================= */
 
 .formError {
+  display: flex;
+  align-items: flex-start;
+
+  gap: 8px;
+
   margin-bottom: 20px;
-  padding: 12px 14px;
-  border-radius: 10px;
-  background: #fff2f2;
-  border: 1px solid #f1cccc;
-  color: #c53f3f;
+  padding: 13px 15px;
+
+  border: 1px solid rgba(198, 62, 74, 0.17);
+  border-radius: 13px;
+
+  background:
+    rgba(255, 241, 243, 0.92);
+
+  color: var(--erja-danger);
+
   font-size: 13px;
   line-height: 1.5;
 }
 
 .fieldError {
+  display: block;
+
   margin-top: 7px;
-  color: #c53f3f;
+
+  color: var(--erja-danger);
+
   font-size: 12px;
+  line-height: 1.4;
 }
 
 .fieldSuccess {
+  display: block;
+
   margin-top: 7px;
-  color: #278044;
+
+  color: var(--erja-success);
+
   font-size: 12px;
+  line-height: 1.4;
 }
 
 
-/* ---------- ROUTE ROW ---------- */
+/* =========================================================
+   ROUTE ROW
+   ========================================================= */
 
 .routeRow {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 42px minmax(0, 1fr);
-  align-items: center;
+
+  grid-template-columns:
+    minmax(0, 1fr)
+    48px
+    minmax(0, 1fr);
+
+  align-items: end;
+
   gap: 12px;
 }
 
 .routeArrow {
   width: 42px;
   height: 42px;
-  border-radius: 50%;
-  background: #f0f4fa;
+
+  margin-bottom: 4px;
+
   display: flex;
   align-items: center;
   justify-content: center;
+
+  border: 1px solid rgba(148, 163, 184, 0.18);
+  border-radius: 50%;
+
+  background:
+    linear-gradient(
+      145deg,
+      #f2f5fa,
+      #e9eef6
+    );
+
   color: #64748b;
+
   font-size: 17px;
+
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.9);
 }
 
 
-/* ---------- STATION AUTOCOMPLETE ---------- */
+/* =========================================================
+   STATION AUTOCOMPLETE
+   ========================================================= */
 
 .autocompleteWrapper {
   position: relative;
@@ -386,83 +814,172 @@
 
 .autocompleteDropdown {
   position: absolute;
+
   left: 0;
   right: 0;
-  top: calc(100% + 6px);
-  z-index: 100;
-  max-height: 280px;
+  top: calc(100% + 8px);
+
+  z-index: 400;
+
+  max-height: 300px;
+
   overflow-y: auto;
-  background: #ffffff;
-  border: 1px solid #dce2eb;
-  border-radius: 12px;
-  box-shadow: 0 14px 35px rgba(20, 35, 60, 0.14);
+
+  padding: 6px;
+
+  border: 1px solid rgba(148, 163, 184, 0.25);
+  border-radius: 16px;
+
+  background:
+    rgba(255, 255, 255, 0.95);
+
+  box-shadow:
+    0 22px 55px rgba(20, 35, 60, 0.14);
+
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
 }
 
 .stationSuggestion {
   width: 100%;
+
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 12px 14px;
+
+  gap: 11px;
+
+  padding: 12px;
+
   border: none;
-  background: #ffffff;
+  border-radius: 11px;
+
+  background: transparent;
+
   text-align: left;
+
   cursor: pointer;
+
+  transition:
+    background 0.16s ease,
+    transform 0.16s ease;
 }
 
 .stationSuggestion:hover {
-  background: #f5f8fd;
+  background: #f3f6fd;
+  transform: translateX(2px);
 }
 
 .stationSuggestion strong {
   display: block;
-  color: #263247;
-  font-size: 14px;
+
+  color: var(--erja-text);
+
+  font-size: 13px;
+  font-weight: 800;
 }
 
 .stationSuggestion span {
   display: block;
-  color: #7a8596;
-  font-size: 12px;
-  margin-top: 2px;
+
+  margin-top: 3px;
+
+  color: var(--erja-text-muted);
+
+  font-size: 11px;
 }
 
 .stationSearchSpinner {
   position: absolute;
+
   right: 15px;
   top: 50%;
-  transform: translateY(-50%);
+
   width: 17px;
   height: 17px;
-  border: 2px solid #dbe2ee;
-  border-top-color: #4675d8;
+
+  transform: translateY(-50%);
+
+  border: 2px solid #dce4f0;
+  border-top-color: var(--erja-primary);
   border-radius: 50%;
+
   animation: erjaSpin 0.7s linear infinite;
 }
 
 
-/* ---------- CLASS SELECT ---------- */
+/* =========================================================
+   CLASS SELECT
+   ========================================================= */
 
 .classLoadingText {
-  min-height: 48px;
+  min-height: 50px;
+
   display: flex;
   align-items: center;
-  padding: 0 14px;
-  border: 1px solid #d8dee8;
-  border-radius: 10px;
-  color: #778397;
-  background: #fafbfc;
-  font-size: 14px;
+
+  box-sizing: border-box;
+
+  padding: 0 15px;
+
+  border: 1px solid rgba(148, 163, 184, 0.24);
+  border-radius: 13px;
+
+  background:
+    rgba(248, 250, 253, 0.90);
+
+  color: var(--erja-text-muted);
+
+  font-size: 13px;
 }
+
+.classVerified {
+  margin-top: 9px;
+
+  padding: 11px 13px;
+
+  border: 1px solid rgba(35, 130, 75, 0.14);
+  border-radius: 11px;
+
+  background: var(--erja-success-soft);
+
+  color: var(--erja-success);
+
+  font-size: 12px;
+  font-weight: 650;
+}
+
+
+/* =========================================================
+   MIXED CLASS OPTION
+   ========================================================= */
 
 .mixedClassOption {
   margin-top: 14px;
+
+  padding: 14px 15px;
+
+  border: 1px solid rgba(148, 163, 184, 0.20);
+  border-radius: 14px;
+
+  background:
+    rgba(247, 249, 253, 0.82);
+
+  transition:
+    border-color 0.2s ease,
+    background 0.2s ease;
+}
+
+.mixedClassOption:hover {
+  border-color: rgba(49, 95, 201, 0.22);
+  background: rgba(242, 246, 255, 0.88);
 }
 
 .customCheckbox {
   display: flex;
   align-items: flex-start;
-  gap: 11px;
+
+  gap: 12px;
+
   cursor: pointer;
   user-select: none;
 }
@@ -471,90 +988,156 @@
   width: 18px;
   height: 18px;
   min-width: 18px;
-  margin: 1px 0 0;
+
+  margin: 2px 0 0;
+
   cursor: pointer;
-  accent-color: #4675d8;
+
+  accent-color: var(--erja-primary);
+}
+
+.mixedClassText {
+  flex: 1;
 }
 
 .mixedClassText strong {
   display: block;
-  color: #273449;
-  font-size: 14px;
-  margin-bottom: 3px;
+
+  margin-bottom: 4px;
+
+  color: #263247;
+
+  font-size: 13px;
+  font-weight: 800;
 }
 
 .mixedClassText span {
   display: block;
-  color: #7b8697;
-  font-size: 12px;
-  line-height: 1.5;
+
+  color: var(--erja-text-muted);
+
+  font-size: 11px;
+  line-height: 1.55;
 }
 
 
-/* ---------- SUBMIT BUTTON ---------- */
+/* =========================================================
+   SUBMIT BUTTON
+   ========================================================= */
 
 .saveJourneyButton {
   width: 100%;
-  min-height: 50px;
+
+  min-height: 53px;
+
   margin-top: 8px;
-  border: none;
-  border-radius: 11px;
-  background: #315fc9;
+
+  border: 1px solid rgba(49, 95, 201, 0.15);
+  border-radius: 14px;
+
+  background:
+    linear-gradient(
+      135deg,
+      #396bd8,
+      #2d58bd
+    );
+
   color: #ffffff;
-  font-size: 15px;
-  font-weight: 700;
+
+  font-size: 14px;
+  font-weight: 800;
+
+  letter-spacing: 0.01em;
+
   cursor: pointer;
+
+  box-shadow:
+    0 12px 25px rgba(49, 95, 201, 0.20),
+    inset 0 1px 0 rgba(255, 255, 255, 0.20);
+
   transition:
-    background 0.2s ease,
-    transform 0.15s ease,
-    box-shadow 0.2s ease;
+    transform 0.18s ease,
+    box-shadow 0.18s ease,
+    filter 0.18s ease;
 }
 
 .saveJourneyButton:hover:not(:disabled) {
-  background: #274fae;
-  box-shadow: 0 7px 18px rgba(49, 95, 201, 0.2);
+  transform: translateY(-2px);
+
+  box-shadow:
+    0 16px 32px rgba(49, 95, 201, 0.25),
+    inset 0 1px 0 rgba(255, 255, 255, 0.22);
+
+  filter: brightness(1.03);
 }
 
 .saveJourneyButton:active:not(:disabled) {
-  transform: translateY(1px);
+  transform: translateY(0);
 }
 
 .saveJourneyButton:disabled {
   opacity: 0.55;
   cursor: not-allowed;
+
+  box-shadow: none;
 }
+
+
+/* =========================================================
+   BUTTON SPINNER
+   ========================================================= */
 
 .spinner {
   display: inline-block;
+
   width: 17px;
   height: 17px;
-  border: 2px solid rgba(255, 255, 255, 0.45);
+
+  margin-right: 7px;
+
+  border: 2px solid rgba(255, 255, 255, 0.42);
   border-top-color: #ffffff;
+
   border-radius: 50%;
-  vertical-align: middle;
+
+  vertical-align: -4px;
+
   animation: erjaSpin 0.7s linear infinite;
 }
 
 
-/* ---------- SECURITY NOTE ---------- */
+/* =========================================================
+   SECURITY NOTE
+   ========================================================= */
 
 .secureNote {
-  margin-top: 16px;
+  margin: 17px 0 0;
+
+  color: #8b95a5;
+
+  font-size: 11px;
+  line-height: 1.55;
+
   text-align: center;
-  color: #8a94a4;
-  font-size: 12px;
-  line-height: 1.5;
 }
 
 
-/* ---------- TRAIN OVERLAY ---------- */
+/* =========================================================
+   TRAIN OVERLAY
+   ========================================================= */
 
 .trainOverlay {
   position: fixed;
+
   inset: 0;
+
   z-index: 80;
+
   background: rgba(15, 23, 42, 0.08);
+
   pointer-events: none;
+
+  backdrop-filter: blur(1px);
 }
 
 
@@ -564,270 +1147,447 @@
 
 .timetableModalOverlay {
   position: fixed;
+
   inset: 0;
+
   z-index: 1000;
+
   display: flex;
   align-items: center;
   justify-content: center;
+
   padding: 24px;
-  background: rgba(15, 23, 42, 0.58);
-  backdrop-filter: blur(3px);
+
+  background:
+    rgba(15, 23, 42, 0.56);
+
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
 }
 
 .timetableModal {
-  width: min(1050px, 100%);
+  width: min(1080px, 100%);
   max-height: min(88vh, 850px);
+
   display: flex;
   flex-direction: column;
-  background: #ffffff;
-  border-radius: 18px;
+
   overflow: hidden;
-  box-shadow: 0 25px 70px rgba(0, 0, 0, 0.25);
+
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 23px;
+
+  background:
+    rgba(255, 255, 255, 0.96);
+
+  box-shadow:
+    0 35px 90px rgba(0, 0, 0, 0.26);
+
+  backdrop-filter: blur(25px);
+  -webkit-backdrop-filter: blur(25px);
 }
 
 
-/* ---------- MODAL HEADER ---------- */
+/* =========================================================
+   MODAL HEADER
+   ========================================================= */
 
 .timetableModalHeader {
   display: flex;
   align-items: center;
   justify-content: space-between;
+
   gap: 20px;
+
   padding: 22px 25px;
-  border-bottom: 1px solid #e7ebf1;
+
+  border-bottom: 1px solid rgba(148, 163, 184, 0.18);
 }
 
 .timetableEyebrow {
-  margin: 0 0 5px;
-  color: #5271b5;
-  font-size: 11px;
-  font-weight: 800;
-  letter-spacing: 0.09em;
+  margin: 0 0 6px;
+
+  color: var(--erja-primary);
+
+  font-size: 10px;
+  font-weight: 900;
+
+  letter-spacing: 0.12em;
   text-transform: uppercase;
 }
 
 .timetableModalHeader h2 {
   margin: 0;
-  color: #172033;
+
+  color: var(--erja-text);
+
   font-size: 22px;
-  font-weight: 750;
+  font-weight: 800;
+
+  letter-spacing: -0.02em;
 }
 
 .timetableModalHeader p {
   margin: 5px 0 0;
-  color: #7b8697;
-  font-size: 13px;
+
+  color: var(--erja-text-muted);
+
+  font-size: 12px;
 }
 
 .timetableCloseButton {
-  width: 38px;
-  height: 38px;
-  min-width: 38px;
-  border: none;
-  border-radius: 10px;
-  background: #f2f4f7;
-  color: #5f6b7b;
-  font-size: 21px;
-  cursor: pointer;
+  width: 39px;
+  height: 39px;
+  min-width: 39px;
+
   display: flex;
   align-items: center;
   justify-content: center;
+
+  border: 1px solid rgba(148, 163, 184, 0.18);
+  border-radius: 12px;
+
+  background: #f4f6fa;
+
+  color: #667085;
+
+  font-size: 20px;
+
+  cursor: pointer;
+
+  transition:
+    background 0.2s ease,
+    color 0.2s ease,
+    transform 0.2s ease;
 }
 
 .timetableCloseButton:hover {
-  background: #e8ebf0;
-  color: #172033;
+  background: #e9edf4;
+  color: var(--erja-text);
+
+  transform: rotate(3deg);
 }
 
 
-/* ---------- ROUTE SUMMARY ---------- */
+/* =========================================================
+   ROUTE SUMMARY
+   ========================================================= */
 
 .timetableRouteSummary {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 18px;
+
+  gap: 20px;
+
   padding: 18px 24px;
-  background: #f8fafc;
-  border-bottom: 1px solid #edf0f4;
+
+  background:
+    linear-gradient(
+      135deg,
+      #f6f8fc,
+      #eef3fb
+    );
+
+  border-bottom: 1px solid rgba(148, 163, 184, 0.15);
 }
 
 .timetableRouteSummary > div {
-  min-width: 150px;
+  min-width: 160px;
+
   text-align: center;
 }
 
 .timetableRouteSummary strong {
   display: block;
-  color: #172033;
+
+  color: var(--erja-text);
+
   font-size: 15px;
+  font-weight: 800;
 }
 
 .timetableRouteSummary span {
   display: block;
+
   margin-top: 3px;
-  color: #7b8697;
-  font-size: 12px;
+
+  color: var(--erja-text-muted);
+
+  font-size: 11px;
 }
 
 .timetableRouteArrow {
-  color: #718096;
-  font-size: 20px;
+  color: #758198;
+
+  font-size: 21px;
 }
 
 
-/* ---------- TABLE ---------- */
+/* =========================================================
+   TABLE WRAPPER
+   ========================================================= */
 
 .timetableTableWrapper {
   flex: 1;
+
   overflow: auto;
-  padding: 0;
+
+  background: rgba(255, 255, 255, 0.80);
 }
+
+
+/* =========================================================
+   TIMETABLE TABLE
+   ========================================================= */
 
 .timetableTable {
   width: 100%;
-  border-collapse: collapse;
+
   min-width: 760px;
+
+  border-collapse: collapse;
 }
 
 .timetableTable thead th {
   position: sticky;
   top: 0;
+
   z-index: 5;
+
   padding: 13px 16px;
-  background: #f7f9fc;
-  border-bottom: 1px solid #dfe5ed;
+
+  border-bottom: 1px solid rgba(148, 163, 184, 0.22);
+
+  background:
+    rgba(247, 249, 252, 0.96);
+
   color: #657184;
-  font-size: 11px;
-  font-weight: 800;
-  letter-spacing: 0.05em;
+
+  font-size: 10px;
+  font-weight: 900;
+
+  letter-spacing: 0.07em;
   text-transform: uppercase;
+
   text-align: left;
+
+  backdrop-filter: blur(12px);
 }
 
 .timetableTable tbody td {
   padding: 14px 16px;
-  border-bottom: 1px solid #edf0f4;
+
+  border-bottom: 1px solid rgba(148, 163, 184, 0.13);
+
   color: #364152;
-  font-size: 13px;
+
+  font-size: 12px;
+
   vertical-align: middle;
 }
 
-.timetableTable tbody tr:hover {
-  background: #fafbfc;
+.timetableTable tbody tr {
+  transition: background 0.15s ease;
 }
+
+.timetableTable tbody tr:hover {
+  background: #f8faff;
+}
+
+
+/* =========================================================
+   STATION CELLS
+   ========================================================= */
 
 .stationNumber {
   width: 55px;
-  color: #8b95a5 !important;
-  font-weight: 600;
+
+  color: #909aaa !important;
+
+  font-weight: 700;
 }
 
 .timetableStationCell {
-  min-width: 230px;
+  min-width: 240px;
 }
 
 .stationCode {
-  display: inline-block;
-  min-width: 42px;
-  padding: 4px 7px;
-  border-radius: 6px;
-  background: #edf2fa;
-  color: #3c5f9c;
-  font-size: 11px;
-  font-weight: 800;
-  text-align: center;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+
+  min-width: 44px;
+
   margin-right: 9px;
+  padding: 5px 7px;
+
+  border: 1px solid rgba(49, 95, 201, 0.10);
+  border-radius: 7px;
+
+  background: #edf2fa;
+
+  color: #3c5f9c;
+
+  font-size: 10px;
+  font-weight: 900;
+
+  text-align: center;
 }
 
 .stationName {
   color: #273449;
-  font-weight: 650;
+
+  font-size: 12px;
+  font-weight: 700;
 }
 
 .stationMarker {
   display: inline-flex;
   align-items: center;
   justify-content: center;
+
   margin-left: 8px;
   padding: 3px 7px;
+
   border-radius: 999px;
-  font-size: 10px;
-  font-weight: 800;
+
+  font-size: 9px;
+  font-weight: 900;
+
   vertical-align: middle;
+
+  letter-spacing: 0.03em;
 }
 
 .sourceMarker {
-  background: #eaf7ee;
-  color: #287641;
+  background: #e8f7ed;
+  color: #26733f;
 }
 
 .destinationMarker {
-  background: #fff0f0;
-  color: #bd4545;
+  background: #fff0f2;
+  color: #b93e49;
 }
 
+
+/* =========================================================
+   SOURCE / DESTINATION ROWS
+   ========================================================= */
+
 .timetableSourceRow {
-  background: #f3faf5 !important;
+  background:
+    rgba(239, 250, 243, 0.82) !important;
 }
 
 .timetableDestinationRow {
-  background: #fff7f7 !important;
+  background:
+    rgba(255, 245, 246, 0.84) !important;
 }
 
 .timetableSourceRow td {
-  border-bottom-color: #dcecdf;
+  border-bottom-color: rgba(35, 130, 75, 0.13);
 }
 
 .timetableDestinationRow td {
-  border-bottom-color: #f0dddd;
+  border-bottom-color: rgba(198, 62, 74, 0.13);
 }
 
 
-/* ---------- EMPTY STATE ---------- */
+/* =========================================================
+   EMPTY STATE
+   ========================================================= */
 
 .timetableEmptyState {
-  padding: 55px 25px;
+  padding: 60px 25px;
+
   text-align: center;
-  color: #7a8596;
+
+  color: var(--erja-text-muted);
 }
 
 .timetableEmptyIcon {
-  font-size: 34px;
-  margin-bottom: 12px;
+  margin-bottom: 13px;
+
+  font-size: 36px;
 }
 
 .timetableEmptyState strong {
   display: block;
+
+  margin-bottom: 6px;
+
   color: #364152;
+
   font-size: 15px;
-  margin-bottom: 5px;
+  font-weight: 800;
 }
 
 .timetableEmptyState span {
-  font-size: 13px;
+  font-size: 12px;
 }
 
 
-/* ---------- MODAL FOOTER ---------- */
+/* =========================================================
+   MODAL FOOTER
+   ========================================================= */
 
 .timetableModalFooter {
   display: flex;
   align-items: center;
   justify-content: space-between;
+
   gap: 15px;
+
   padding: 15px 24px;
-  border-top: 1px solid #e7ebf1;
-  background: #fafbfc;
+
+  border-top: 1px solid rgba(148, 163, 184, 0.18);
+
+  background:
+    rgba(248, 250, 252, 0.94);
 }
 
 .timetableModalFooter span {
   color: #7b8697;
-  font-size: 12px;
+
+  font-size: 11px;
 }
 
 .timetableModalFooter strong {
   color: #3d4a5c;
+
+  font-weight: 800;
+}
+
+
+/* =========================================================
+   SCROLLBARS
+   ========================================================= */
+
+.trainSuggestionsDropdown::-webkit-scrollbar,
+.autocompleteDropdown::-webkit-scrollbar,
+.timetableTableWrapper::-webkit-scrollbar {
+  width: 7px;
+  height: 7px;
+}
+
+.trainSuggestionsDropdown::-webkit-scrollbar-track,
+.autocompleteDropdown::-webkit-scrollbar-track,
+.timetableTableWrapper::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.trainSuggestionsDropdown::-webkit-scrollbar-thumb,
+.autocompleteDropdown::-webkit-scrollbar-thumb,
+.timetableTableWrapper::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+  background: #cbd4e2;
+}
+
+.trainSuggestionsDropdown::-webkit-scrollbar-thumb:hover,
+.autocompleteDropdown::-webkit-scrollbar-thumb:hover,
+.timetableTableWrapper::-webkit-scrollbar-thumb:hover {
+  background: #aeb9ca;
 }
 
 
@@ -847,16 +1607,46 @@
 
 
 /* =========================================================
-   RESPONSIVE
+   TABLET
+   ========================================================= */
+
+@media (max-width: 1100px) {
+  .addJourneyPage {
+    padding: 26px 24px 50px;
+  }
+
+  .addJourneyLayout {
+    grid-template-columns: 300px minmax(0, 1fr);
+    gap: 22px;
+  }
+
+  .journeyInfo {
+    padding: 25px;
+  }
+
+  .journeyCard {
+    padding: 28px;
+  }
+
+  .journeyInfo h1 {
+    font-size: 26px;
+  }
+}
+
+
+/* =========================================================
+   RESPONSIVE — 1000
    ========================================================= */
 
 @media (max-width: 1000px) {
   .addJourneyPage {
-    padding: 24px 22px 40px;
+    padding: 24px 22px 45px;
   }
 
   .addJourneyLayout {
     grid-template-columns: 1fr;
+
+    gap: 20px;
   }
 
   .journeyInfo {
@@ -865,66 +1655,92 @@
 
   .journeySteps {
     display: grid;
-    grid-template-columns: repeat(3, 1fr);
+
+    grid-template-columns:
+      repeat(3, minmax(0, 1fr));
+
+    gap: 14px;
   }
 }
 
 
-@media (max-width: 700px) {
+/* =========================================================
+   RESPONSIVE — 760
+   ========================================================= */
+
+@media (max-width: 760px) {
   .addJourneyPage {
-    padding: 18px 14px 30px;
+    padding: 20px 16px 38px;
   }
 
+  .journeyInfo,
   .journeyCard {
-    padding: 22px 18px;
+    border-radius: 20px;
   }
 
   .journeyInfo {
-    padding: 22px 18px;
+    padding: 22px;
   }
 
-  .journeyInfo h1 {
-    font-size: 24px;
+  .journeyCard {
+    padding: 23px;
   }
 
   .journeySteps {
     display: flex;
+    flex-direction: column;
+
+    gap: 14px;
   }
 
   .routeRow {
     grid-template-columns: 1fr;
+
     gap: 10px;
   }
 
   .routeArrow {
     margin: 0 auto;
+
     transform: rotate(90deg);
   }
 
+  .trainVerifiedCard {
+    align-items: flex-start;
+    flex-wrap: wrap;
+  }
+
+  .trainVerifiedInfo {
+    min-width: calc(100% - 48px);
+  }
+
+  .viewTimetableButton {
+    width: 100%;
+  }
+
   .timetableModalOverlay {
-    padding: 10px;
+    padding: 12px;
   }
 
   .timetableModal {
     max-height: 94vh;
-    border-radius: 14px;
+
+    border-radius: 18px;
   }
 
   .timetableModalHeader {
     padding: 18px;
   }
 
-  .timetableModalHeader h2 {
-    font-size: 19px;
-  }
-
   .timetableRouteSummary {
+    gap: 10px;
+
     padding: 15px 12px;
-    gap: 9px;
   }
 
   .timetableRouteSummary > div {
     min-width: 0;
+
     flex: 1;
   }
 
@@ -938,58 +1754,167 @@
 }
 
 
-@media (max-width: 480px) {
+/* =========================================================
+   RESPONSIVE — 520
+   ========================================================= */
+
+@media (max-width: 520px) {
   .addJourneyPage {
-    padding: 14px 10px 25px;
+    padding: 15px 10px 30px;
   }
 
   .backButton {
     margin-bottom: 15px;
-    font-size: 14px;
+
+    font-size: 13px;
   }
 
   .journeyInfo {
-    border-radius: 14px;
+    padding: 20px;
+
+    border-radius: 17px;
   }
 
   .journeyCard {
-    border-radius: 14px;
-    padding: 18px 14px;
+    padding: 19px 16px;
+
+    border-radius: 17px;
+  }
+
+  .journeyInfo h1 {
+    font-size: 23px;
+  }
+
+  .infoDescription {
+    font-size: 12px;
   }
 
   .cardHeader {
-    margin-bottom: 22px;
+    gap: 11px;
+
+    margin-bottom: 24px;
+  }
+
+  .cardTrainIcon {
+    width: 43px;
+    height: 43px;
+    min-width: 43px;
+
+    border-radius: 12px;
+
+    font-size: 20px;
   }
 
   .cardLabel {
     font-size: 19px;
   }
 
-  .cardTrainIcon {
-    width: 40px;
-    height: 40px;
-    min-width: 40px;
+  .cardHeader p {
+    font-size: 11px;
+  }
+
+  .formGroup {
+    margin-bottom: 20px;
+  }
+
+  .formGroup > label {
+    font-size: 12px;
+  }
+
+  .inputWrapper input,
+  .inputWrapper select,
+  .formGroup input,
+  .formGroup select {
+    min-height: 48px;
+
+    font-size: 13px;
+  }
+
+  .mixedClassOption {
+    padding: 13px;
+  }
+
+  .saveJourneyButton {
+    min-height: 51px;
+
+    font-size: 13px;
   }
 
   .timetableModalHeader {
     gap: 10px;
+
+    padding: 16px;
+  }
+
+  .timetableModalHeader h2 {
+    font-size: 18px;
   }
 
   .timetableModalHeader p {
-    font-size: 12px;
+    font-size: 11px;
   }
 
   .timetableCloseButton {
-    width: 34px;
-    height: 34px;
-    min-width: 34px;
+    width: 35px;
+    height: 35px;
+    min-width: 35px;
+  }
+
+  .timetableRouteSummary {
+    padding: 13px 8px;
   }
 
   .timetableRouteSummary strong {
-    font-size: 13px;
+    font-size: 12px;
   }
 
   .timetableRouteSummary span {
-    font-size: 10px;
+    font-size: 9px;
+  }
+
+  .timetableModalFooter {
+    flex-direction: column;
+    align-items: flex-start;
+
+    padding: 12px 14px;
+  }
+}
+
+
+/* =========================================================
+   RESPONSIVE — 380
+   ========================================================= */
+
+@media (max-width: 380px) {
+  .addJourneyPage {
+    padding-left: 8px;
+    padding-right: 8px;
+  }
+
+  .journeyInfo {
+    padding: 17px;
+  }
+
+  .journeyCard {
+    padding: 17px 13px;
+  }
+
+  .journeyInfo h1 {
+    font-size: 21px;
+  }
+
+  .cardLabel {
+    font-size: 18px;
+  }
+
+  .routeArrow {
+    width: 38px;
+    height: 38px;
+  }
+
+  .stepIcon {
+    width: 34px;
+    height: 34px;
+    min-width: 34px;
   }
 }

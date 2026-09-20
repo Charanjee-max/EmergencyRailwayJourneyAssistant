@@ -1,5 +1,13 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import {
+    useCallback,
+    useEffect,
+    useMemo,
+    useState,
+} from "react";
+
 import { useNavigate } from "react-router-dom";
+
+import Navbar from "../../components/Navbar/Navbar";
 
 import {
     getJourneys,
@@ -31,8 +39,7 @@ export default function Journeys() {
 
                 setError("");
 
-                const response =
-                    await getJourneys();
+                const response = await getJourneys();
 
                 const data =
                     response?.data?.data || [];
@@ -49,8 +56,8 @@ export default function Journeys() {
                 );
 
                 setError(
-                    err.response?.data?.message ||
-                    err.message ||
+                    err?.response?.data?.message ||
+                    err?.message ||
                     "Unable to load journeys."
                 );
             } finally {
@@ -66,14 +73,15 @@ export default function Journeys() {
     }, [loadJourneys]);
 
     // =========================================================
-    // DATE
+    // FORMAT DATE
     // =========================================================
 
     const formatDate = (date) => {
-        if (!date) return "—";
+        if (!date) {
+            return "—";
+        }
 
-        const parsed =
-            new Date(date);
+        const parsed = new Date(date);
 
         if (
             Number.isNaN(
@@ -87,19 +95,18 @@ export default function Journeys() {
             "en-IN",
             {
                 day: "2-digit",
-                month: "2-digit",
+                month: "short",
                 year: "numeric",
             }
         );
     };
 
-    const formatChartTime = (date) => {
+    const formatDateTime = (date) => {
         if (!date) {
             return "Not available";
         }
 
-        const parsed =
-            new Date(date);
+        const parsed = new Date(date);
 
         if (
             Number.isNaN(
@@ -117,7 +124,7 @@ export default function Journeys() {
                 year: "numeric",
                 hour: "2-digit",
                 minute: "2-digit",
-                hour12: false,
+                hour12: true,
             }
         );
     };
@@ -127,8 +134,13 @@ export default function Journeys() {
     // =========================================================
 
     const getStatusText = (status) => {
-        switch (status) {
+        switch (
+            String(
+                status || "PENDING"
+            ).toUpperCase()
+        ) {
             case "MONITORING":
+            case "ACTIVE":
                 return "Monitoring";
 
             case "RECOMMENDATION_READY":
@@ -149,44 +161,85 @@ export default function Journeys() {
     };
 
     const getStatusClass = (status) => {
-        return String(
-            status || "PENDING"
-        )
-            .toLowerCase()
-            .replaceAll(
-                "_",
-                "-"
-            );
+        const normalized =
+            String(
+                status || "PENDING"
+            )
+                .toLowerCase()
+                .replaceAll(
+                    "_",
+                    "-"
+                );
+
+        if (
+            normalized === "active"
+        ) {
+            return "monitoring";
+        }
+
+        return normalized;
+    };
+
+    const getStatusIcon = (status) => {
+        switch (
+            String(
+                status || "PENDING"
+            ).toUpperCase()
+        ) {
+            case "MONITORING":
+            case "ACTIVE":
+                return "◉";
+
+            case "RECOMMENDATION_READY":
+                return "✦";
+
+            case "CHART_PREPARED":
+                return "✓";
+
+            case "COMPLETED":
+                return "✓";
+
+            case "CANCELLED":
+                return "×";
+
+            default:
+                return "◷";
+        }
     };
 
     // =========================================================
     // CHART
     // =========================================================
 
-    const isChartPrepared = (journey) =>
-        journey?.chart?.chartPrepared ===
-            true ||
-        journey?.chart?.prepared ===
-            true;
+    const isChartPrepared = (journey) => {
+        return (
+            journey?.chart?.chartPrepared === true ||
+            journey?.chart?.prepared === true
+        );
+    };
 
-    const getExpectedFirstChart =
-        (journey) =>
+    const getExpectedFirstChart = (journey) => {
+        return (
             journey?.chart
                 ?.expectedFirstChartTime ||
             journey?.chart
                 ?.firstChartTime ||
-            null;
+            null
+        );
+    };
 
-    const getExpectedFinalChart =
-        (journey) =>
+    const getExpectedFinalChart = (journey) => {
+        return (
             journey?.chart
                 ?.expectedFinalChartTime ||
             journey?.chart
                 ?.finalChartTime ||
-            null;
+            null
+        );
+    };
 
     // =========================================================
-    // CLASS
+    // CLASSES
     // =========================================================
 
     const getClasses = (journey) => {
@@ -198,19 +251,69 @@ export default function Journeys() {
                 )
                 .map(
                     (item) =>
-                        item.class
-                );
+                        item?.class
+                )
+                .filter(Boolean);
 
         if (
             enabled &&
             enabled.length
         ) {
-            return enabled.join(
-                ", "
-            );
+            return enabled.join(", ");
         }
 
-        return "—";
+        return "Not specified";
+    };
+
+    // =========================================================
+    // ROUTE
+    // =========================================================
+
+    const getBoardingStation = (
+        journey
+    ) => {
+        return (
+            journey?.boardingStation ||
+            journey?.source ||
+            journey?.from ||
+            "—"
+        );
+    };
+
+    const getDestinationStation = (
+        journey
+    ) => {
+        return (
+            journey?.destinationStation ||
+            journey?.destination ||
+            journey?.to ||
+            "—"
+        );
+    };
+
+    // =========================================================
+    // TRAIN
+    // =========================================================
+
+    const getTrainNumber = (
+        journey
+    ) => {
+        return (
+            journey?.trainNumber ||
+            journey?.trainNo ||
+            "—"
+        );
+    };
+
+    const getTrainName = (
+        journey
+    ) => {
+        return (
+            journey?.trainName ||
+            journey?.train?.trainName ||
+            journey?.train?.name ||
+            "Railway Journey"
+        );
     };
 
     // =========================================================
@@ -221,23 +324,57 @@ export default function Journeys() {
         const total =
             journeys.length;
 
-        const prepared =
+        const monitoring =
             journeys.filter(
-                isChartPrepared
+                (journey) => {
+                    const status =
+                        String(
+                            journey?.status ||
+                            ""
+                        ).toUpperCase();
+
+                    return (
+                        status === "PENDING" ||
+                        status === "ACTIVE" ||
+                        status === "MONITORING"
+                    );
+                }
             ).length;
 
-        const waiting =
+        const prepared =
             journeys.filter(
                 (journey) =>
-                    !isChartPrepared(
+                    isChartPrepared(
                         journey
                     )
             ).length;
 
+        const recommendations =
+            journeys.filter(
+                (journey) =>
+                    String(
+                        journey?.status ||
+                        ""
+                    ).toUpperCase() ===
+                    "RECOMMENDATION_READY"
+            ).length;
+
+        const completed =
+            journeys.filter(
+                (journey) =>
+                    String(
+                        journey?.status ||
+                        ""
+                    ).toUpperCase() ===
+                    "COMPLETED"
+            ).length;
+
         return {
             total,
+            monitoring,
             prepared,
-            waiting,
+            recommendations,
+            completed,
         };
     }, [journeys]);
 
@@ -266,7 +403,7 @@ export default function Journeys() {
                 (previous) =>
                     previous.filter(
                         (journey) =>
-                            journey._id !==
+                            journey?._id !==
                             journeyId
                     )
             );
@@ -276,12 +413,36 @@ export default function Journeys() {
                 err
             );
 
-            alert(
-                err.response?.data?.message ||
-                    err.message ||
-                    "Unable to delete journey."
+            window.alert(
+                err?.response?.data?.message ||
+                err?.message ||
+                "Unable to delete journey."
             );
         }
+    };
+
+    // =========================================================
+    // VIEW JOURNEY
+    // =========================================================
+
+    const handleViewJourney = (
+        journeyId
+    ) => {
+        navigate(
+            `/journey/${journeyId}`
+        );
+    };
+
+    // =========================================================
+    // VIEW RECOMMENDATION
+    // =========================================================
+
+    const handleRecommendation = (
+        journeyId
+    ) => {
+        navigate(
+            `/recommendation/${journeyId}`
+        );
     };
 
     // =========================================================
@@ -290,580 +451,780 @@ export default function Journeys() {
 
     if (loading) {
         return (
-            <div className="journeys-page">
+            <>
+                <Navbar />
 
-                <div className="journeys-loading">
+                <main className="journeys-page">
 
-                    <div className="journeys-loading-icon">
-                        🚆
-                    </div>
+                    <section className="journeys-loading-card">
 
-                    <h2>
-                        Loading Journeys...
-                    </h2>
+                        <div className="journeys-loading-orbit">
+                            <div>
+                                🚆
+                            </div>
+                        </div>
 
-                    <p>
-                        Fetching your monitored
-                        railway journeys.
-                    </p>
+                        <div className="journeys-loading-label">
+                            ERJA JOURNEY CENTER
+                        </div>
 
-                </div>
+                        <h1>
+                            Loading your journeys
+                        </h1>
 
-            </div>
+                        <p>
+                            Fetching your monitored
+                            railway journeys and
+                            current chart status.
+                        </p>
+
+                        <div className="journeys-loading-line">
+                            <span />
+                        </div>
+
+                    </section>
+
+                </main>
+            </>
         );
     }
 
+    // =========================================================
+    // MAIN UI
+    // =========================================================
+
     return (
-        <div className="journeys-page">
+        <>
+            <Navbar />
 
-            {/* =================================================
-                HEADER
-            ================================================= */}
+            <main className="journeys-page">
 
-            <header className="journeys-header">
+                {/* =================================================
+                    HERO
+                ================================================= */}
 
-                <div>
+                <section className="journeys-hero">
 
-                    <div className="journeys-eyebrow">
-                        ERJA JOURNEY CENTER
-                    </div>
+                    <div className="journeys-hero-copy">
 
-                    <h1>
-                        My Journeys
-                    </h1>
-
-                    <p>
-                        Monitor your railway
-                        journeys and chart
-                        preparation status.
-                    </p>
-
-                </div>
-
-                <div className="journeys-header-actions">
-
-                    <button
-                        className="pnr-dashboard-btn"
-                        onClick={() =>
-                            navigate("/pnr")
-                        }
-                    >
-                        🎫 PNR Status
-                    </button>
-
-                    <button
-                        className="new-journey-btn"
-                        onClick={() =>
-                            navigate(
-                                "/add-journey"
-                            )
-                        }
-                    >
-                        + New Journey
-                    </button>
-
-                </div>
-
-            </header>
-
-            {/* =================================================
-                ERROR
-            ================================================= */}
-
-            {error && (
-                <div className="journeys-error">
-                    ⚠️ {error}
-                </div>
-            )}
-
-            {/* =================================================
-                SUMMARY
-            ================================================= */}
-
-            <section className="journey-summary-grid">
-
-                <div className="journey-summary-card">
-
-                    <div className="summary-icon blue">
-                        🚆
-                    </div>
-
-                    <div>
-                        <strong>
-                            {summary.total}
-                        </strong>
-
-                        <span>
-                            Total Journeys
-                        </span>
-
-                        <small>
-                            Active and upcoming
-                            journeys
-                        </small>
-                    </div>
-
-                </div>
-
-                <div className="journey-summary-card">
-
-                    <div className="summary-icon green">
-                        📋
-                    </div>
-
-                    <div>
-                        <strong>
-                            {summary.prepared}
-                        </strong>
-
-                        <span>
-                            Charts Prepared
-                        </span>
-
-                        <small>
-                            Trains with prepared
-                            charts
-                        </small>
-                    </div>
-
-                </div>
-
-                <div className="journey-summary-card">
-
-                    <div className="summary-icon orange">
-                        🕐
-                    </div>
-
-                    <div>
-                        <strong>
-                            {summary.waiting}
-                        </strong>
-
-                        <span>
-                            Waiting for Chart
-                        </span>
-
-                        <small>
-                            Waiting for IRCTC
-                            chart preparation
-                        </small>
-                    </div>
-
-                </div>
-
-            </section>
-
-            {/* =================================================
-                TABLE
-            ================================================= */}
-
-            <section className="journeys-table-card">
-
-                <div className="journeys-table-header">
-
-                    <div>
-
-                        <span>
-                            MONITORED JOURNEYS
-                        </span>
-
-                        <h2>
-                            Journey Tracking
-                        </h2>
-
-                    </div>
-
-                    <button
-                        className="refresh-journeys-btn"
-                        onClick={() =>
-                            loadJourneys(true)
-                        }
-                        disabled={
-                            refreshing
-                        }
-                    >
-                        {refreshing
-                            ? "Refreshing..."
-                            : "↻ Refresh"}
-                    </button>
-
-                </div>
-
-                {journeys.length === 0 ? (
-
-                    <div className="journeys-empty">
-
-                        <div>
-                            🚆
+                        <div className="journeys-eyebrow">
+                            <span />
+                            ERJA JOURNEY CENTER
                         </div>
 
-                        <h3>
-                            No journeys yet
-                        </h3>
+                        <h1>
+                            My
+                            <span>
+                                Journeys
+                            </span>
+                        </h1>
 
                         <p>
-                            Add a journey to
-                            start monitoring
-                            railway chart
-                            availability.
+                            Keep every monitored railway
+                            journey in one place. Track
+                            chart preparation, availability
+                            analysis and recommendations.
                         </p>
 
+                    </div>
+
+                    <div className="journeys-hero-actions">
+
                         <button
+                            type="button"
+                            className="journeys-refresh-button"
+                            onClick={() =>
+                                loadJourneys(true)
+                            }
+                            disabled={
+                                refreshing
+                            }
+                        >
+                            <span>
+                                {refreshing
+                                    ? "↻"
+                                    : "⟳"}
+                            </span>
+
+                            {refreshing
+                                ? "Refreshing..."
+                                : "Refresh"}
+                        </button>
+
+                        <button
+                            type="button"
+                            className="journeys-add-button"
                             onClick={() =>
                                 navigate(
                                     "/add-journey"
                                 )
                             }
                         >
-                            + Add Journey
+                            <span>
+                                +
+                            </span>
+
+                            Add Journey
                         </button>
 
                     </div>
 
-                ) : (
+                </section>
 
-                    <div className="journeys-table-wrapper">
+                {/* =================================================
+                    ERROR
+                ================================================= */}
 
-                        <table className="journeys-table">
+                {error && (
+                    <section className="journeys-error-card">
 
-                            <thead>
+                        <div className="journeys-error-icon">
+                            !
+                        </div>
 
-                                <tr>
+                        <div>
+                            <strong>
+                                Unable to load journeys
+                            </strong>
 
-                                    <th>
-                                        TRAIN
-                                    </th>
+                            <p>
+                                {error}
+                            </p>
+                        </div>
 
-                                    <th>
-                                        ROUTE
-                                    </th>
+                        <button
+                            type="button"
+                            onClick={() =>
+                                loadJourneys()
+                            }
+                        >
+                            Try Again
+                        </button>
 
-                                    <th>
-                                        JOURNEY DATE
-                                    </th>
+                    </section>
+                )}
 
-                                    <th>
-                                        CLASS
-                                    </th>
+                {/* =================================================
+                    SUMMARY
+                ================================================= */}
 
-                                    <th>
-                                        STATUS
-                                    </th>
+                <section className="journeys-stats">
 
-                                    <th>
-                                        CHART STATUS
-                                    </th>
+                    <div className="journeys-stat-card blue">
 
-                                    <th>
-                                        EXPECTED CHART TIME
-                                    </th>
+                        <div className="journeys-stat-icon">
+                            🚆
+                        </div>
 
-                                    <th>
-                                        ACTIONS
-                                    </th>
+                        <div>
+                            <span>
+                                TOTAL JOURNEYS
+                            </span>
 
-                                </tr>
+                            <strong>
+                                {summary.total}
+                            </strong>
 
-                            </thead>
+                            <small>
+                                All tracked journeys
+                            </small>
+                        </div>
 
-                            <tbody>
+                    </div>
 
-                                {journeys.map(
-                                    (journey) => {
+                    <div className="journeys-stat-card green">
 
-                                        const chartPrepared =
-                                            isChartPrepared(
-                                                journey
-                                            );
+                        <div className="journeys-stat-icon">
+                            ◉
+                        </div>
 
-                                        const firstChart =
-                                            getExpectedFirstChart(
-                                                journey
-                                            );
+                        <div>
+                            <span>
+                                MONITORING
+                            </span>
 
-                                        const finalChart =
-                                            getExpectedFinalChart(
-                                                journey
-                                            );
+                            <strong>
+                                {summary.monitoring}
+                            </strong>
 
-                                        return (
-                                            <tr
-                                                key={
-                                                    journey._id
-                                                }
-                                            >
+                            <small>
+                                Currently active
+                            </small>
+                        </div>
 
-                                                {/* TRAIN */}
+                    </div>
 
-                                                <td>
+                    <div className="journeys-stat-card purple">
 
-                                                    <div className="train-cell">
+                        <div className="journeys-stat-icon">
+                            ✓
+                        </div>
 
-                                                        <strong>
+                        <div>
+                            <span>
+                                CHART READY
+                            </span>
+
+                            <strong>
+                                {summary.prepared}
+                            </strong>
+
+                            <small>
+                                Chart prepared
+                            </small>
+                        </div>
+
+                    </div>
+
+                    <div className="journeys-stat-card orange">
+
+                        <div className="journeys-stat-icon">
+                            ✦
+                        </div>
+
+                        <div>
+                            <span>
+                                RECOMMENDATIONS
+                            </span>
+
+                            <strong>
+                                {summary.recommendations}
+                            </strong>
+
+                            <small>
+                                Ready to review
+                            </small>
+                        </div>
+
+                    </div>
+
+                </section>
+
+                {/* =================================================
+                    JOURNEY LIST
+                ================================================= */}
+
+                <section className="journeys-content-card">
+
+                    <div className="journeys-content-header">
+
+                        <div>
+
+                            <div className="section-eyebrow">
+                                YOUR TRAVEL
+                            </div>
+
+                            <h2>
+                                Tracked journeys
+                            </h2>
+
+                            <p>
+                                ERJA automatically monitors
+                                the journeys you have added.
+                            </p>
+
+                        </div>
+
+                        <div className="journeys-count">
+                            {journeys.length}
+                            <span>
+                                journey
+                                {journeys.length === 1
+                                    ? ""
+                                    : "s"}
+                            </span>
+                        </div>
+
+                    </div>
+
+                    {journeys.length === 0 ? (
+                        <div className="journeys-empty">
+
+                            <div className="journeys-empty-visual">
+                                🚆
+                            </div>
+
+                            <div className="section-eyebrow">
+                                NOTHING HERE YET
+                            </div>
+
+                            <h3>
+                                Start monitoring a journey
+                            </h3>
+
+                            <p>
+                                Add a train, journey date,
+                                boarding station and
+                                destination. ERJA will
+                                monitor the journey for
+                                available booking options.
+                            </p>
+
+                            <button
+                                type="button"
+                                onClick={() =>
+                                    navigate(
+                                        "/add-journey"
+                                    )
+                                }
+                            >
+                                + Add Your First Journey
+                            </button>
+
+                        </div>
+                    ) : (
+                        <div className="journeys-list">
+
+                            {journeys.map(
+                                (
+                                    journey
+                                ) => {
+                                    const journeyId =
+                                        journey?._id;
+
+                                    const chartPrepared =
+                                        isChartPrepared(
+                                            journey
+                                        );
+
+                                    const status =
+                                        String(
+                                            journey?.status ||
+                                            "PENDING"
+                                        ).toUpperCase();
+
+                                    const firstChart =
+                                        getExpectedFirstChart(
+                                            journey
+                                        );
+
+                                    const finalChart =
+                                        getExpectedFinalChart(
+                                            journey
+                                        );
+
+                                    const boarding =
+                                        getBoardingStation(
+                                            journey
+                                        );
+
+                                    const destination =
+                                        getDestinationStation(
+                                            journey
+                                        );
+
+                                    const trainNumber =
+                                        getTrainNumber(
+                                            journey
+                                        );
+
+                                    const trainName =
+                                        getTrainName(
+                                            journey
+                                        );
+
+                                    return (
+                                        <article
+                                            className="journey-card"
+                                            key={
+                                                journeyId
+                                            }
+                                        >
+
+                                            {/* CARD TOP */}
+
+                                            <div className="journey-card-top">
+
+                                                <div className="journey-train-identity">
+
+                                                    <div className="journey-train-icon">
+                                                        🚆
+                                                    </div>
+
+                                                    <div>
+
+                                                        <div className="journey-train-number">
+                                                            Train{" "}
                                                             {
-                                                                journey.trainNumber
+                                                                trainNumber
                                                             }
-                                                        </strong>
+                                                        </div>
+
+                                                        <h3>
+                                                            {
+                                                                trainName
+                                                            }
+                                                        </h3>
 
                                                     </div>
 
-                                                </td>
+                                                </div>
 
-                                                {/* ROUTE */}
+                                                <span
+                                                    className={`journey-status ${getStatusClass(
+                                                        status
+                                                    )}`}
+                                                >
+                                                    <span>
+                                                        {getStatusIcon(
+                                                            status
+                                                        )}
+                                                    </span>
 
-                                                <td>
+                                                    {getStatusText(
+                                                        status
+                                                    )}
+                                                </span>
 
-                                                    <div className="route-cell">
+                                            </div>
 
-                                                        <strong>
-                                                            {
-                                                                journey.boardingStation
-                                                            }
-                                                            <span>
-                                                                →
-                                                            </span>
-                                                            {
-                                                                journey.destinationStation
-                                                            }
-                                                        </strong>
+                                            {/* ROUTE */}
 
-                                                    </div>
+                                            <div className="journey-route-panel">
 
-                                                </td>
+                                                <div className="journey-station">
 
-                                                {/* DATE */}
+                                                    <span className="journey-station-label">
+                                                        BOARDING
+                                                    </span>
 
-                                                <td>
+                                                    <strong>
+                                                        {
+                                                            boarding
+                                                        }
+                                                    </strong>
 
-                                                    <strong className="date-cell">
+                                                </div>
+
+                                                <div className="journey-route-line">
+
+                                                    <span className="route-dot" />
+
+                                                    <span className="route-line" />
+
+                                                    <span className="route-train">
+                                                        🚆
+                                                    </span>
+
+                                                    <span className="route-line" />
+
+                                                    <span className="route-dot" />
+
+                                                </div>
+
+                                                <div className="journey-station destination">
+
+                                                    <span className="journey-station-label">
+                                                        DESTINATION
+                                                    </span>
+
+                                                    <strong>
+                                                        {
+                                                            destination
+                                                        }
+                                                    </strong>
+
+                                                </div>
+
+                                            </div>
+
+                                            {/* DETAILS */}
+
+                                            <div className="journey-details-grid">
+
+                                                <div className="journey-detail">
+
+                                                    <span>
+                                                        JOURNEY DATE
+                                                    </span>
+
+                                                    <strong>
                                                         {formatDate(
-                                                            journey.journeyDate
+                                                            journey?.journeyDate
                                                         )}
                                                     </strong>
 
-                                                </td>
+                                                </div>
 
-                                                {/* CLASS */}
+                                                <div className="journey-detail">
 
-                                                <td>
+                                                    <span>
+                                                        PREFERRED CLASS
+                                                    </span>
 
-                                                    <div className="class-cell">
+                                                    <strong>
                                                         {getClasses(
                                                             journey
                                                         )}
-                                                    </div>
+                                                    </strong>
 
-                                                </td>
+                                                </div>
 
-                                                {/* STATUS */}
+                                                <div className="journey-detail">
 
-                                                <td>
-
-                                                    <span
-                                                        className={`journey-status ${getStatusClass(
-                                                            journey.status
-                                                        )}`}
-                                                    >
-                                                        {
-                                                            getStatusText(
-                                                                journey.status
-                                                            )
-                                                        }
+                                                    <span>
+                                                        MIXED CLASS
                                                     </span>
 
-                                                </td>
+                                                    <strong>
+                                                        {journey?.allowMixedClass
+                                                            ? "Allowed"
+                                                            : "Not allowed"}
+                                                    </strong>
 
-                                                {/* CHART */}
+                                                </div>
 
-                                                <td>
+                                                <div className="journey-detail">
+
+                                                    <span>
+                                                        LAST CHECKED
+                                                    </span>
+
+                                                    <strong>
+                                                        {formatDateTime(
+                                                            journey?.lastCheckedAt
+                                                        )}
+                                                    </strong>
+
+                                                </div>
+
+                                            </div>
+
+                                            {/* CHART STATUS */}
+
+                                            <div className="journey-chart-panel">
+
+                                                <div className="journey-chart-status">
 
                                                     <div
-                                                        className={`chart-status ${
+                                                        className={`journey-chart-dot ${
                                                             chartPrepared
                                                                 ? "prepared"
                                                                 : "waiting"
                                                         }`}
+                                                    />
+
+                                                    <div>
+
+                                                        <strong>
+                                                            {chartPrepared
+                                                                ? "Chart Prepared"
+                                                                : "Chart Not Prepared"}
+                                                        </strong>
+
+                                                        <span>
+                                                            {chartPrepared
+                                                                ? "ERJA is checking railway availability."
+                                                                : "ERJA is waiting for chart preparation."}
+                                                        </span>
+
+                                                    </div>
+
+                                                </div>
+
+                                                <div className="journey-chart-times">
+
+                                                    <div>
+
+                                                        <span>
+                                                            FIRST CHART
+                                                        </span>
+
+                                                        <strong>
+                                                            {firstChart
+                                                                ? formatDateTime(
+                                                                      firstChart
+                                                                  )
+                                                                : "Calculating..."}
+                                                        </strong>
+
+                                                    </div>
+
+                                                    <div>
+
+                                                        <span>
+                                                            FINAL CHART
+                                                        </span>
+
+                                                        <strong>
+                                                            {finalChart
+                                                                ? formatDateTime(
+                                                                      finalChart
+                                                                  )
+                                                                : "Calculating..."}
+                                                        </strong>
+
+                                                    </div>
+
+                                                </div>
+
+                                            </div>
+
+                                            {/* ACTIONS */}
+
+                                            <div className="journey-card-actions">
+
+                                                <button
+                                                    type="button"
+                                                    className="journey-view-button"
+                                                    onClick={() =>
+                                                        handleViewJourney(
+                                                            journeyId
+                                                        )
+                                                    }
+                                                >
+                                                    View Journey
+                                                    <span>
+                                                        →
+                                                    </span>
+                                                </button>
+
+                                                {status ===
+                                                    "RECOMMENDATION_READY" && (
+                                                    <button
+                                                        type="button"
+                                                        className="journey-recommendation-button"
+                                                        onClick={() =>
+                                                            handleRecommendation(
+                                                                journeyId
+                                                            )
+                                                        }
                                                     >
+                                                        View Recommendation
+                                                        <span>
+                                                            ✦
+                                                        </span>
+                                                    </button>
+                                                )}
 
-                                                        <span className="chart-status-dot"></span>
+                                                <button
+                                                    type="button"
+                                                    className="journey-delete-button"
+                                                    onClick={() =>
+                                                        handleDelete(
+                                                            journeyId
+                                                        )
+                                                    }
+                                                    title="Delete journey"
+                                                >
+                                                    🗑
+                                                </button>
 
-                                                        <div>
+                                            </div>
 
-                                                            <strong>
-                                                                {chartPrepared
-                                                                    ? "Chart Prepared"
-                                                                    : "Chart Not Prepared"}
-                                                            </strong>
+                                        </article>
+                                    );
+                                }
+                            )}
 
-                                                            <small>
-                                                                {chartPrepared
-                                                                    ? "IRCTC chart available"
-                                                                    : "Waiting for IRCTC chart"}
-                                                            </small>
+                        </div>
+                    )}
 
-                                                        </div>
+                </section>
 
-                                                    </div>
+                {/* =================================================
+                    INFORMATION
+                ================================================= */}
 
-                                                </td>
+                <section className="journeys-info-card">
 
-                                                {/* EXPECTED TIME */}
+                    <div className="journeys-info-icon">
+                        ℹ
+                    </div>
 
-                                                <td>
+                    <div>
 
-                                                    <div className="expected-chart-time">
+                        <span>
+                            HOW ERJA MONITORS
+                        </span>
 
-                                                        <div>
+                        <h3>
+                            Chart preparation → vacancy →
+                            journey analysis
+                        </h3>
 
-                                                            <span>
-                                                                FIRST CHART
-                                                            </span>
-
-                                                            <strong>
-                                                                {firstChart
-                                                                    ? formatChartTime(
-                                                                          firstChart
-                                                                      )
-                                                                    : "Calculating..."}
-                                                            </strong>
-
-                                                        </div>
-
-                                                        <div>
-
-                                                            <span>
-                                                                FINAL CHART
-                                                            </span>
-
-                                                            <strong>
-                                                                {finalChart
-                                                                    ? formatChartTime(
-                                                                          finalChart
-                                                                      )
-                                                                    : "Calculating..."}
-                                                            </strong>
-
-                                                        </div>
-
-                                                    </div>
-
-                                                </td>
-
-                                                {/* ACTIONS */}
-
-                                                <td>
-
-                                                    <div className="journey-actions-cell">
-
-                                                        <button
-                                                            className="view-journey-btn"
-                                                            onClick={() =>
-                                                                navigate(
-                                                                    `/journey/${journey._id}`
-                                                                )
-                                                            }
-                                                        >
-                                                            View
-                                                        </button>
-
-                                                        <button
-                                                            className="delete-journey-btn"
-                                                            onClick={() =>
-                                                                handleDelete(
-                                                                    journey._id
-                                                                )
-                                                            }
-                                                            title="Delete journey"
-                                                        >
-                                                            🗑
-                                                        </button>
-
-                                                    </div>
-
-                                                </td>
-
-                                            </tr>
-                                        );
-                                    }
-                                )}
-
-                            </tbody>
-
-                        </table>
+                        <p>
+                            ERJA monitors your selected
+                            train and checks chart
+                            preparation before analyzing
+                            available railway vacancy.
+                            Recommendations are generated
+                            from the latest availability
+                            detected by the monitoring
+                            workflow.
+                        </p>
 
                     </div>
 
-                )}
+                </section>
 
-            </section>
+                {/* =================================================
+                    PNR QUICK ACCESS
+                ================================================= */}
 
-            {/* =================================================
-                INFORMATION
-            ================================================= */}
+                <section className="journeys-pnr-card">
 
-            <section className="chart-info-banner">
+                    <div className="journeys-pnr-icon">
+                        🎫
+                    </div>
 
-                <div className="chart-info-icon">
-                    ℹ️
-                </div>
+                    <div className="journeys-pnr-content">
 
-                <div>
+                        <span>
+                            ALREADY BOOKED?
+                        </span>
 
-                    <strong>
-                        Expected Chart Timing
-                    </strong>
+                        <h2>
+                            Check your PNR status
+                        </h2>
 
-                    <p>
-                        ERJA calculates the expected
-                        first and final chart preparation
-                        windows from the train's origin
-                        departure time. ERJA automatically
-                        checks IRCTC when the appropriate
-                        chart window is reached.
-                    </p>
+                        <p>
+                            View your reservation,
+                            passenger status and berth
+                            information.
+                        </p>
 
-                </div>
+                    </div>
 
-            </section>
+                    <button
+                        type="button"
+                        onClick={() =>
+                            navigate("/pnr")
+                        }
+                    >
+                        Check PNR
+                        <span>
+                            →
+                        </span>
+                    </button>
 
-            {/* =================================================
-                PNR QUICK ACCESS
-            ================================================= */}
+                </section>
 
-            <section className="pnr-quick-panel">
+                {/* =================================================
+                    FOOTER STATUS
+                ================================================= */}
 
-                <div className="pnr-quick-icon">
-                    🎫
-                </div>
+                <div className="journeys-footer-status">
 
-                <div>
+                    <span className="journeys-live-dot" />
 
                     <span>
-                        ALREADY BOOKED?
+                        ERJA journey monitoring service
+                        active
                     </span>
 
-                    <h2>
-                        Check your PNR status
-                    </h2>
+                    <span className="journeys-footer-separator">
+                        •
+                    </span>
 
-                    <p>
-                        Enter your 10-digit PNR to
-                        view booking and passenger
-                        status.
-                    </p>
+                    <span>
+                        Data refreshes when you open or
+                        refresh this page
+                    </span>
 
                 </div>
 
-                <button
-                    onClick={() =>
-                        navigate("/pnr")
-                    }
-                >
-                    Check PNR →
-                </button>
-
-            </section>
-
-        </div>
+            </main>
+        </>
     );
 }

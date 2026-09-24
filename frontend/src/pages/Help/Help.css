@@ -1,6 +1,3 @@
-Yes—**`Help.css` is the file to replace**. The current `Help.jsx` already contains the page content and interactions, so it can stay unchanged. Replace the entire contents of `frontend/src/pages/Help/Help.css` with this:
-
-```css
 /* =========================================================
    ERJA HELP PAGE
    Wider layout with readable type and responsive cards
@@ -837,4 +834,3 @@ Yes—**`Help.css` is the file to replace**. The current `Help.jsx` already cont
         transition: none;
     }
 }
-```

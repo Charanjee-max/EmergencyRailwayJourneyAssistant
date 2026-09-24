@@ -1695,29 +1695,113 @@ function Dashboard() {
                     FOOTER
                 ================================================= */}
 
-                <div className="dashboard-footer">
+                <footer className="dashboard-footer">
 
-                    <span className="footer-status">
+    <div className="dashboard-footer-main">
 
-                        <i></i>
+        <div className="dashboard-footer-brand">
 
-                        ERJA monitoring system active
+            <div className="dashboard-footer-logo">
+                ERJA
+            </div>
 
-                    </span>
+            <div>
+                <strong>
+                    Emergency Railway Journey Assistant
+                </strong>
 
-                    <span>
-                        Last dashboard refresh:
-                        {" "}
-                        {new Date().toLocaleTimeString(
-                            "en-IN",
-                            {
-                                hour: "2-digit",
-                                minute: "2-digit",
-                            }
-                        )}
-                    </span>
+                <p>
+                    Monitor your journey and explore possible travel strategies.
+                </p>
+            </div>
 
-                </div>
+        </div>
+
+
+        <div className="dashboard-footer-column">
+
+            <h3>
+                Quick Links
+            </h3>
+
+            <button
+                type="button"
+                onClick={() => navigate("/help")}
+            >
+                Help and FAQs
+            </button>
+
+            <button
+                type="button"
+                onClick={() => navigate("/journeys")}
+            >
+                My Journeys
+            </button>
+
+            <button
+                type="button"
+                onClick={() => navigate("/add-journey")}
+            >
+                Add a Journey
+            </button>
+
+            <button
+                type="button"
+                onClick={() => navigate("/profile")}
+            >
+                My Profile
+            </button>
+
+        </div>
+
+
+        <div className="dashboard-footer-notice">
+
+            <h3>
+                Important Information
+            </h3>
+
+            <p>
+                ERJA is an independent project and is not affiliated with
+                IRCTC, CRIS, or Indian Railways.
+            </p>
+
+            <p>
+                Availability can change. ERJA does not book tickets or
+                guarantee a seat. Confirm availability through official
+                railway booking channels.
+            </p>
+
+        </div>
+
+    </div>
+
+
+    <div className="dashboard-footer-bottom">
+
+        <span>
+            © {new Date().getFullYear()} ERJA
+        </span>
+
+        <span className="footer-status">
+            <i></i>
+            ERJA monitoring system active
+        </span>
+
+        <span>
+            Last dashboard refresh:{" "}
+            {new Date().toLocaleTimeString(
+                "en-IN",
+                {
+                    hour: "2-digit",
+                    minute: "2-digit",
+                }
+            )}
+        </span>
+
+    </div>
+
+</footer>
 
             </main>
 

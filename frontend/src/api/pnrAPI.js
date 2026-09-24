@@ -1,42 +1,15 @@
-import axios from "axios";
+import API from "./axios.js";
 
-const API = axios.create({
-    baseURL: "http://localhost:5000/api",
-});
+export const checkPNR = (pnr) =>
+    API.post("/pnr/check", { pnr });
 
-API.interceptors.request.use(
-    (config) => {
-        const token = localStorage.getItem("token");
+export const getPNRs = () =>
+    API.get("/pnr");
 
-        if (token) {
-            config.headers.Authorization = `Bearer ${token}`;
-        }
+export const getPNRById = (id) =>
+    API.get(`/pnr/${id}`);
 
-        return config;
-    },
-    (error) => Promise.reject(error)
-);
-
-// Check PNR and save/update it
-export const checkPNR = (pnr) => {
-    return API.post("/pnr/check", {
-        pnr,
-    });
-};
-
-// Get all saved PNRs
-export const getPNRs = () => {
-    return API.get("/pnr");
-};
-
-// Get one PNR
-export const getPNRById = (id) => {
-    return API.get(`/pnr/${id}`);
-};
-
-// Delete PNR
-export const deletePNR = (id) => {
-    return API.delete(`/pnr/${id}`);
-};
+export const deletePNR = (id) =>
+    API.delete(`/pnr/${id}`);
 
 export default API;

@@ -1,3 +1,5 @@
+"use strict";
+
 const {
     checkPNRService,
     getAllPNRsService,
@@ -17,11 +19,17 @@ const {
 
 const checkPNR = async (req, res) => {
     try {
-
         const {
             error,
             value,
-        } = checkPNRValidation(req.body);
+        } = checkPNRValidation.validate(
+            req.body,
+            {
+                abortEarly: false,
+                allowUnknown: false,
+                convert: true,
+            }
+        );
 
         if (error) {
             return res.status(400).json({
@@ -45,9 +53,7 @@ const checkPNR = async (req, res) => {
             message: "PNR status fetched and saved successfully.",
             data: result,
         });
-
     } catch (error) {
-
         console.error(
             "❌ PNR CHECK ERROR:",
             error.message
@@ -71,7 +77,6 @@ const checkPNR = async (req, res) => {
 
 const getAllPNRs = async (req, res) => {
     try {
-
         const result =
             await getAllPNRsService(req.user.id);
 
@@ -79,9 +84,7 @@ const getAllPNRs = async (req, res) => {
             success: true,
             data: result,
         });
-
     } catch (error) {
-
         console.error(
             "❌ GET PNRs ERROR:",
             error.message
@@ -105,7 +108,6 @@ const getAllPNRs = async (req, res) => {
 
 const getPNRById = async (req, res) => {
     try {
-
         const result =
             await getPNRByIdService(
                 req.params.id,
@@ -116,9 +118,7 @@ const getPNRById = async (req, res) => {
             success: true,
             data: result,
         });
-
     } catch (error) {
-
         console.error(
             "❌ GET PNR ERROR:",
             error.message
@@ -142,7 +142,6 @@ const getPNRById = async (req, res) => {
 
 const deletePNR = async (req, res) => {
     try {
-
         await deletePNRService(
             req.params.id,
             req.user.id
@@ -152,9 +151,7 @@ const deletePNR = async (req, res) => {
             success: true,
             message: "PNR deleted successfully.",
         });
-
     } catch (error) {
-
         console.error(
             "❌ DELETE PNR ERROR:",
             error.message
@@ -171,6 +168,10 @@ const deletePNR = async (req, res) => {
     }
 };
 
+
+// =========================================================
+// EXPORT
+// =========================================================
 
 module.exports = {
     checkPNR,

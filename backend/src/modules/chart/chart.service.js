@@ -8,17 +8,8 @@ const TRAIN_COMPOSITION_URL =
 const VACANT_BERTH_URL =
   "https://www.irctc.co.in/online-charts/api/vacantBerth";
 
-// GapSeat's Cloud Function proxy is used only when the direct IRCTC
-// request is unavailable. Override this with the authorized GapSeat API
-// base if its service URL changes.
-const GAPSEAT_API_BASE = String(
-  process.env.GAPSEAT_API_BASE ||
-  "https://us-central1-gapseat.cloudfunctions.net/api"
-).replace(/\/$/, "");
-
-const GAPSEAT_TIMEOUT_MS = Number(
-  process.env.GAPSEAT_TIMEOUT_MS || 15000
-);
+const COACH_COMPOSITION_URL =
+  "https://www.irctc.co.in/online-charts/api/coachComposition";
 
 const COMMON_HEADERS = {
   "Content-Type": "application/json",
@@ -204,41 +195,15 @@ class ChartService {
 
       console.log(payload);
 
-      let response;
-      let dataSource = "IRCTC";
-
-      try {
-        response = await axios.post(
-          TRAIN_COMPOSITION_URL,
-          payload,
-          {
-            headers: COMMON_HEADERS,
-            timeout: 10000,
-          }
-        );
-      } catch (irctcError) {
-        console.warn(
-          "⚠️ IRCTC train composition failed; trying authorized GapSeat proxy:",
-          irctcError.response?.status || irctcError.message
-        );
-
-        try {
-          response = await axios.post(
-            `${GAPSEAT_API_BASE}/trainComposition`,
-            payload,
-            {
-              headers: { "Content-Type": "application/json" },
-              timeout: GAPSEAT_TIMEOUT_MS,
-            }
-          );
-          dataSource = "GapSeat proxy";
-        } catch (gapSeatError) {
-          const status = gapSeatError.response?.status;
-          throw new Error(
-            `Train composition failed from IRCTC (${irctcError.response?.status || irctcError.message}) and GapSeat (${status || gapSeatError.message}).`
-          );
+      const dataSource = "IRCTC";
+      const response = await axios.post(
+        TRAIN_COMPOSITION_URL,
+        payload,
+        {
+          headers: COMMON_HEADERS,
+          timeout: 10000,
         }
-      }
+      );
 
       console.log(
         "✅ Train Composition Response Received"
@@ -806,10 +771,10 @@ class ChartService {
         );
       } catch (irctcError) {
         console.warn(
-          "⚠️ IRCTC vacant-berth request failed; trying GapSeat coach data:",
+          "⚠️ IRCTC vacant-berth request failed; trying official coach composition:",
           irctcError.response?.status || irctcError.message
         );
-        return this.fetchGapSeatVacantBerths(
+        return this.fetchIrctcCoachVacantBerths(
           trainNumber,
           journeyDate,
           boardingStation,
@@ -841,22 +806,22 @@ class ChartService {
         return irctcData;
       }
 
-      // IRCTC can return an empty vacancy list while GapSeat's
-      // coach-level endpoint still exposes unoccupied route segments.
-      // Use it as a fallback, while retaining an empty IRCTC result if
-      // the proxy is unavailable or also returns no matching segments.
+      // IRCTC's official chart page uses coachComposition for
+      // coach-level berth segments. Try that endpoint when vacantBerth
+      // returns an empty result, while preserving the original response
+      // if coach-level data is unavailable.
       try {
-        const gapSeatData = await this.fetchGapSeatVacantBerths(
+        const coachData = await this.fetchIrctcCoachVacantBerths(
           trainNumber,
           journeyDate,
           boardingStation,
           classCode
         );
-        return gapSeatData.vbd.length > 0 ? gapSeatData : irctcData;
-      } catch (gapSeatError) {
+        return coachData.vbd.length > 0 ? coachData : irctcData;
+      } catch (coachError) {
         console.warn(
-          "⚠️ GapSeat fallback unavailable; keeping IRCTC vacancy response:",
-          gapSeatError.message
+          "⚠️ IRCTC coach-composition fallback unavailable; keeping vacant-berth response:",
+          coachError.message
         );
         return irctcData;
       }
@@ -894,12 +859,11 @@ class ChartService {
     }
   }
 
-  async fetchGapSeatVacantBerths(
+  async fetchIrctcCoachVacantBerths(
     trainNumber,
     journeyDate,
     boardingStation,
-    classCode,
-    originalError = null
+    classCode
   ) {
     const normalizedTrainNumber = String(trainNumber).trim();
     const normalizedBoardingStation = String(boardingStation)
@@ -920,21 +884,15 @@ class ChartService {
         jDate: journeyDate,
         boardingStation: normalizedBoardingStation,
       };
-      try {
-        const response = await axios.post(
-          `${GAPSEAT_API_BASE}/trainComposition`,
-          payload,
-          {
-            headers: { "Content-Type": "application/json" },
-            timeout: GAPSEAT_TIMEOUT_MS,
-          }
-        );
-        compositionData = response.data || {};
-      } catch (error) {
-        throw new Error(
-          `GapSeat train composition request failed (${error.response?.status || error.message})${originalError ? ` after IRCTC failed (${originalError.response?.status || originalError.message})` : ""}.`
-        );
-      }
+      const response = await axios.post(
+        TRAIN_COMPOSITION_URL,
+        payload,
+        {
+          headers: COMMON_HEADERS,
+          timeout: 10000,
+        }
+      );
+      compositionData = response.data || {};
     }
 
     const coaches = (compositionData.cdd || []).filter(
@@ -946,7 +904,7 @@ class ChartService {
     if (coaches.length === 0) {
       return {
         vbd: [],
-        dataSource: "GapSeat proxy",
+        dataSource: "IRCTC coachComposition",
       };
     }
 
@@ -970,11 +928,11 @@ class ChartService {
             cls: normalizedClass,
           };
           const response = await axios.post(
-            `${GAPSEAT_API_BASE}/coachComposition`,
+            COACH_COMPOSITION_URL,
             coachPayload,
             {
-              headers: { "Content-Type": "application/json" },
-              timeout: GAPSEAT_TIMEOUT_MS,
+              headers: COMMON_HEADERS,
+              timeout: 10000,
             }
           );
           return {
@@ -987,7 +945,7 @@ class ChartService {
       for (const result of results) {
         if (result.status !== "fulfilled") {
           console.warn(
-            "⚠️ GapSeat coach request failed:",
+            "⚠️ IRCTC coach-composition request failed:",
             result.reason?.response?.status || result.reason?.message
           );
           continue;
@@ -1015,7 +973,7 @@ class ChartService {
               to: segment.to,
               quota: segment.quota || null,
               splitNo: segment.splitNo ?? null,
-              source: "GapSeat proxy",
+              source: "IRCTC coachComposition",
             });
           }
         }
@@ -1023,12 +981,12 @@ class ChartService {
     }
 
     console.log(
-      `✅ GapSeat fallback returned ${vacancies.length} unoccupied ${normalizedClass} route segments.`
+      `✅ IRCTC coachComposition returned ${vacancies.length} unoccupied ${normalizedClass} route segments.`
     );
 
     return {
       vbd: vacancies,
-      dataSource: "GapSeat proxy",
+      dataSource: "IRCTC coachComposition",
     };
   }
 }
